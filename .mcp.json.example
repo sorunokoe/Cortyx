@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "cortyx": {
+      "command": "cortyx",
+      "args": ["serve"],
+      "env": {}
+    }
+  }
+}

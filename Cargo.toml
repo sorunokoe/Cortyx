@@ -1,0 +1,36 @@
+[package]
+name = "cortyx"
+version = "0.1.0"
+edition = "2021"
+description = "MCP-native semantic cache layer for Karpathy's LLM Wiki pattern"
+license = "MIT"
+repository = "https://github.com/YOURNAME/cortyx"
+keywords = ["llm", "mcp", "cache", "context", "ai"]
+categories = ["command-line-utilities"]
+
+[features]
+# EXPERIMENTAL — NOT YET FUNCTIONAL: Dense embeddings via fastembed (all-MiniLM-L6-v2, 384-dim).
+# This feature downloads ~80MB of model weights on first use but dense retrieval is NOT yet
+# wired into get_contexts (BM25-only retrieval is always active regardless).
+# Do NOT enable in production until v0.2 completes the hybrid RRF integration.
+# See: src/index.rs (get_contexts NOTE block) for the wiring gap.
+embed = ["dep:fastembed"]
+
+[dependencies]
+anyhow = "1.0.102"
+blake3 = "1.8.4"
+regex = "1.10"
+clap = { version = "4.6.0", features = ["derive"] }
+fastembed = { version = "5", optional = true }
+notify = { version = "8.2.0", features = ["macos_fsevent"] }
+rmcp = { version = "1.4.0", features = ["server", "transport-io"] }
+schemars = "1.2.1"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+tokio = { version = "1.51.1", features = ["full"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+walkdir = "2.5.0"
+
+[dev-dependencies]
+tempfile = "3.27.0"

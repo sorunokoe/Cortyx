@@ -1,0 +1,8 @@
+/target
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.env
+cortyx_export_*.json
