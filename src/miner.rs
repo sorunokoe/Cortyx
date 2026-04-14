@@ -46,17 +46,24 @@ pub fn mine_path(
         // was called N times (one per file), so file #500 triggered a rebuild of 50,000+
         // neurons. This caused mine time: 568s for 500 sessions.
         // Fixed flow: stage all → commit once. Mine time: <15s.
+        //
+        // PMI cooccurrence fix (TRIZ P25 Self-Service): accumulate ALL turns from ALL
+        // files, then build cooccurrence ONCE. Previously write_verbatim_neurons_staged()
+        // was called per-file and overwrote cooccurrence.json 500 times — only the last
+        // session's vocabulary survived, making PMI expansion nearly useless.
         let mut total = 0usize;
         let mut all_neuron_paths: Vec<PathBuf> = Vec::new();
+        let mut all_turns: Vec<Turn> = Vec::new();
 
         for entry in walkdir::WalkDir::new(path).min_depth(1).into_iter().filter_map(|e| e.ok()) {
             if entry.file_type().is_file() {
                 let ext = entry.path().extension().and_then(|e| e.to_str()).unwrap_or("");
                 if matches!(ext, "json" | "md" | "txt") {
                     match mine_file_staged(entry.path(), project_root, idx, module) {
-                        Ok((n, paths)) => {
+                        Ok((n, paths, turns)) => {
                             total += n;
                             all_neuron_paths.extend(paths);
+                            all_turns.extend(turns);
                         }
                         Err(e) => {
                             tracing::warn!("Skipping {}: {e}", entry.path().display());
@@ -65,6 +72,10 @@ pub fn mine_path(
                 }
             }
         }
+
+        // Build corpus-wide co-occurrence from ALL sessions (not per-session).
+        // This gives PMI expansion access to the full vocabulary across all 500 sessions.
+        build_and_save_cooccurrence(&all_turns, project_root);
 
         // Single commit for the entire directory — rebuild_derived() called ONCE.
         idx.commit()?;
@@ -98,20 +109,22 @@ pub fn mine_file(
 /// Mine a single file, staging neurons without committing the index.
 ///
 /// Used by `mine_path` directory batch mode to defer rebuild_derived() until all
-/// files are staged. Returns (count, neuron_paths) so the caller can batch-embed.
+/// files are staged. Returns (count, neuron_paths, turns) so the caller can
+/// batch-embed and accumulate turns for corpus-wide cooccurrence computation.
 fn mine_file_staged(
     path: &Path,
     project_root: &Path,
     idx: &mut NeuronIndex,
     module: Option<&str>,
-) -> Result<(usize, Vec<PathBuf>)> {
+) -> Result<(usize, Vec<PathBuf>, Vec<Turn>)> {
     let raw = std::fs::read_to_string(path)
         .with_context(|| format!("Cannot read {}", path.display()))?;
 
     let turns = detect_and_parse(&raw)
         .with_context(|| format!("Failed to parse {}", path.display()))?;
 
-    write_verbatim_neurons_staged(&turns, path, project_root, idx, module)
+    let (count, paths) = write_verbatim_neurons_staged(&turns, path, project_root, idx, module)?;
+    Ok((count, paths, turns))
 }
 
 /// Mine a raw string (called from the MCP tool with inline content).
@@ -421,6 +434,9 @@ pub fn write_verbatim_neurons(
     module: Option<&str>,
 ) -> Result<usize> {
     let (count, _neuron_paths) = write_verbatim_neurons_staged(turns, source, project_root, idx, module)?;
+    // R17 Sol2: For single-file mining, build cooccurrence from just this session's turns.
+    // For directory mining, mine_path builds it once from all accumulated turns instead.
+    build_and_save_cooccurrence(turns, project_root);
     idx.commit()?;
     #[cfg(feature = "embed")]
     batch_embed_paths(&_neuron_paths, project_root);
@@ -429,9 +445,13 @@ pub fn write_verbatim_neurons(
 
 /// Stage verbatim neurons without committing the index.
 ///
-/// Does all disk I/O (neuron files, meta, KG, profiles, cooccurrence) and all
+/// Does all disk I/O (neuron files, meta, KG, profiles) and all
 /// `idx.stage()` calls, but deliberately skips `idx.commit()` so the caller
 /// can batch multiple files before triggering a single rebuild_derived().
+///
+/// Cooccurrence is NOT built here; the caller is responsible:
+/// - Directory mining: `mine_path` builds it once from all accumulated turns.
+/// - Single-file mining: `write_verbatim_neurons` builds it after staging.
 ///
 /// Returns `(count, neuron_paths)` for embedding (if --features embed is active).
 fn write_verbatim_neurons_staged(
@@ -525,10 +545,10 @@ fn write_verbatim_neurons_staged(
     // Profile neurons have the highest BM25 hit rate for any entity-specific query.
     create_entity_profile_neurons(turns, &neuron_paths, project_root, module, idx)?;
 
-    // R17 Sol2: Self-Building Co-occurrence Ontology.
-    // Build term co-occurrence graph from session turns and persist to cooccurrence.json.
-    // NeuronIndex::rebuild_derived() picks this up at next index load and merges into vocab_bridge.
-    build_and_save_cooccurrence(turns, project_root);
+    // Note: build_and_save_cooccurrence is intentionally NOT called here.
+    // For directory mining (mine_path), it is called ONCE after ALL files are staged,
+    // with all accumulated turns — giving corpus-wide PMI coverage.
+    // For single-file mining (write_verbatim_neurons), the caller does it after staging.
 
     // NE-1 fix: do NOT call idx.commit() here. The caller is responsible for committing
     // at the appropriate granularity (per-file for single mines; once-per-directory for batches).
@@ -756,18 +776,28 @@ fn build_and_save_cooccurrence(turns: &[Turn], project_root: &Path) {
         }
     }
 
-    // Cluster: for each term, collect top-5 co-occurring terms with weight ≥2
-    let mut clusters: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+    // Cluster: for each term, collect top co-occurring terms with weight ≥2, sorted by weight.
+    // Build (term → Vec<(weight, neighbor)>) first so we can sort by weight descending.
+    let mut weighted_clusters: std::collections::HashMap<String, Vec<(u32, String)>> =
+        std::collections::HashMap::new();
     for ((a, b), weight) in &cooccur {
         if *weight < 2 { continue }
-        clusters.entry(a.clone()).or_default().push(b.clone());
-        clusters.entry(b.clone()).or_default().push(a.clone());
+        weighted_clusters.entry(a.clone()).or_default().push((*weight, b.clone()));
+        weighted_clusters.entry(b.clone()).or_default().push((*weight, a.clone()));
     }
-    // Limit to top-10 per term to control file size
-    for entries in clusters.values_mut() {
-        entries.sort();
-        entries.dedup();
-        entries.truncate(10);
+    // Sort by weight descending, dedup, keep top-10 highest-weight neighbors
+    let mut clusters: std::collections::HashMap<String, Vec<String>> =
+        std::collections::HashMap::new();
+    for (term, mut weighted_neighbors) in weighted_clusters {
+        weighted_neighbors.sort_unstable_by(|a, b| b.0.cmp(&a.0));
+        weighted_neighbors.dedup_by(|a, b| a.1 == b.1);
+        let neighbors: Vec<String> = weighted_neighbors.into_iter()
+            .take(10)
+            .map(|(_, n)| n)
+            .collect();
+        if !neighbors.is_empty() {
+            clusters.insert(term, neighbors);
+        }
     }
 
     // Persist as JSON to .cortyx/cooccurrence.json
@@ -1383,6 +1413,44 @@ fn generate_query_surface(text: &str) -> Option<String> {
         }
     }
 
+    // NE-6: Universal disclosure-signal extraction (TRIZ P10 Preliminary Action).
+    //
+    // "By the way, [fact]" is the dominant user disclosure pattern in conversational memory:
+    // 803 occurrences across 500 sessions (1.6× per session) in LME-500.
+    // "Speaking of," and "Also," are secondary signals.
+    //
+    // Extract up to 30 content words after each disclosure signal and add them to the
+    // query_surface. This is applied ALWAYS (not just when category patterns fail) so
+    // that the specific fact vocabulary — e.g. "Business Administration", "Philips LED",
+    // "Target" — enters the BM25 index with the 1.5× query_surface boost, making the
+    // correct session rank above competing sessions that mention the terms incidentally.
+    let mut extra_tokens: Vec<String> = {
+        const SKIP: &[&str] = &[
+            "the", "and", "for", "are", "was", "but", "not", "you", "all", "can",
+            "her", "his", "she", "they", "them", "any", "had", "our", "one",
+            "this", "that", "its", "with", "have", "from", "just", "been",
+        ];
+        const SIGNALS: &[&str] = &[
+            "by the way", "speaking of,", "also,", "i should mention",
+            "incidentally,", "anyway,", "just wanted to mention",
+        ];
+        let mut extra = Vec::new();
+        for signal in SIGNALS {
+            if let Some(pos) = lower.find(signal) {
+                let after_start = (pos + signal.len()).min(text.len());
+                let after = text[after_start..].trim_start_matches([',', ' ', '\t']);
+                for word in after.split_whitespace().take(30) {
+                    let clean: String = word.chars().filter(|c| c.is_alphanumeric()).collect();
+                    let cl = clean.to_lowercase();
+                    if cl.len() >= 3 && !SKIP.contains(&cl.as_str()) {
+                        extra.push(cl);
+                    }
+                }
+            }
+        }
+        extra
+    };
+
     // R21 T8: Universal query_surface fallback.
     //
     // When no category pattern matched (edge-case facts: unusual hobbies, niche events,
@@ -1410,7 +1478,9 @@ fn generate_query_surface(text: &str) -> Option<String> {
 
         // (b) Numbers / quantities: tokens containing digits (ages, counts, times)
         for word in text.split_whitespace() {
-            let clean: String = word.chars().filter(|c| c.is_ascii_alphanumeric() || *c == '.').collect();
+            let clean: String = word.chars()
+                .filter(|c| c.is_ascii_alphanumeric() || *c == '.')
+                .collect();
             if clean.chars().any(|c| c.is_ascii_digit()) && clean.len() >= 2 {
                 fallback.push(clean.to_lowercase());
             }
@@ -1436,6 +1506,7 @@ fn generate_query_surface(text: &str) -> Option<String> {
             }
         }
 
+        fallback.extend(extra_tokens);
         if fallback.is_empty() {
             return None;
         }
@@ -1446,9 +1517,17 @@ fn generate_query_surface(text: &str) -> Option<String> {
         return Some(deduped.join(", "));
     }
 
-    // Deduplicate while preserving order
+    // Deduplicate while preserving order; merge category vocab + disclosure terms
     let mut seen = std::collections::HashSet::new();
-    let deduped: Vec<&str> = tokens.into_iter().filter(|t| seen.insert(*t)).collect();
+    let mut deduped: Vec<String> = tokens.into_iter()
+        .filter(|t| seen.insert(t.to_string()))
+        .map(|s| s.to_string())
+        .collect();
+    for t in extra_tokens {
+        if seen.insert(t.clone()) {
+            deduped.push(t);
+        }
+    }
     Some(deduped.join(", "))
 }
 

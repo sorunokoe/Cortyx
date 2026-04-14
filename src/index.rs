@@ -1386,11 +1386,22 @@ impl NeuronIndex {
         //
         // Boost strength: ×1.6 max (up from ×1.4 in R17). Boost requires ≥1 timestamped
         // neuron (was ≥2 — too conservative, now fires even on single-session temporals).
-        if detect_temporal_query(task) || detect_oldest_query(task) {
+        if detect_temporal_query(task) || detect_oldest_query(task) || is_knowledge_update {
             // NE-4 fix: make oldest routing mutually exclusive with recency routing.
             // If a query triggers BOTH (ambiguous), default to newest-first (safer: most LME-500
             // temporals ask for the most recent fact, not the oldest).
-            let is_oldest = detect_oldest_query(task) && !detect_temporal_query(task);
+            // KU queries always use newest-first: the ×0.5 KU demotion is applied equally to
+            // ALL Verbatim neurons, so without a directional boost the old session (with higher
+            // BM25 from more topic mentions) still outranks the updated session. The temporal
+            // boost (×1.0 + boost_strength × normalized_timestamp) overcomes the vocabulary gap.
+            let is_oldest = detect_oldest_query(task) && !detect_temporal_query(task) && !is_knowledge_update;
+            // KU gets a stronger boost (0.8) than standard temporal (0.6) because BM25
+            // vocabulary gap between old and new facts can be larger than event-retrieval gaps.
+            let boost_strength = if is_knowledge_update && !detect_temporal_query(task) {
+                0.8
+            } else {
+                0.6
+            };
             let ts_values: Vec<i64> = bm25_scored
                 .iter()
                 .filter_map(|(_, i)| self.entries[*i].timestamp_secs)
@@ -1404,18 +1415,19 @@ impl NeuronIndex {
                         let normalized = (ts - min_ts) as f32 / range;
                         if is_oldest {
                             // Oldest-first: invert direction — oldest neuron gets full boost
-                            *score *= 1.0 + 0.6 * (1.0 - normalized);
+                            *score *= 1.0 + boost_strength * (1.0 - normalized);
                         } else {
                             // Newest-first (default): most recent neuron gets full boost
-                            *score *= 1.0 + 0.6 * normalized;
+                            *score *= 1.0 + boost_strength * normalized;
                         }
                     }
                 }
                 tracing::debug!(
                     task,
                     is_oldest,
+                    boost_strength,
                     candidates = ts_values.len(),
-                    "R21 T2: Bidirectional temporal boost applied"
+                    "R21 T2+KU: Bidirectional temporal boost applied"
                 );
             }
         }
@@ -1492,13 +1504,16 @@ impl NeuronIndex {
 
         // R21 T3: Universal recency tiebreaker in BM25 sort.
         //
-        // For Verbatim neurons within 15% of the top score ("tie zone"), use timestamp
-        // as secondary sort key (most recent wins). Non-Verbatim or decisive BM25 gaps
-        // use entry index (deterministic, same as before). This never changes rankings
-        // where BM25 is decisive — only acts when two neurons are essentially tied.
+        // For Verbatim neurons within the tie zone of the top score, use timestamp as
+        // secondary sort key (most recent wins). KU queries use a wider 30% zone since
+        // updated facts often score within 25% of the stale fact's BM25 score.
         {
             let top_score = bm25_scored.first().map(|(s, _)| *s).unwrap_or(0.0);
-            let tie_zone_min = top_score * 0.85;
+            let tie_zone_min = if is_knowledge_update {
+                top_score * 0.70  // 30% zone for KU: updated facts may lag on BM25
+            } else {
+                top_score * 0.85  // 15% zone for all other queries
+            };
             bm25_scored.sort_unstable_by(|a, b| {
                 let score_cmp = b.0.total_cmp(&a.0);
                 if score_cmp != std::cmp::Ordering::Equal {
@@ -3059,17 +3074,39 @@ impl NeuronIndex {
             *tf.entry(t.clone()).or_insert(0.0) += 1.0;
         }
 
-        // P3-B: Paraphrase section boost — index ## paraphrases at 1.5× weight.
-        // Question vocabulary injected by evolve_context is high-signal for query matching.
-        // This closes the vocabulary gap at index time: documents contain both answer
-        // vocabulary (original content) and question vocabulary (paraphrases section).
+        // P3-B: Paraphrase + query_surface section boost.
+        // Both ## paraphrases (LLM-generated question vocab) and ## query_surface
+        // (mine-time IE-extracted question pre-images) are boosted at 1.5× weight.
+        // This closes the vocabulary gap: documents contain both answer vocabulary
+        // (original content) and question vocabulary (these sections).
         {
             use crate::neuron::parse_sections;
             let sections = parse_sections(content);
-            if let Some(paraphrase_content) = sections.get("paraphrases") {
-                for t in tokenize(paraphrase_content) {
-                    let v = tf.entry(t).or_insert(0.0);
-                    *v += 1.5; // boost: question vocab is high-signal
+            for section_name in ["paraphrases", "query_surface"] {
+                if let Some(section_content) = sections.get(section_name) {
+                    for t in tokenize(section_content) {
+                        let v = tf.entry(t).or_insert(0.0);
+                        *v += 1.5; // boost: question vocab is high-signal
+                    }
+                }
+            }
+        }
+
+        // NE-6: User-turn boost for Verbatim (conversation) neurons.
+        // In episodic memory retrieval, facts are stated by the user, not the assistant.
+        // User utterances are the ground truth for SSU/KU/multi queries. Assistant text
+        // is context/response and should not dominate BM25 scoring.
+        // Implementation: give user-turn lines an extra +1.0 TF weight (doubling their
+        // effective TF vs assistant lines), making user-disclosed facts rank much higher.
+        if matches!(meta.kind, crate::neuron::NeuronKind::Verbatim) {
+            for line in content.lines() {
+                let lower = line.as_bytes();
+                let is_user = lower.starts_with(b"user:") || lower.starts_with(b"User:")
+                    || lower.starts_with(b"human:") || lower.starts_with(b"Human:");
+                if is_user && line.len() > 6 {
+                    for t in tokenize(line) {
+                        *tf.entry(t).or_insert(0.0) += 1.0;
+                    }
                 }
             }
         }
@@ -3741,6 +3778,19 @@ impl NeuronIndex {
             // Uses top-3 neighbors to avoid over-expansion while covering key synonyms.
             if let Some(pmi_nbrs) = self.pmi_neighbors.get(term_lower.as_str()) {
                 expanded.extend(pmi_nbrs.iter().take(3).cloned());
+            }
+
+            // Morphological suffix expansion: bridges vocabulary gap between query and doc.
+            // Query "graduate" → doc has "graduated"; query "commute" → doc has "commuting".
+            // Add suffix variants only when the resulting term exists in the posting lists
+            // (zero contribution if not in vocab — safe to add unconditionally).
+            // Weight is implicitly 1.0 (same as original terms) since BM25 contribution
+            // of an absent term is 0 regardless.
+            let variants = morphological_variants(&term_lower);
+            for variant in variants {
+                if self.df_cache.contains_key(variant.as_str()) {
+                    expanded.insert(variant);
+                }
             }
         }
         expanded.into_iter().collect()
@@ -4517,6 +4567,50 @@ fn split_camel_case(s: &str) -> Vec<String> {
     if parts.len() <= 1 { Vec::new() } else { parts }
 }
 
+/// Generate morphological suffix variants for a term.
+///
+/// Bridges the lexical gap between query vocabulary and document vocabulary when no
+/// stemmer is present: "graduate" → ["graduated", "graduates", "graduating"],
+/// "graduated" → ["graduate", "graduates", "graduating"], etc.
+///
+/// Only variants that actually exist in the index (checked via df_cache by the caller)
+/// are retained — absent variants score 0 in BM25 and are harmless but wasteful.
+fn morphological_variants(term: &str) -> Vec<String> {
+    let t = term;
+    let mut variants = Vec::with_capacity(4);
+    if t.ends_with("ing") && t.len() > 6 {
+        // "running" → "run", "runed" (invalid, filtered by vocab check), "runs"
+        let stem = &t[..t.len() - 3];
+        variants.push(stem.to_string());
+        variants.push(format!("{stem}ed"));
+        variants.push(format!("{stem}s"));
+        // Double-final-consonant stems: "running" → "run" → also "runner" is not needed
+    } else if t.ends_with("tion") && t.len() > 7 {
+        // "education" → "educate", "educated", "educating"
+        // Skip — too error-prone without a real morphological analyser
+    } else if t.ends_with("ed") && t.len() > 5 {
+        // "graduated" → "graduate", "graduates", "graduating"
+        let stem = &t[..t.len() - 2];
+        variants.push(stem.to_string());
+        variants.push(format!("{stem}s"));
+        variants.push(format!("{stem}ing"));
+        // "started" → "start" is correct; "started" → "starte" is not, but vocab check guards it
+    } else if t.ends_with('s') && !t.ends_with("ss") && t.len() > 4 {
+        // "graduates" → "graduate", "graduated", "graduating"
+        let stem = &t[..t.len() - 1];
+        variants.push(stem.to_string());
+        variants.push(format!("{stem}ed"));
+        variants.push(format!("{stem}ing"));
+    } else if t.len() >= 4 {
+        // Base form — add common inflections
+        variants.push(format!("{t}s"));
+        variants.push(format!("{t}ed"));
+        variants.push(format!("{t}d")); // "commute" → "commuted"
+        variants.push(format!("{t}ing"));
+    }
+    variants
+}
+
 /// Split text into lowercase terms, filtering short tokens.
 ///
 /// Also expands camelCase/PascalCase identifiers so "getContexts" matches both
@@ -4807,6 +4901,20 @@ fn detect_knowledge_update_query(task: &str) -> bool {
         "what was the last time", "most recently i", "last time i",
         "what play did i", "what show did i", "what event did i",
         "what did i achieve", "what did i complete", "what did i finish",
+        // KU-R10: Current-state queries without explicit "current" keyword.
+        // These ask about the user's present situation (job, location, diet, etc.)
+        // where the NEWEST session is definitionally correct. Applying the temporal
+        // boost for these ensures updated facts outrank older mentions.
+        "where do i work", "where does she work", "where does he work",
+        "what do i do for work", "what does she do for work", "what does he do for work",
+        "where do i live", "where does she live", "where does he live",
+        "what car do i drive", "what car does she drive", "what car does he drive",
+        "what do i eat", "what does she eat", "what does he eat",
+        "what is my diet", "what is her diet", "what is his diet",
+        "what am i studying", "what is she studying", "what is he studying",
+        "what do i study", "what does she study", "what does he study",
+        "do i still go", "does she still go", "does he still go",
+        "what is my latest", "what is her latest", "what is his latest",
     ];
     let lower = task.to_lowercase();
     KU_MARKERS.iter().any(|m| lower.contains(m))
