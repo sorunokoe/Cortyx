@@ -14,7 +14,7 @@
 #[cfg(feature = "embed")]
 mod inner {
     use anyhow::Result;
-    use fastembed::{EmbeddingModel, InitOptions, TextEmbedding, TextRerank, RerankerInitOptions, RerankerModel};
+    use fastembed::{EmbeddingModel, InitOptions, TextEmbedding, TextRerank, RerankInitOptions, RerankerModel};
     use std::path::PathBuf;
 
     /// Returns the directory where model weights are cached.
@@ -27,7 +27,7 @@ mod inner {
 
     /// Dense embedding backend using all-MiniLM-L6-v2 (384-dim).
     pub struct EmbeddingBackend {
-        model: TextEmbedding,
+        model: std::sync::Mutex<TextEmbedding>,
     }
 
     impl EmbeddingBackend {
@@ -39,12 +39,12 @@ mod inner {
                 InitOptions::new(EmbeddingModel::AllMiniLML6V2)
                     .with_cache_dir(dir),
             )?;
-            Ok(Self { model })
+            Ok(Self { model: std::sync::Mutex::new(model) })
         }
 
         /// Embed a batch of texts. Returns a list of 384-dim f32 vectors.
         pub fn embed_batch(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>> {
-            Ok(self.model.embed(texts.to_vec(), None)?)
+            Ok(self.model.lock().unwrap().embed(texts.to_vec(), None)?)
         }
 
         /// Embed a single query string.
@@ -54,7 +54,7 @@ mod inner {
         }
     }
 
-    /// Optional cross-encoder reranker (ms-marco-MiniLM-L-6-v2).
+    /// Optional cross-encoder reranker (BGE-reranker-base, the default fastembed v5 reranker).
     ///
     /// Used to reorder the top-20 hybrid candidates before returning top-5.
     /// Expected: +1-2% recall at ~40ms latency cost.
@@ -67,7 +67,7 @@ mod inner {
             let dir = cache_dir();
             std::fs::create_dir_all(&dir)?;
             let model = TextRerank::try_new(
-                RerankerInitOptions::new(RerankerModel::MsMarcoMiniLML12V2)
+                RerankInitOptions::new(RerankerModel::BGERerankerBase)
                     .with_cache_dir(dir),
             )?;
             Ok(Self { model })
@@ -75,7 +75,7 @@ mod inner {
 
         /// Rerank `candidates` (document strings) by relevance to `query`.
         /// Returns indices in order of descending relevance.
-        pub fn rerank(&self, query: &str, candidates: &[&str]) -> Result<Vec<usize>> {
+        pub fn rerank(&mut self, query: &str, candidates: &[&str]) -> Result<Vec<usize>> {
             let results = self.model.rerank(query, candidates.to_vec(), false, None)?;
             Ok(results.iter().map(|r| r.index).collect())
         }

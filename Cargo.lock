@@ -497,6 +497,7 @@ dependencies = [
  "anyhow",
  "blake3",
  "clap",
+ "dirs",
  "fastembed",
  "notify",
  "ort",
