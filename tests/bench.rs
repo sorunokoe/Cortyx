@@ -620,6 +620,7 @@ fn bench_retrieval_accuracy_500q() {
     let t0 = Instant::now();
     let mut hits = 0usize;
     let mut hits_by_cat: std::collections::HashMap<String, (usize, usize)> = std::collections::HashMap::new();
+    let verbose = std::env::var("VERBOSE").map(|v| v == "1").unwrap_or(false);
 
     for (i, entry) in entries.iter().enumerate() {
         if i > 0 && i % 50 == 0 {
@@ -636,6 +637,13 @@ fn bench_retrieval_accuracy_500q() {
         let any_hit = entry.expected_keywords.iter().any(|kw| {
             result_str.contains(&kw.to_lowercase())
         });
+        if !any_hit && verbose {
+            let snippet: String = result_str.chars().take(120).collect();
+            println!("[bench] FAIL[{i:03}] cat={} kw={:?} q={:?}",
+                entry.category, entry.expected_keywords,
+                &entry.question[..entry.question.len().min(80)]);
+            println!("[bench]       result={:?}", snippet);
+        }
         if any_hit { hits += 1; }
         let cat_entry = hits_by_cat.entry(entry.category.clone()).or_insert((0, 0));
         cat_entry.1 += 1;

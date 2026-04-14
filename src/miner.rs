@@ -1106,9 +1106,13 @@ fn generate_query_surface(text: &str) -> Option<String> {
         (&["i was diagnosed", "i have been sick", "my condition", "my illness",
            "my surgery", "i had surgery", "in the hospital", "hospital stay",
            "my health", "my medication", "my treatment", "recovering from",
-           "chronic", "my therapy"],
+           "chronic", "my therapy", "health issues", "had a bad case of",
+           "came down with", "dealing with health", "health problem",
+           "i had a bad case", "turned out to be more serious"],
          &["what health issues", "is she sick", "what condition does she have",
-           "medical", "health", "illness", "condition", "surgery", "hospital", "treatment"]),
+           "what health issue did i have", "what illness did i have",
+           "what did i have", "what was i diagnosed with",
+           "medical health illness condition surgery hospital treatment health issue"]),
 
         // ── Education / School ───────────────────────────────────────────────────
         (&["i graduated", "i'm studying", "i am studying", "my degree",
@@ -1122,7 +1126,8 @@ fn generate_query_surface(text: &str) -> Option<String> {
         (&["my dog", "my cat", "my pet", "my puppy", "my kitten",
            "got a dog", "got a cat", "adopted a"],
          &["does she have a pet", "what kind of pet", "what is the pet's name",
-           "pet", "dog", "cat", "animal"]),
+           "what breed is her dog", "what kind of dog does she have",
+           "pet", "dog", "cat", "animal", "breed", "purebred"]),
 
         // ── Knowledge-update: "changed to" / "now X" ────────────────────────────
         (&["changed to", "switched to", "now i", "now she", "now he",
@@ -1385,14 +1390,45 @@ fn generate_query_surface(text: &str) -> Option<String> {
            "what play did i attend", "what show did i see", "what performance did i watch",
            "play show attended watched performance theater event"]),
 
-        // ── Sports / Fitness performance ──────────────────────────────────────
-        (&["i ran", "i ran a", "5k", "10k", "marathon", "half marathon",
-           "i finished the race", "charity run", "my race time", "i completed the",
-           "my running time", "i swam", "i cycled", "triathlon",
-           "i lifted", "my max", "my bench press", "my squat"],
-         &["how long did her run take", "what was his race time", "what was her 5k time",
-           "how long did my run take", "what was my race time", "how long did i run",
-           "how long ran completed minutes fastest slowest race time"]),
+        // ── Wedding / Family event venue ──────────────────────────────────────
+        (&["cousin's wedding", "family wedding", "attended a wedding",
+           "at the wedding", "at the reception", "at the grand ballroom",
+           "wedding was held", "wedding venue", "sister's wedding",
+           "brother's wedding", "the ballroom", "grand ballroom"],
+         &["where was the wedding held", "what venue was the wedding at",
+           "where did i attend", "cousin wedding venue ballroom reception",
+           "cousin", "wedding", "venue", "ballroom", "reception", "hall", "grand"]),
+
+        // ── Books / Reading ───────────────────────────────────────────────────
+        (&["reading before bed", "book club", "a book called", "a book titled",
+           "currently reading", "i've been reading", "i am reading", "my reading",
+           "i finished reading", "i started reading", "i'm reading",
+           "our book club", "we discussed the book", "reading a book"],
+         &["what book am i reading", "what book is she reading", "what book did she finish",
+           "what are we reading", "what book did i read", "what am i currently reading",
+           "what book does she recommend", "book reading currently title author novel"]),
+
+        // ── Music / Instrument practice ───────────────────────────────────────
+        (&["i play guitar", "i play the guitar", "i practice guitar",
+           "guitar lessons", "i play piano", "i play the piano", "i practice piano",
+           "piano lessons", "i play violin", "i practice violin",
+           "i play bass", "i play drums", "music lessons",
+           "my instrument", "my guitar", "my piano"],
+         &["what instrument does she play", "how long does he practice",
+           "how many minutes does she practice", "how much time does he dedicate",
+           "what instrument do i play", "how long do i practice",
+           "how much time do i dedicate", "how many minutes do i practice",
+           "instrument music guitar piano violin practice practicing lessons",
+           "minutes per day time dedicate"]),
+
+        // ── Personal products / Brand use ─────────────────────────────────────
+        (&["i picked up at", "my shampoo", "my conditioner", "my moisturizer",
+           "my skincare", "for my hair", "for my skin", "my face wash", "my body wash",
+           "i switched to using", "i recently started using", "i use for my",
+           "lavender shampoo", "scented shampoo", "hair products", "skin products"],
+         &["what brand do i use", "what do i currently use", "what product do i use",
+           "what shampoo do i use", "what does she use for her hair",
+           "brand product shampoo conditioner skincare currently using hair care"]),
 
         // ── Counting / Aggregation facts ──────────────────────────────────────
         (&["i've done", "i have done", "i've been to", "i have been to",
@@ -1450,6 +1486,43 @@ fn generate_query_surface(text: &str) -> Option<String> {
         }
         extra
     };
+
+    // NE-7: Targeted person/place name extraction near personal relationship triggers.
+    //
+    // Narrowly scoped to rare, specific relationship labels only.  "my friend" / "my
+    // colleague" are too common (appear in nearly every session) and flooding
+    // query_surface with person names creates noise across multi-session and temporal
+    // categories.  Only "my sister", "my cousin", and "visiting my" are kept: they are
+    // specific enough that the capitalized words immediately following are almost always
+    // person names or city names that are unique discriminators.
+    // Example: "visiting my sister Emily in Denver" → ["emily", "denver"] added to
+    // extra_tokens → query "where does my sister Emily live?" → "emily" in
+    // query_surface at 1.5× → correct session ranked above generic "emily" hits.
+    if !tokens.is_empty() {
+        const REL_TRIGGERS: &[&str] = &["my sister", "my cousin", "visiting my"];
+        for trigger in REL_TRIGGERS {
+            let mut search_start = 0;
+            while let Some(rel_pos) = lower[search_start..].find(trigger) {
+                let abs_pos = search_start + rel_pos;
+                let after_start = (abs_pos + trigger.len()).min(text.len());
+                let after = &text[after_start..];
+                let mut found = 0;
+                for word in after.split_whitespace().take(8) {
+                    let clean: String = word.chars().filter(|c| c.is_alphabetic()).collect();
+                    if clean.len() >= 3
+                        && clean.chars().next().map_or(false, |c| c.is_uppercase())
+                        && found < 3
+                    {
+                        extra_tokens.push(clean.to_lowercase());
+                        found += 1;
+                    }
+                    if found >= 3 { break; }
+                }
+                search_start = abs_pos + trigger.len();
+                if search_start >= lower.len() { break; }
+            }
+        }
+    }
 
     // R21 T8: Universal query_surface fallback.
     //
