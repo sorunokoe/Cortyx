@@ -1,0 +1,1102 @@
+[
+  {
+    "question": "How does JWT authentication work?",
+    "expected_keywords": [
+      "jwt",
+      "token",
+      "authenticate"
+    ],
+    "neuron_source_content": "/// JWT authentication module.\n/// Validates bearer tokens using HMAC-SHA256.\npub fn authenticate_jwt(token: &str) -> bool {\n    token.starts_with(\"Bearer \") && validate_hmac(token)\n}\nfn validate_hmac(token: &str) -> bool { !token.is_empty() }\n",
+    "neuron_filename": "auth.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How is the cache invalidation handled?",
+    "expected_keywords": [
+      "cache",
+      "invalidate",
+      "evict"
+    ],
+    "neuron_source_content": "/// Cache module: LRU eviction with TTL-based invalidation.\npub fn invalidate_cache(key: &str) { evict_entry(key); }\nfn evict_entry(key: &str) { drop(key); }\npub fn cache_get(key: &str) -> Option<String> { None }\n",
+    "neuron_filename": "cache.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How do database connections get pooled?",
+    "expected_keywords": [
+      "database",
+      "pool",
+      "connection"
+    ],
+    "neuron_source_content": "/// Database connection pool.\n/// Manages reusable connections with idle timeout.\npub struct ConnectionPool { max: usize }\nimpl ConnectionPool {\n    pub fn acquire(&self) -> Option<Connection> { None }\n    pub fn release(&self, conn: Connection) { drop(conn); }\n}\npub struct Connection;\n",
+    "neuron_filename": "database.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How does URL routing work?",
+    "expected_keywords": [
+      "router",
+      "route",
+      "dispatch"
+    ],
+    "neuron_source_content": "/// HTTP router: trie-based URL dispatch.\npub struct Router { routes: Vec<Route> }\nimpl Router {\n    pub fn dispatch(&self, path: &str) -> Option<Handler> { None }\n    pub fn add_route(&mut self, pattern: &str, handler: Handler) {}\n}\npub struct Route;\npub struct Handler;\n",
+    "neuron_filename": "router.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How is structured logging implemented?",
+    "expected_keywords": [
+      "logger",
+      "log",
+      "tracing"
+    ],
+    "neuron_source_content": "/// Structured logger with tracing integration.\npub fn log_event(level: &str, message: &str) {}\npub fn init_tracing() {}\n",
+    "neuron_filename": "logger.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How is configuration loaded from environment?",
+    "expected_keywords": [
+      "config",
+      "env",
+      "environment"
+    ],
+    "neuron_source_content": "/// Config loader: reads environment variables and TOML files.\npub struct Config { pub env: String }\nimpl Config {\n    pub fn from_env() -> Self { Self { env: std::env::var(\"APP_ENV\").unwrap_or_default() } }\n}\n",
+    "neuron_filename": "config.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How are background jobs scheduled?",
+    "expected_keywords": [
+      "scheduler",
+      "job",
+      "cron"
+    ],
+    "neuron_source_content": "/// Job scheduler: cron-style background tasks.\npub struct Scheduler { jobs: Vec<Job> }\nimpl Scheduler {\n    pub fn schedule(&mut self, cron_expr: &str, job: Job) {}\n    pub fn run_pending(&self) {}\n}\npub struct Job { pub name: String }\n",
+    "neuron_filename": "scheduler.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How is input validation performed?",
+    "expected_keywords": [
+      "validate",
+      "validator",
+      "schema"
+    ],
+    "neuron_source_content": "/// Input validator: schema-based field validation.\npub fn validate_schema(input: &str) -> Vec<String> { vec![] }\npub fn validate_email(s: &str) -> bool { s.contains('@') }\n",
+    "neuron_filename": "validator.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How is JSON serialization handled?",
+    "expected_keywords": [
+      "serialize",
+      "json",
+      "deserialize"
+    ],
+    "neuron_source_content": "/// JSON serializer with custom type mappings.\npub fn serialize_to_json(val: &str) -> String { val.to_string() }\npub fn deserialize_from_json(s: &str) -> String { s.to_string() }\n",
+    "neuron_filename": "serializer.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How is rate limiting enforced?",
+    "expected_keywords": [
+      "ratelimit",
+      "throttle",
+      "bucket"
+    ],
+    "neuron_source_content": "/// Token-bucket rate limiter.\npub struct RateLimiter { capacity: u32, tokens: u32 }\nimpl RateLimiter {\n    pub fn throttle(&mut self) -> bool {\n        if self.tokens > 0 { self.tokens -= 1; true } else { false }\n    }\n    pub fn refill(&mut self) { self.tokens = self.capacity; }\n}\n",
+    "neuron_filename": "ratelimit.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How are user sessions managed?",
+    "expected_keywords": [
+      "session",
+      "cookie",
+      "expire"
+    ],
+    "neuron_source_content": "/// Session manager: cookie-backed user sessions.\npub struct Session { pub id: String, pub expires: u64 }\nimpl Session {\n    pub fn new(user_id: &str) -> Self { Self { id: user_id.to_string(), expires: 3600 } }\n    pub fn is_expired(&self) -> bool { self.expires == 0 }\n}\n",
+    "neuron_filename": "session.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How is request middleware applied?",
+    "expected_keywords": [
+      "middleware",
+      "pipeline",
+      "handler"
+    ],
+    "neuron_source_content": "/// Middleware pipeline: ordered handler chain.\npub trait Middleware { fn handle(&self, req: &str); }\npub struct Pipeline { handlers: Vec<Box<dyn Middleware>> }\n",
+    "neuron_filename": "middleware.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How is data encryption handled?",
+    "expected_keywords": [
+      "encrypt",
+      "cipher",
+      "aes"
+    ],
+    "neuron_source_content": "/// AES-256 encryption utilities.\npub fn encrypt_aes(plaintext: &[u8], key: &[u8; 32]) -> Vec<u8> { vec![] }\npub fn decrypt_aes(ciphertext: &[u8], key: &[u8; 32]) -> Vec<u8> { vec![] }\npub fn generate_cipher_key() -> [u8; 32] { [0u8; 32] }\n",
+    "neuron_filename": "encryption.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How is pagination implemented?",
+    "expected_keywords": [
+      "pagination",
+      "page",
+      "offset"
+    ],
+    "neuron_source_content": "/// Cursor-based and offset pagination.\npub struct Page { pub items: Vec<String>, pub total: usize, pub offset: usize }\nimpl Page {\n    pub fn has_next(&self) -> bool { self.offset + self.items.len() < self.total }\n}\n",
+    "neuron_filename": "pagination.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How does full-text search work?",
+    "expected_keywords": [
+      "search",
+      "index",
+      "fts"
+    ],
+    "neuron_source_content": "/// Full-text search engine: BM25 over inverted index.\npub struct SearchIndex { inverted: std::collections::HashMap<String, Vec<usize>> }\nimpl SearchIndex {\n    pub fn add_document(&mut self, id: usize, text: &str) {}\n    pub fn search_fts(&self, query: &str) -> Vec<usize> { vec![] }\n}\n",
+    "neuron_filename": "search.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How does WebhookDelivery deliver payloads with exponential backoff?",
+    "expected_keywords": [
+      "webhookdelivery",
+      "deliver",
+      "backoff"
+    ],
+    "neuron_source_content": "/// WebhookDelivery: HTTP payload delivery with exponential backoff.\n/// Manages retries using exponential backoff strategy.\npub struct WebhookDelivery { url: String, retries: u32 }\nimpl WebhookDelivery {\n    pub fn deliver_webhook_payload(&self, payload: &str) -> bool { true }\n    pub fn exponential_backoff_retry(&mut self) { self.retries += 1; }\n    pub fn schedule_webhook_retry(&self, delay_secs: u64) {}\n}\n",
+    "neuron_filename": "webhook.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How does the FileStore bucket manage S3-compatible object uploads?",
+    "expected_keywords": [
+      "filestore",
+      "s3",
+      "bucket"
+    ],
+    "neuron_source_content": "/// FileStore: S3-compatible object storage with bucket management.\n/// Provides upload, retrieve, and delete operations on S3 buckets.\npub struct FileStore { pub bucket_name: String }\nimpl FileStore {\n    pub fn upload_to_s3_bucket(&self, key: &str, data: &[u8]) -> String { key.to_string() }\n    pub fn retrieve_from_s3_bucket(&self, key: &str) -> Vec<u8> { vec![] }\n    pub fn delete_s3_bucket_object(&self, key: &str) {}\n}\n",
+    "neuron_filename": "filestore.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How is event-driven communication handled?",
+    "expected_keywords": [
+      "event",
+      "publish",
+      "subscribe"
+    ],
+    "neuron_source_content": "/// Event bus: publish-subscribe pattern.\npub struct EventBus;\nimpl EventBus {\n    pub fn publish(&self, event: &str, payload: &str) {}\n    pub fn subscribe(&self, event: &str, handler: fn(&str)) {}\n}\n",
+    "neuron_filename": "events.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How are application metrics collected?",
+    "expected_keywords": [
+      "metrics",
+      "prometheus",
+      "gauge"
+    ],
+    "neuron_source_content": "/// Prometheus metrics collector.\npub struct MetricsCollector { prefix: String }\nimpl MetricsCollector {\n    pub fn inc_counter(&self, name: &str) {}\n    pub fn set_gauge(&self, name: &str, val: f64) {}\n    pub fn export_prometheus(&self) -> String { String::new() }\n}\n",
+    "neuron_filename": "metrics.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How does the health check endpoint work?",
+    "expected_keywords": [
+      "health",
+      "liveness",
+      "readiness"
+    ],
+    "neuron_source_content": "/// Liveness and readiness health checks.\npub fn check_liveness() -> bool { true }\npub fn check_readiness() -> bool { true }\npub struct HealthStatus { pub live: bool, pub ready: bool }\n",
+    "neuron_filename": "healthcheck.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How does the SchemaMigration runner apply and rollback database schema versions?",
+    "expected_keywords": [
+      "schemamigration",
+      "rollback",
+      "versioned"
+    ],
+    "neuron_source_content": "/// SchemaMigration: versioned database schema migration with rollback.\n/// Applies and rolls back versioned schema migrations.\npub struct SchemaMigration { pub version: u32, pub rollback_sql: String }\npub fn run_versioned_schema_migrations(migs: &[SchemaMigration]) -> u32 { 0 }\npub fn rollback_schema_migration(version: u32) {}\npub fn check_schema_migration_version() -> u32 { 0 }\n",
+    "neuron_filename": "migration.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How is the message queue processed?",
+    "expected_keywords": [
+      "queue",
+      "worker",
+      "consume"
+    ],
+    "neuron_source_content": "/// Message queue consumer with ack/nack.\npub struct QueueWorker { concurrency: usize }\nimpl QueueWorker {\n    pub fn consume_queue(&self, queue_name: &str) {}\n    pub fn ack(&self, msg_id: &str) {}\n    pub fn nack(&self, msg_id: &str) {}\n}\n",
+    "neuron_filename": "queue.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How does the circuit breaker work?",
+    "expected_keywords": [
+      "circuit",
+      "breaker",
+      "fault"
+    ],
+    "neuron_source_content": "/// Circuit breaker: fault isolation pattern.\npub enum CircuitState { Closed, Open, HalfOpen }\npub struct CircuitBreaker { state: CircuitState, failures: u32 }\nimpl CircuitBreaker {\n    pub fn trip(&mut self) { self.state = CircuitState::Open; }\n    pub fn is_open(&self) -> bool { matches!(self.state, CircuitState::Open) }\n}\n",
+    "neuron_filename": "circuit.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How is the GraphQL API structured?",
+    "expected_keywords": [
+      "graphql",
+      "resolver",
+      "schema"
+    ],
+    "neuron_source_content": "/// GraphQL API layer: schema plus resolvers.\npub struct GraphQLSchema { resolvers: Vec<String> }\nimpl GraphQLSchema {\n    pub fn execute_graphql_query(&self, query: &str) -> String { String::new() }\n    pub fn add_resolver(&mut self, field: String) {}\n}\n",
+    "neuron_filename": "graphql.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How is data transformation applied?",
+    "expected_keywords": [
+      "transform",
+      "pipeline",
+      "map"
+    ],
+    "neuron_source_content": "/// Data transformation pipeline: map and filter.\npub fn map_transform(items: Vec<String>, f: fn(&str) -> String) -> Vec<String> { items.iter().map(|s| f(s)).collect() }\npub fn filter_pipeline(items: Vec<String>, f: fn(&str) -> bool) -> Vec<String> { items.into_iter().filter(|s| f(s)).collect() }\n",
+    "neuron_filename": "transformer.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How is retry logic with backoff implemented?",
+    "expected_keywords": [
+      "retry",
+      "backoff",
+      "exponential"
+    ],
+    "neuron_source_content": "/// Exponential backoff retry utility.\npub struct RetryPolicy { max_attempts: u32, base_delay_ms: u64 }\nimpl RetryPolicy {\n    pub fn execute_with_backoff(&self, f: fn() -> bool) -> bool {\n        for attempt in 0..self.max_attempts {\n            if f() { return true; }\n        }\n        false\n    }\n}\n",
+    "neuron_filename": "retry.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How is role-based access control enforced?",
+    "expected_keywords": [
+      "rbac",
+      "role",
+      "permission"
+    ],
+    "neuron_source_content": "/// Role-based access control.\npub struct Role { pub name: String, pub permissions: Vec<String> }\npub struct RBACGuard;\nimpl RBACGuard {\n    pub fn authorize(&self, role: &Role, action: &str) -> bool { role.permissions.contains(&action.to_string()) }\n}\n",
+    "neuron_filename": "rbac.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How is response compression handled?",
+    "expected_keywords": [
+      "compress",
+      "gzip",
+      "deflate"
+    ],
+    "neuron_source_content": "/// Response compression: gzip and deflate.\npub fn compress_gzip(data: &[u8]) -> Vec<u8> { data.to_vec() }\npub fn decompress_gzip(data: &[u8]) -> Vec<u8> { data.to_vec() }\npub fn compress_deflate(data: &[u8]) -> Vec<u8> { data.to_vec() }\n",
+    "neuron_filename": "compress.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How are push notifications sent?",
+    "expected_keywords": [
+      "notification",
+      "push",
+      "fcm"
+    ],
+    "neuron_source_content": "/// Push notification dispatcher: FCM and APNs.\npub struct NotificationDispatcher;\nimpl NotificationDispatcher {\n    pub fn send_fcm_notification(&self, token: &str, title: &str) -> bool { true }\n    pub fn send_push_notification(&self, device: &str, message: &str) {}\n}\n",
+    "neuron_filename": "notification.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How is the audit log written?",
+    "expected_keywords": [
+      "audit",
+      "log",
+      "event"
+    ],
+    "neuron_source_content": "/// Audit trail: immutable append-only event log.\npub struct AuditEvent { pub actor: String, pub action: String }\npub struct AuditLog { entries: Vec<AuditEvent> }\nimpl AuditLog {\n    pub fn record_audit_event(&mut self, event: AuditEvent) { self.entries.push(event); }\n    pub fn query(&self, actor: &str) -> Vec<&AuditEvent> { self.entries.iter().filter(|e| e.actor == actor).collect() }\n}\n",
+    "neuron_filename": "audit.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How is multi-tenancy isolated?",
+    "expected_keywords": [
+      "tenant",
+      "isolation",
+      "namespace"
+    ],
+    "neuron_source_content": "/// Multi-tenant isolation via namespace scoping.\npub struct Tenant { pub id: String, pub namespace: String }\npub fn resolve_tenant(host: &str) -> Option<Tenant> { None }\npub fn scoped_tenant_key(tenant: &Tenant, key: &str) -> String { format!(\"{}:{}\", tenant.namespace, key) }\n",
+    "neuron_filename": "tenant.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How does WebSocket communication work?",
+    "expected_keywords": [
+      "websocket",
+      "socket",
+      "realtime"
+    ],
+    "neuron_source_content": "/// WebSocket real-time communication layer.\npub struct WsConnection { pub id: String }\nimpl WsConnection {\n    pub fn send_socket_message(&self, message: &str) {}\n    pub fn broadcast_realtime(&self, room: &str, message: &str) {}\n}\n",
+    "neuron_filename": "socket.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How is geolocation lookup performed?",
+    "expected_keywords": [
+      "geolocation",
+      "ip",
+      "geoip"
+    ],
+    "neuron_source_content": "/// GeoIP lookup: maps IP addresses to geographic regions.\npub struct GeoLookup;\nimpl GeoLookup {\n    pub fn lookup_ip_geolocation(&self, ip: &str) -> Option<String> { None }\n}\npub struct GeoRecord { pub country: String, pub city: String }\n",
+    "neuron_filename": "geolocation.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How is data replication managed?",
+    "expected_keywords": [
+      "replication",
+      "replica",
+      "sync"
+    ],
+    "neuron_source_content": "/// Data replication manager: primary plus replica sync.\npub struct ReplicationManager { replicas: Vec<String> }\nimpl ReplicationManager {\n    pub fn replicate_data(&self, key: &str, value: &[u8]) {}\n    pub fn sync_replicas(&self) {}\n}\n",
+    "neuron_filename": "replication.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How are distributed locks implemented?",
+    "expected_keywords": [
+      "lock",
+      "mutex",
+      "distributed"
+    ],
+    "neuron_source_content": "/// Distributed lock via Redis SET NX.\npub struct DistributedLock { key: String }\nimpl DistributedLock {\n    pub fn acquire_distributed_mutex(&self, ttl_ms: u64) -> bool { true }\n    pub fn release_lock(&self) {}\n}\n",
+    "neuron_filename": "lock.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How are snapshots created and restored?",
+    "expected_keywords": [
+      "snapshot",
+      "restore",
+      "backup"
+    ],
+    "neuron_source_content": "/// Snapshot manager: point-in-time capture and restore.\npub struct Snapshot { pub version: u64, pub data: Vec<u8> }\npub struct SnapshotManager;\nimpl SnapshotManager {\n    pub fn create_snapshot(&self) -> Snapshot { Snapshot { version: 0, data: vec![] } }\n    pub fn restore_from_snapshot(&self, snap: Snapshot) {}\n    pub fn backup_snapshot_to_disk(&self, path: &str) {}\n}\n",
+    "neuron_filename": "snapshot.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How is the search index built?",
+    "expected_keywords": [
+      "index",
+      "build",
+      "inverted"
+    ],
+    "neuron_source_content": "/// Search index builder: offline batch indexing.\npub struct IndexBuilder { entries: Vec<String> }\nimpl IndexBuilder {\n    pub fn add_entry(&mut self, text: String) { self.entries.push(text); }\n    pub fn build_inverted_index(&self) -> std::collections::HashMap<String, Vec<usize>> { std::collections::HashMap::new() }\n}\n",
+    "neuron_filename": "index_builder.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How is feature flag sampling done?",
+    "expected_keywords": [
+      "sampling",
+      "feature",
+      "rollout"
+    ],
+    "neuron_source_content": "/// Feature flag rollout with user sampling.\npub struct FeatureFlag { pub name: String, pub rollout_pct: u8 }\nimpl FeatureFlag {\n    pub fn is_enabled_for_user(&self, user_id: &str) -> bool {\n        let hash = user_id.bytes().fold(0u32, |a, b| a.wrapping_add(b as u32));\n        (hash % 100) < self.rollout_pct as u32\n    }\n    pub fn sample_rollout(&self, id: u64) -> bool { (id % 100) < self.rollout_pct as u64 }\n}\n",
+    "neuron_filename": "sampling.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How are content diffs computed?",
+    "expected_keywords": [
+      "diff",
+      "patch",
+      "delta"
+    ],
+    "neuron_source_content": "/// Content diff and patch generation.\npub fn compute_diff(old: &str, new: &str) -> Vec<String> { vec![] }\npub fn apply_patch(content: &str, hunks: &[String]) -> String { content.to_string() }\npub fn delta_encode(old: &[u8], new: &[u8]) -> Vec<u8> { vec![] }\n",
+    "neuron_filename": "diff.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How is text tokenization handled?",
+    "expected_keywords": [
+      "tokenize",
+      "token",
+      "bpe"
+    ],
+    "neuron_source_content": "/// Text tokenizer: BPE and whitespace tokenization.\npub fn tokenize_bpe(text: &str) -> Vec<u32> { vec![] }\npub fn tokenize_whitespace(text: &str) -> Vec<String> { text.split_whitespace().map(String::from).collect() }\n",
+    "neuron_filename": "tokenizer.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How do auth tokens get cached for reuse?",
+    "expected_keywords": [
+      "token",
+      "cache",
+      "refresh"
+    ],
+    "neuron_source_content": "/// Token cache: short-circuits JWT validation on re-use.\npub struct TokenCache { inner: std::collections::HashMap<String, u64> }\nimpl TokenCache {\n    pub fn cache_token(&mut self, token: &str, expiry: u64) { self.inner.insert(token.to_string(), expiry); }\n    pub fn is_token_cached(&self, token: &str) -> bool { self.inner.contains_key(token) }\n    pub fn refresh_cached_token(&mut self, old: &str, new: &str, expiry: u64) { self.inner.remove(old); self.inner.insert(new.to_string(), expiry); }\n}\n",
+    "neuron_filename": "auth_cache.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How is query result caching integrated with the database?",
+    "expected_keywords": [
+      "query",
+      "cache",
+      "database"
+    ],
+    "neuron_source_content": "/// Database query cache: memoizes expensive queries.\npub struct QueryCache { ttl: u64 }\nimpl QueryCache {\n    pub fn cached_database_query(&self, sql: &str) -> Option<String> { None }\n    pub fn invalidate_query_cache(&self, table: &str) {}\n}\n",
+    "neuron_filename": "db_cache.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How do permissions get checked for each request?",
+    "expected_keywords": [
+      "permission",
+      "role",
+      "request"
+    ],
+    "neuron_source_content": "/// Request-scoped permission check via RBAC.\npub fn check_request_permission(role: &str, resource: &str, action: &str) -> bool { true }\npub fn load_role_permissions(role: &str) -> Vec<String> { vec![] }\npub fn authorize_middleware(token: &str, resource: &str) -> bool { true }\n",
+    "neuron_filename": "auth_rbac.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How are audit events persisted?",
+    "expected_keywords": [
+      "audit",
+      "event",
+      "persist"
+    ],
+    "neuron_source_content": "/// Audit event persistence: writes events to append-only store.\npub fn persist_audit_event(event: &str, actor: &str, timestamp: u64) {}\npub fn replay_persisted_audit_events(since: u64) -> Vec<String> { vec![] }\n",
+    "neuron_filename": "event_log.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How are metrics buffered before export?",
+    "expected_keywords": [
+      "metrics",
+      "buffer",
+      "flush"
+    ],
+    "neuron_source_content": "/// Metrics buffer: batches gauges and counters before Prometheus export.\npub struct MetricsBuffer { counters: std::collections::HashMap<String, u64> }\nimpl MetricsBuffer {\n    pub fn inc_buffered_counter(&mut self, name: &str) { *self.counters.entry(name.to_string()).or_insert(0) += 1; }\n    pub fn flush_metrics_buffer(&mut self) -> String { String::new() }\n}\n",
+    "neuron_filename": "metrics_cache.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How is session data persisted across restarts?",
+    "expected_keywords": [
+      "session",
+      "persist",
+      "redis"
+    ],
+    "neuron_source_content": "/// Redis-backed session store.\npub struct SessionStore { prefix: String }\nimpl SessionStore {\n    pub fn save_session_to_redis(&self, id: &str, data: &str, ttl: u64) {}\n    pub fn load_session_from_redis(&self, id: &str) -> Option<String> { None }\n}\n",
+    "neuron_filename": "session_store.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How does WebhookRetryQueue move failed deliveries to the dead letter queue?",
+    "expected_keywords": [
+      "webhookretryqueue",
+      "deadletter",
+      "dlq"
+    ],
+    "neuron_source_content": "/// WebhookRetryQueue: moves failed webhook deliveries to the dead-letter queue (DLQ).\n/// Implements dead-letter queue (DLQ) for undeliverable webhooks.\npub struct WebhookRetryQueue { pub max_attempts: u32 }\nimpl WebhookRetryQueue {\n    pub fn enqueue_webhook_for_retry(&self, delivery_id: &str, delay_secs: u64) {}\n    pub fn move_to_deadletter_dlq(&self, delivery_id: &str) {}\n    pub fn drain_dlq_dead_letter_queue(&self) {}\n}\n",
+    "neuron_filename": "webhook_retry.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How are search results cached?",
+    "expected_keywords": [
+      "search",
+      "cache",
+      "ttl"
+    ],
+    "neuron_source_content": "/// Search result cache: TTL-based query memoization.\npub struct SearchCache { ttl_secs: u64 }\nimpl SearchCache {\n    pub fn get_cached_search_result(&self, query: &str) -> Option<Vec<String>> { None }\n    pub fn store_search_result_in_cache(&self, query: &str, results: Vec<String>) {}\n}\n",
+    "neuron_filename": "search_cache.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How is the authentication middleware wired?",
+    "expected_keywords": [
+      "auth",
+      "middleware",
+      "bearer"
+    ],
+    "neuron_source_content": "/// Bearer token authentication middleware.\npub struct AuthMiddleware { secret: String }\nimpl AuthMiddleware {\n    pub fn verify_bearer_auth_token(&self, header: &str) -> bool { header.starts_with(\"Bearer \") }\n    pub fn extract_auth_claims(&self, token: &str) -> Option<String> { None }\n}\n",
+    "neuron_filename": "auth_middleware.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How is schema migration applied at startup?",
+    "expected_keywords": [
+      "migration",
+      "startup",
+      "schema"
+    ],
+    "neuron_source_content": "/// Startup schema migration runner.\npub fn run_pending_schema_migrations() -> u32 { 0 }\npub fn check_schema_migration_version() -> u32 { 0 }\npub fn apply_startup_migration(version: u32) {}\n",
+    "neuron_filename": "db_migrate.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How are email notifications sent?",
+    "expected_keywords": [
+      "email",
+      "smtp",
+      "notification"
+    ],
+    "neuron_source_content": "/// Email notification via SMTP.\npub struct SmtpMailer { host: String, port: u16 }\nimpl SmtpMailer {\n    pub fn send_email_notification(&self, to: &str, subject: &str, body: &str) -> bool { true }\n    pub fn send_smtp_template_email(&self, to: &str, template: &str) -> bool { true }\n}\n",
+    "neuron_filename": "notify_email.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How is rate limiting applied to auth endpoints?",
+    "expected_keywords": [
+      "ratelimit",
+      "auth",
+      "endpoint"
+    ],
+    "neuron_source_content": "/// Auth-scoped rate limiter: per-IP and per-user limits.\npub struct AuthRateLimiter { per_ip: u32, per_user: u32 }\nimpl AuthRateLimiter {\n    pub fn check_auth_endpoint_rate_limit(&self, ip: &str) -> bool { true }\n    pub fn reset_auth_rate_limit(&self, ip: &str) {}\n}\n",
+    "neuron_filename": "rate_auth.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How are queue jobs dispatched to workers?",
+    "expected_keywords": [
+      "queue",
+      "dispatch",
+      "worker"
+    ],
+    "neuron_source_content": "/// Worker pool: dispatches queue jobs to concurrent workers.\npub struct WorkerPool { size: usize }\nimpl WorkerPool {\n    pub fn dispatch_queue_job_to_worker(&self, job_id: &str, payload: &str) {}\n    pub fn scale_worker_pool(&mut self, n: usize) { self.size = n; }\n}\n",
+    "neuron_filename": "queue_worker.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How are circuit breaker trips tracked?",
+    "expected_keywords": [
+      "circuit",
+      "metrics",
+      "trip"
+    ],
+    "neuron_source_content": "/// Circuit breaker metrics: tracks trips and recovery.\npub struct CircuitBreakerMetrics { trips: u64, recoveries: u64 }\nimpl CircuitBreakerMetrics {\n    pub fn record_circuit_breaker_trip(&mut self) { self.trips += 1; }\n    pub fn record_circuit_recovery(&mut self) { self.recoveries += 1; }\n}\n",
+    "neuron_filename": "circuit_metrics.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How is authentication integrated in GraphQL?",
+    "expected_keywords": [
+      "graphql",
+      "auth",
+      "context"
+    ],
+    "neuron_source_content": "/// GraphQL authentication context injection.\npub struct GraphQLAuthContext { pub user_id: Option<String>, pub roles: Vec<String> }\npub fn build_graphql_auth_context(token: &str) -> GraphQLAuthContext {\n    GraphQLAuthContext { user_id: Some(token.to_string()), roles: vec![\"user\".to_string()] }\n}\n",
+    "neuron_filename": "graphql_auth.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How are events bridged to notifications?",
+    "expected_keywords": [
+      "event",
+      "notification",
+      "bridge"
+    ],
+    "neuron_source_content": "/// Event-to-notification bridge: converts domain events to push notifications.\npub fn bridge_domain_event_to_notification(event: &str, user_id: &str) {}\npub fn subscribe_event_notification_stream(user_id: &str, event_types: &[&str]) {}\n",
+    "neuron_filename": "event_notify.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How is cached data compressed?",
+    "expected_keywords": [
+      "cache",
+      "compress",
+      "storage"
+    ],
+    "neuron_source_content": "/// Compressed cache: gzip-compresses values before storage.\npub struct CompressedCacheStore;\nimpl CompressedCacheStore {\n    pub fn set_with_gzip_compress(&self, key: &str, value: &[u8]) {}\n    pub fn get_with_decompress(&self, key: &str) -> Option<Vec<u8>> { None }\n    pub fn compressed_storage_savings(&self) -> f64 { 0.0 }\n}\n",
+    "neuron_filename": "compress_cache.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How is system state restored from snapshots?",
+    "expected_keywords": [
+      "snapshot",
+      "restore",
+      "replay"
+    ],
+    "neuron_source_content": "/// State restoration from snapshots with event replay.\npub fn restore_system_from_snapshot(path: &str) {}\npub fn replay_events_since_snapshot(version: u64, events: &[String]) {}\npub fn validate_snapshot_integrity(path: &str) -> bool { true }\n",
+    "neuron_filename": "snapshot_restore.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How is caching scoped per tenant?",
+    "expected_keywords": [
+      "tenant",
+      "cache",
+      "namespace"
+    ],
+    "neuron_source_content": "/// Tenant-scoped cache: all keys prefixed by tenant namespace.\npub struct TenantScopedCache { tenant_id: String }\nimpl TenantScopedCache {\n    pub fn get_tenant_cached(&self, key: &str) -> Option<String> { None }\n    pub fn set_tenant_cached(&self, key: &str, value: &str) {}\n    pub fn flush_tenant_namespace_cache(&self) {}\n}\n",
+    "neuron_filename": "tenant_cache.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How is cache invalidation coordinated across instances?",
+    "expected_keywords": [
+      "lock",
+      "cache",
+      "invalidate"
+    ],
+    "neuron_source_content": "/// Distributed cache invalidation via lock coordination.\npub fn invalidate_cache_with_distributed_lock(key: &str) {}\npub fn coordinated_cache_flush_cluster(keys: &[&str]) {}\npub fn broadcast_cache_invalidation_event(pattern: &str) {}\n",
+    "neuron_filename": "lock_cache.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How are uploaded files encrypted at rest?",
+    "expected_keywords": [
+      "encrypt",
+      "file",
+      "storage"
+    ],
+    "neuron_source_content": "/// File encryption at rest: AES-256 on upload.\npub fn encrypt_file_at_rest(data: &[u8], key: &[u8; 32]) -> Vec<u8> { data.to_vec() }\npub fn decrypt_encrypted_stored_file(data: &[u8], key: &[u8; 32]) -> Vec<u8> { data.to_vec() }\n",
+    "neuron_filename": "file_encrypt.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How is search filtered by user permissions?",
+    "expected_keywords": [
+      "search",
+      "permission",
+      "filter"
+    ],
+    "neuron_source_content": "/// Permission-aware search: post-filters results by RBAC.\npub fn search_with_user_permissions(query: &str, user_roles: &[String]) -> Vec<String> { vec![] }\npub fn apply_rbac_search_filter(results: &[String], roles: &[String]) -> Vec<String> { results.to_vec() }\n",
+    "neuron_filename": "search_rbac.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How are failed queue jobs retried?",
+    "expected_keywords": [
+      "queue",
+      "retry",
+      "failure"
+    ],
+    "neuron_source_content": "/// Queue job retry handler: exponential backoff on failure.\npub fn retry_failed_queue_job(job_id: &str, attempt: u32) {}\npub fn move_job_to_dead_letter_queue(job_id: &str, reason: &str) {}\npub fn job_retry_backoff_delay(attempt: u32) -> u64 { 1000 * 2u64.pow(attempt) }\n",
+    "neuron_filename": "queue_retry.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How are real-time push messages sent after events?",
+    "expected_keywords": [
+      "push",
+      "realtime",
+      "event"
+    ],
+    "neuron_source_content": "/// Real-time push dispatcher: sends push after event emission.\npub fn send_realtime_push_after_event(event: &str, user_id: &str) {}\npub fn batch_realtime_push_notifications(user_ids: &[&str], message: &str) {}\n",
+    "neuron_filename": "notify_push.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How are audit logs searched?",
+    "expected_keywords": [
+      "audit",
+      "search",
+      "query"
+    ],
+    "neuron_source_content": "/// Audit log search: full-text query over audit events.\npub fn search_audit_log_entries(query: &str, since: u64, limit: usize) -> Vec<String> { vec![] }\npub fn filter_audit_log_by_actor(actor: &str) -> Vec<String> { vec![] }\n",
+    "neuron_filename": "audit_search.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How is cache cleared after migrations?",
+    "expected_keywords": [
+      "migration",
+      "cache",
+      "clear"
+    ],
+    "neuron_source_content": "/// Post-migration cache invalidation.\npub fn clear_all_caches_after_migration(version: u32) {}\npub fn invalidate_migration_schema_cache() {}\n",
+    "neuron_filename": "migration_cache.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How are GraphQL query metrics tracked?",
+    "expected_keywords": [
+      "graphql",
+      "metrics",
+      "latency"
+    ],
+    "neuron_source_content": "/// GraphQL operation metrics: latency and error rate per operation.\npub struct GraphQLOperationMetrics;\nimpl GraphQLOperationMetrics {\n    pub fn record_graphql_operation_latency(&self, op: &str, ms: f64) {}\n    pub fn record_graphql_operation_error(&self, op: &str) {}\n}\n",
+    "neuron_filename": "graphql_metrics.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How is authentication scoped per tenant?",
+    "expected_keywords": [
+      "tenant",
+      "auth",
+      "scope"
+    ],
+    "neuron_source_content": "/// Tenant-scoped authentication: validates tokens per tenant.\npub fn authenticate_with_tenant_scope(token: &str, tenant_id: &str) -> bool { true }\npub fn issue_tenant_auth_token(user_id: &str, tenant_id: &str) -> String { String::new() }\n",
+    "neuron_filename": "tenant_auth.rs",
+    "kind": "code"
+  },
+  {
+    "question": "What did we discuss about the project architecture?",
+    "expected_keywords": [
+      "architecture",
+      "monolith",
+      "microservices"
+    ],
+    "neuron_source_content": "<!-- status: verbatim -->\n## Human\nI want to refactor the monolith into microservices.\n\n## Assistant\nGood approach. Start with the auth and payments boundaries. Keep the monolith as the default fallback.\n",
+    "neuron_filename": "conv_001.md",
+    "kind": "conversation"
+  },
+  {
+    "question": "What decisions were made about the database choice?",
+    "expected_keywords": [
+      "database",
+      "postgres",
+      "sqlite"
+    ],
+    "neuron_source_content": "<!-- status: verbatim -->\n## Human\nShould we use PostgreSQL or SQLite?\n\n## Assistant\nFor production with concurrent writes, PostgreSQL. SQLite for tests and local dev.\n",
+    "neuron_filename": "conv_002.md",
+    "kind": "conversation"
+  },
+  {
+    "question": "What was agreed about API versioning?",
+    "expected_keywords": [
+      "api",
+      "version",
+      "deprecation"
+    ],
+    "neuron_source_content": "<!-- status: verbatim -->\n## Human\nHow should we handle API versioning?\n\n## Assistant\nURL path versioning for REST. Keep v1 alive for 12 months after v2 launch, then deprecate with sunset headers.\n",
+    "neuron_filename": "conv_003.md",
+    "kind": "conversation"
+  },
+  {
+    "question": "What was the plan for error handling?",
+    "expected_keywords": [
+      "error",
+      "handling",
+      "result"
+    ],
+    "neuron_source_content": "<!-- status: verbatim -->\n## Human\nHow should we standardize error handling?\n\n## Assistant\nUse a Result type with AppError. Never leak stack traces to external callers.\n",
+    "neuron_filename": "conv_004.md",
+    "kind": "conversation"
+  },
+  {
+    "question": "What was discussed about test coverage requirements?",
+    "expected_keywords": [
+      "test",
+      "coverage",
+      "ci"
+    ],
+    "neuron_source_content": "<!-- status: verbatim -->\n## Human\nWhat test coverage should we require?\n\n## Assistant\nAim for 80% line coverage on business logic. Integration tests for every API endpoint. Run everything in CI on every PR.\n",
+    "neuron_filename": "conv_005.md",
+    "kind": "conversation"
+  },
+  {
+    "question": "What caching strategy did we settle on?",
+    "expected_keywords": [
+      "cache",
+      "redis",
+      "strategy"
+    ],
+    "neuron_source_content": "<!-- status: verbatim -->\n## Human\nWhat caching layer should we use?\n\n## Assistant\nRedis for shared state. In-process LRU cache for hot read paths. TTL everything.\n",
+    "neuron_filename": "conv_006.md",
+    "kind": "conversation"
+  },
+  {
+    "question": "What logging format was chosen?",
+    "expected_keywords": [
+      "logging",
+      "json",
+      "structured"
+    ],
+    "neuron_source_content": "<!-- status: verbatim -->\n## Human\nWhat log format should we use?\n\n## Assistant\nStructured JSON logs via tracing. Include trace_id, span_id, service, level, message, timestamp. Never log secrets or PII.\n",
+    "neuron_filename": "conv_007.md",
+    "kind": "conversation"
+  },
+  {
+    "question": "How was the deployment pipeline designed?",
+    "expected_keywords": [
+      "deploy",
+      "pipeline",
+      "ci"
+    ],
+    "neuron_source_content": "<!-- status: verbatim -->\n## Human\nHow should we set up the deployment pipeline?\n\n## Assistant\nGitHub Actions: lint, unit tests, integration tests, build Docker image, deploy to staging, smoke tests, promote to prod.\n",
+    "neuron_filename": "conv_008.md",
+    "kind": "conversation"
+  },
+  {
+    "question": "What authentication approach was recommended?",
+    "expected_keywords": [
+      "authentication",
+      "oauth",
+      "jwt"
+    ],
+    "neuron_source_content": "<!-- status: verbatim -->\n## Human\nOAuth2 or JWT for user authentication?\n\n## Assistant\nOAuth2 for external login. Short-lived JWTs for API auth. Refresh tokens stored as HttpOnly cookies.\n",
+    "neuron_filename": "conv_009.md",
+    "kind": "conversation"
+  },
+  {
+    "question": "What was discussed about data retention policy?",
+    "expected_keywords": [
+      "retention",
+      "data",
+      "compliance"
+    ],
+    "neuron_source_content": "<!-- status: verbatim -->\n## Human\nHow long should we keep user data?\n\n## Assistant\nLogs: 30 days hot, 1 year cold. PII: delete within 30 days of account closure. Audit trail: 7 years for compliance.\n",
+    "neuron_filename": "conv_010.md",
+    "kind": "conversation"
+  },
+  {
+    "question": "What background job system was chosen?",
+    "expected_keywords": [
+      "background",
+      "job",
+      "queue"
+    ],
+    "neuron_source_content": "<!-- status: verbatim -->\n## Human\nWhat should we use for background jobs?\n\n## Assistant\nRabbitMQ for durability. Separate queues per priority. DLQ for failures after 3 retries.\n",
+    "neuron_filename": "conv_011.md",
+    "kind": "conversation"
+  },
+  {
+    "question": "What was decided about feature flags?",
+    "expected_keywords": [
+      "feature",
+      "flag",
+      "rollout"
+    ],
+    "neuron_source_content": "<!-- status: verbatim -->\n## Human\nHow should we manage feature flags?\n\n## Assistant\nGradual rollout: 1% to 10% to 50% to 100% with automatic rollback on error spike.\n",
+    "neuron_filename": "conv_012.md",
+    "kind": "conversation"
+  },
+  {
+    "question": "What monitoring tools were selected?",
+    "expected_keywords": [
+      "monitoring",
+      "alerting",
+      "prometheus"
+    ],
+    "neuron_source_content": "<!-- status: verbatim -->\n## Human\nWhat monitoring stack should we use?\n\n## Assistant\nPrometheus and Grafana for metrics. Loki for log aggregation. Alertmanager for on-call routing.\n",
+    "neuron_filename": "conv_013.md",
+    "kind": "conversation"
+  },
+  {
+    "question": "What was the plan for secrets management?",
+    "expected_keywords": [
+      "secrets",
+      "vault",
+      "environment"
+    ],
+    "neuron_source_content": "<!-- status: verbatim -->\n## Human\nHow should we handle secrets?\n\n## Assistant\nHashiCorp Vault for production secrets. Never commit secrets to git. Rotate secrets automatically.\n",
+    "neuron_filename": "conv_014.md",
+    "kind": "conversation"
+  },
+  {
+    "question": "What GraphQL vs REST decision was made?",
+    "expected_keywords": [
+      "graphql",
+      "rest",
+      "api"
+    ],
+    "neuron_source_content": "<!-- status: verbatim -->\n## Human\nShould the new API be GraphQL or REST?\n\n## Assistant\nREST for public APIs. GraphQL for internal BFF layer where clients need flexible queries.\n",
+    "neuron_filename": "conv_015.md",
+    "kind": "conversation"
+  },
+  {
+    "question": "What was discussed about microservices communication?",
+    "expected_keywords": [
+      "microservices",
+      "grpc",
+      "async"
+    ],
+    "neuron_source_content": "<!-- status: verbatim -->\n## Human\nHow should microservices communicate?\n\n## Assistant\nSynchronous: gRPC with protobuf. Asynchronous: NATS or RabbitMQ for events. Circuit breakers on every synchronous call.\n",
+    "neuron_filename": "conv_016.md",
+    "kind": "conversation"
+  },
+  {
+    "question": "What was agreed about code review standards?",
+    "expected_keywords": [
+      "code",
+      "review",
+      "quality"
+    ],
+    "neuron_source_content": "<!-- status: verbatim -->\n## Human\nWhat should be required in code reviews?\n\n## Assistant\nTwo approvals for main branch. Every PR needs a test for the change. Focus on correctness and security.\n",
+    "neuron_filename": "conv_017.md",
+    "kind": "conversation"
+  },
+  {
+    "question": "What performance targets were set?",
+    "expected_keywords": [
+      "performance",
+      "latency",
+      "p99"
+    ],
+    "neuron_source_content": "<!-- status: verbatim -->\n## Human\nWhat are our performance targets?\n\n## Assistant\np50 under 50ms, p95 under 200ms, p99 under 500ms for API endpoints. Run load tests weekly in staging.\n",
+    "neuron_filename": "conv_018.md",
+    "kind": "conversation"
+  },
+  {
+    "question": "What OpenAPI specification and README documentation standards were chosen?",
+    "expected_keywords": [
+      "openapi",
+      "readme",
+      "documentation"
+    ],
+    "neuron_source_content": "<!-- status: verbatim -->\n## Human\nHow should we document the API with OpenAPI specification?\n\n## Assistant\nUse OpenAPI 3.1 spec generated from code annotations. Write a README with quick-start instructions. Include architecture decision records (ADRs). The documentation standard requires an openapi.yaml at the repo root and a comprehensive README.md with examples.\n",
+    "neuron_filename": "conv_019.md",
+    "kind": "conversation"
+  },
+  {
+    "question": "What Docker and Kubernetes containerization approach was selected?",
+    "expected_keywords": [
+      "docker",
+      "kubernetes",
+      "containerization"
+    ],
+    "neuron_source_content": "<!-- status: verbatim -->\n## Human\nWhat Docker and Kubernetes containerization strategy should we use?\n\n## Assistant\nUse Docker for local dev with docker-compose. Deploy to Kubernetes in production with Helm charts. Use distroless Docker base images for security. The containerization strategy uses Kubernetes HPA for auto-scaling and docker-based CI builds.\n",
+    "neuron_filename": "conv_020.md",
+    "kind": "conversation"
+  },
+  {
+    "question": "How is CPU profiling done in production?",
+    "expected_keywords": [
+      "profiling",
+      "cpu",
+      "flamegraph"
+    ],
+    "neuron_source_content": "/// Production CPU profiler: pprof-compatible flame graphs.\npub struct CpuProfiler;\nimpl CpuProfiler {\n    pub fn start_cpu_profiling(&self, sample_hz: u32) {}\n    pub fn stop_profiling_and_export_flamegraph(&self, path: &str) {}\n}\n",
+    "neuron_filename": "perf_profiling.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How are memory leaks detected?",
+    "expected_keywords": [
+      "memory",
+      "leak",
+      "heap"
+    ],
+    "neuron_source_content": "/// Heap profiler: tracks allocations to detect memory leaks.\npub struct HeapProfiler;\nimpl HeapProfiler {\n    pub fn record_heap_allocation(&self, size: usize, caller: &str) {}\n    pub fn detect_memory_leak(&self) -> Vec<String> { vec![] }\n}\n",
+    "neuron_filename": "perf_memory.rs",
+    "kind": "code"
+  },
+  {
+    "question": "What was agreed about performance budgets?",
+    "expected_keywords": [
+      "performance",
+      "budget",
+      "regression"
+    ],
+    "neuron_source_content": "<!-- status: verbatim -->\n## Human\nHow do we enforce performance budgets?\n\n## Assistant\nAdd a performance regression test to CI. Fail the build if p99 latency increases by more than 10%.\n",
+    "neuron_filename": "conv_perf.md",
+    "kind": "conversation"
+  },
+  {
+    "question": "What security review process was defined?",
+    "expected_keywords": [
+      "security",
+      "review",
+      "threat"
+    ],
+    "neuron_source_content": "<!-- status: verbatim -->\n## Human\nHow often should we do security reviews?\n\n## Assistant\nQuarterly internal threat model reviews. Annual penetration test by external firm. Automated SAST on every PR.\n",
+    "neuron_filename": "conv_security.md",
+    "kind": "conversation"
+  },
+  {
+    "question": "How is chaos testing implemented?",
+    "expected_keywords": [
+      "chaos",
+      "resilience",
+      "fault"
+    ],
+    "neuron_source_content": "/// Chaos engineering: random fault injection for resilience testing.\npub struct ChaosEngine { fault_rate: f64 }\nimpl ChaosEngine {\n    pub fn inject_fault_for_resilience(&self) -> bool { self.fault_rate > 0.5 }\n    pub fn simulate_chaos_latency(&self, base_ms: u64) -> u64 { base_ms * 2 }\n}\n",
+    "neuron_filename": "chaos.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How is distributed tracing implemented?",
+    "expected_keywords": [
+      "tracing",
+      "spans",
+      "otel"
+    ],
+    "neuron_source_content": "/// Distributed tracing: OpenTelemetry span propagation.\npub struct DistributedTracer;\nimpl DistributedTracer {\n    pub fn start_otel_span(&self, name: &str) -> String { name.to_string() }\n    pub fn propagate_trace_context(&self, headers: &mut std::collections::HashMap<String, String>) {}\n    pub fn export_otel_tracing_spans(&self) {}\n}\n",
+    "neuron_filename": "trace.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How does ABExperiment handle variant assignment for A/B tests?",
+    "expected_keywords": [
+      "abexperiment",
+      "variant",
+      "abtest"
+    ],
+    "neuron_source_content": "/// ABExperiment: A/B test variant assignment and conversion tracking.\n/// Assigns users to A/B test variants (abtest) and tracks experiment conversions.\npub struct ABExperiment { pub name: String, pub variants: Vec<String> }\nimpl ABExperiment {\n    pub fn assign_abtest_experiment_variant(&self, user_id: &str) -> &str { &self.variants[0] }\n    pub fn record_abexperiment_conversion(&self, variant: &str, user_id: &str) {}\n    pub fn get_abtest_variant_stats(&self) -> String { String::new() }\n}\n",
+    "neuron_filename": "ab_test.rs",
+    "kind": "code"
+  },
+  {
+    "question": "What scaling strategy was discussed?",
+    "expected_keywords": [
+      "scaling",
+      "horizontal",
+      "load"
+    ],
+    "neuron_source_content": "<!-- status: verbatim -->\n## Human\nHow should we scale the API under load?\n\n## Assistant\nHorizontal scaling with stateless services behind a load balancer. Auto-scaling on CPU and request rate.\n",
+    "neuron_filename": "conv_arch.md",
+    "kind": "conversation"
+  },
+  {
+    "question": "What testing strategy was finalized?",
+    "expected_keywords": [
+      "testing",
+      "tdd",
+      "unit"
+    ],
+    "neuron_source_content": "<!-- status: verbatim -->\n## Human\nShould we do TDD?\n\n## Assistant\nFor algorithmic and business logic code: yes, write tests first. Integration tests for every external interface.\n",
+    "neuron_filename": "conv_testing.md",
+    "kind": "conversation"
+  },
+  {
+    "question": "What was discussed about open source strategy?",
+    "expected_keywords": [
+      "open_source",
+      "license",
+      "community"
+    ],
+    "neuron_source_content": "<!-- status: verbatim -->\n## Human\nShould we open source this?\n\n## Assistant\nOpen source the core engine under MIT. Build community first: good docs, clear contribution guide, fast PR reviews.\n",
+    "neuron_filename": "conv_open.md",
+    "kind": "conversation"
+  },
+  {
+    "question": "How is user activity tracked for analytics?",
+    "expected_keywords": [
+      "analytics",
+      "track",
+      "activity"
+    ],
+    "neuron_source_content": "/// User activity tracking for analytics.\npub struct ActivityTracker;\nimpl ActivityTracker {\n    pub fn track_user_activity(&self, user_id: &str, event: &str) {}\n    pub fn flush_analytics_events(&self) {}\n    pub fn query_activity_analytics(&self, user_id: &str) -> Vec<String> { vec![] }\n}\n",
+    "neuron_filename": "activity_tracker.rs",
+    "kind": "code"
+  },
+  {
+    "question": "How is service discovery handled between components?",
+    "expected_keywords": [
+      "discovery",
+      "service",
+      "registry"
+    ],
+    "neuron_source_content": "/// Service registry and discovery.\npub struct ServiceRegistry { services: std::collections::HashMap<String, String> }\nimpl ServiceRegistry {\n    pub fn register_service(&mut self, name: &str, endpoint: &str) { self.services.insert(name.to_string(), endpoint.to_string()); }\n    pub fn discover_service(&self, name: &str) -> Option<&String> { self.services.get(name) }\n    pub fn deregister_service(&mut self, name: &str) { self.services.remove(name); }\n}\n",
+    "neuron_filename": "service_registry.rs",
+    "kind": "code"
+  }
+]

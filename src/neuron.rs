@@ -111,6 +111,25 @@ pub struct Synapse {
     pub weight: f32,
     /// Human-readable reason written by the LLM.
     pub reason: String,
+    /// Learned traversal weight — starts at `edge_type.type_multiplier()` and updates
+    /// via EMA (α = 0.1) from citation signals in `record_hit`. After 10+ traversals,
+    /// this weight encodes the actual helpfulness of this specific synapse edge.
+    ///
+    /// `#[serde(default)]` ensures backward compatibility: old index.json files that
+    /// lack this field will deserialize to 0.0, then `effective_weight()` falls back
+    /// to `type_multiplier()` so behaviour is identical before any learning occurs.
+    #[serde(default)]
+    pub learned_weight: f32,
+    /// Number of times this synapse was evaluated (target cited or not) — used to
+    /// decide when the learned_weight has enough signal to trust.
+    #[serde(default)]
+    pub traversal_count: u32,
+    /// Unix day (days since epoch) of the last co-activation of source + target.
+    /// Used by S-VII synapse temporal decay: synapses idle for many days decay toward 0.
+    /// `#[serde(default)]` → existing index files default to 0 (treats as never co-activated,
+    /// but decay only fires after first co-activation so this is safely conservative).
+    #[serde(default)]
+    pub last_co_activation_day: u32,
 }
 
 impl Synapse {
@@ -120,7 +139,30 @@ impl Synapse {
             edge_type,
             weight: 0.5,
             reason,
+            learned_weight: 0.0, // 0.0 → effective_weight() returns type_multiplier()
+            traversal_count: 0,
+            last_co_activation_day: 0,
         }
+    }
+
+    /// Effective traversal weight, blending the static type multiplier with the
+    /// learned weight once enough signal has accumulated.
+    ///
+    /// Cold-start (traversal_count < 10 or learned_weight == 0.0):
+    ///   returns `type_multiplier()` — identical to old behaviour.
+    /// Warm (traversal_count ≥ 10):
+    ///   blends 50% static + 50% learned, clamped to [0.1, 1.0].
+    ///
+    /// The blend prevents over-fitting: a synapse that helped in 1 out of 3
+    /// traversals doesn't get immediately downweighted to 0.33.
+    pub fn effective_weight(&self) -> f32 {
+        let base = self.edge_type.type_multiplier();
+        if self.traversal_count < 10 || self.learned_weight <= 0.0 {
+            return base;
+        }
+        // Blend: more learned weight trust as evidence accumulates (cap at 50%).
+        let blend = 0.5_f32.min(self.traversal_count as f32 / 100.0);
+        ((1.0 - blend) * base + blend * self.learned_weight).clamp(0.1, 1.0)
     }
 }
 
@@ -136,6 +178,12 @@ pub struct NeuronMeta {
     pub kind: NeuronKind,
     pub status: NeuronStatus,
     pub source_hash: String,
+    /// BLAKE3 hash of the AST signature string (sorted function/type names only).
+    /// Compared against `source_hash` to distinguish cosmetic edits (whitespace, doc-comments)
+    /// from semantic changes (new/renamed/removed public API). When `source_hash` changes but
+    /// `sig_hash` does not, the LLM-curated stub is preserved and only the meta hash is updated.
+    #[serde(default)]
+    pub sig_hash: Option<String>,
     pub tokens: usize,
     pub last_updated: String,
     pub use_count: u32,
@@ -163,6 +211,21 @@ pub struct NeuronMeta {
     /// silently zeroing or infinitely amplifying neuron scores.
     #[serde(default = "default_confidence", deserialize_with = "deserialize_confidence")]
     pub confidence_score: f32,
+    /// E2 (TRIZ R14): One shadow copy per section — stored before any evolve_* call.
+    /// Key "_full" = full neuron body before evolve_context.
+    /// Key "purpose", "api", etc. = previous section body before evolve_section.
+    /// Recovered via `cortyx rollback-section <path> <section>` or the MCP tool.
+    /// ~200 bytes overhead per neuron; only the most recent shadow is kept.
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub shadow_sections: HashMap<String, String>,
+    /// S-XI (R16): Stable UUID — rename-resilient identifier.
+    ///
+    /// Generated once at neuron creation as a BLAKE3-derived 32-hex-char ID from
+    /// the source path + creation timestamp. Persisted in sidecar JSON; survives
+    /// file renames. Used at compile time to carry over learned weights + synapse
+    /// links when a source file is moved.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uuid: Option<String>,
 }
 
 /// Default confidence score for neurons in non-git projects or committed + unmodified files.
@@ -184,6 +247,7 @@ impl NeuronMeta {
             kind,
             status: NeuronStatus::Stub,
             source_hash: String::new(),
+            sig_hash: None,
             tokens: 0,
             last_updated: now_iso8601(),
             use_count: 0,
@@ -196,6 +260,8 @@ impl NeuronMeta {
             speaker: None,
             timestamp: None,
             confidence_score: DEFAULT_CONFIDENCE,
+            shadow_sections: HashMap::new(),
+            uuid: Some(generate_neuron_uuid(source)),
         }
     }
 
@@ -214,6 +280,7 @@ impl NeuronMeta {
             kind: NeuronKind::Verbatim,
             status: NeuronStatus::Fresh,
             source_hash: String::new(),
+            sig_hash: None,
             tokens: estimate_tokens(text),
             last_updated: timestamp.clone().unwrap_or_default(),
             use_count: 0,
@@ -226,6 +293,8 @@ impl NeuronMeta {
             speaker,
             timestamp,
             confidence_score: 1.0,
+            shadow_sections: HashMap::new(),
+            uuid: Some(generate_neuron_uuid(neuron_path)),
         }
     }
 }
@@ -256,6 +325,28 @@ pub fn core_neuron_path(source: &Path, project_root: &Path) -> PathBuf {
         .to_string_lossy()
         .replace('.', "_");
     neuron_dir(project_root).join(parent).join(format!("{stem}.context.md"))
+}
+
+/// Map a Core neuron path + function name to its UseCase sub-neuron path.
+///
+/// Sub-neurons live alongside the Core, prefixed with `fn-`.
+///
+/// Example: `.cortyx/neurons/src/engine_rs.context.md` + `"validate_user"` →
+///          `.cortyx/neurons/src/engine_rs.fn-validate_user.context.md`
+pub fn sub_neuron_path(core_path: &Path, fn_name: &str) -> PathBuf {
+    let safe_name: String = fn_name
+        .chars()
+        .map(|c| if c.is_alphanumeric() || c == '_' { c } else { '_' })
+        .collect();
+    let dir = core_path.parent().unwrap_or(Path::new("."));
+    let core_stem = core_path
+        .file_stem()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .strip_suffix(".context")
+        .map(|s| s.to_owned())
+        .unwrap_or_else(|| core_path.file_stem().unwrap_or_default().to_string_lossy().into_owned());
+    dir.join(format!("{core_stem}.fn-{safe_name}.context.md"))
 }
 
 /// Map a `.context.md` path to its sidecar `.context.json` path.
@@ -513,11 +604,20 @@ fn extract_edge_type(reason: &str) -> (SynapseType, String) {
 ///
 /// When `prefilled` is non-empty (AST Bootstrap), the `api` section is pre-populated
 /// with extracted function signatures and types so BM25 has vocabulary from day 1.
-pub fn stub_core_neuron(source_rel: &str, hash: &str, now: &str, prefilled: &str) -> String {
+/// When `purpose_hint` is non-empty (A3: LLM-Free Pre-Population), the purpose section
+/// is filled with extracted doc comment lines — producing a Level-1 neuron.
+pub fn stub_core_neuron(source_rel: &str, hash: &str, now: &str, prefilled: &str, purpose_hint: &str) -> String {
     let api_content = if prefilled.is_empty() {
         "[TODO — key functions / symbols the model should know]".to_string()
     } else {
         prefilled.to_string()
+    };
+
+    let purpose_content = if purpose_hint.is_empty() {
+        format!("[TODO — call cortyx_evolve_section(\"{source_rel}\", \"purpose\", \"...\") to fill this in]")
+    } else {
+        // Level-1 neuron: pre-populated from doc comments (no LLM call required)
+        format!("{purpose_hint}\n\n<!-- Auto-populated from doc comments — call cortyx_evolve_section to refine -->")
     };
 
     format!(
@@ -529,7 +629,7 @@ pub fn stub_core_neuron(source_rel: &str, hash: &str, now: &str, prefilled: &str
 
 **What this file does (for the AI):**
 <!-- SECTION: purpose -->
-[TODO — call cortyx_evolve_section("{source_rel}", "purpose", "...") to fill this in]
+{purpose_content}
 <!-- /SECTION -->
 
 **Key functions / symbols:**
@@ -546,6 +646,38 @@ pub fn stub_core_neuron(source_rel: &str, hash: &str, now: &str, prefilled: &str
 
 [TODO — add related neuron paths here, one per line]
 [Format: `path/to/other.context.md` → reason [imports|calls|implements|semantic]]
+"#
+    )
+}
+
+/// UseCase sub-neuron stub for a single public function (S3 lazy splitting).
+///
+/// Created during compile when a source file has many public functions —
+/// provides function-level retrieval precision while the Core neuron retains
+/// the high-level summary. BM25 vocabulary is seeded with the function name so
+/// "how does {fn_name} work?" queries activate this sub-neuron directly.
+pub fn stub_function_neuron(fn_name: &str, source_rel: &str, now: &str) -> String {
+    format!(
+        r#"<!-- AUTO-GENERATED FUNCTION NEURON — DO NOT EDIT MANUALLY -->
+<!-- source: {source_rel} -->
+<!-- function: {fn_name} -->
+<!-- last-updated: {now} -->
+<!-- status: stub -->
+
+**Function `{fn_name}` — what it does:**
+<!-- SECTION: purpose -->
+[TODO — call cortyx_evolve_section to describe {fn_name}]
+<!-- /SECTION -->
+
+**Signature & parameters:**
+<!-- SECTION: api -->
+[TODO — describe the inputs, outputs, and error conditions of {fn_name}]
+<!-- /SECTION -->
+
+**Pitfalls & edge cases:**
+<!-- SECTION: pitfalls -->
+[TODO]
+<!-- /SECTION -->
 "#
     )
 }
@@ -670,6 +802,38 @@ pub fn replace_section(content: &str, name: &str, new_body: &str) -> String {
     result
 }
 
+/// Update the fixed header comment lines of an existing neuron.
+///
+/// Patches `<!-- hash: … -->`, `<!-- last-updated: … -->`, and
+/// `<!-- status: … -->` lines in-place, leaving all other content intact.
+/// Used by the section-level staleness update (S1, TRIZ R11) so that API
+/// changes overwrite only the `api` section while preserving LLM-curated
+/// `purpose`, `pitfalls`, and cross-reference sections.
+///
+/// Always produces output with a trailing newline.
+pub fn update_neuron_header(content: &str, hash: &str, now: &str) -> String {
+    let mut out = content
+        .lines()
+        .map(|line| {
+            let t = line.trim_start();
+            if t.starts_with("<!-- hash:") {
+                format!("<!-- hash: {hash} -->")
+            } else if t.starts_with("<!-- last-updated:") {
+                format!("<!-- last-updated: {now} -->")
+            } else if t.starts_with("<!-- status:") {
+                "<!-- status: stale -->".to_string()
+            } else {
+                line.to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    if !out.ends_with('\n') {
+        out.push('\n');
+    }
+    out
+}
+
 /// Detect whether a line is a section open tag; return the section name if so.
 fn section_open_name(line: &str) -> Option<&str> {
     let trimmed = line.trim();
@@ -708,6 +872,22 @@ pub fn now_iso8601() -> String {
         .as_secs();
     let (y, mo, d, h, mi, s) = unix_secs_to_datetime(secs);
     format!("{y:04}-{mo:02}-{d:02}T{h:02}:{mi:02}:{s:02}Z")
+}
+
+/// S-XI (R16): Generate a stable neuron UUID from source path + current nanoseconds.
+///
+/// Uses BLAKE3 over `{path}:{nanos}` to produce a 32-char hex string.
+/// UUID format: first 8 chars — path-derived; rest — time-salted for uniqueness.
+/// Called once at neuron creation; thereafter the UUID is loaded from sidecar JSON.
+pub fn generate_neuron_uuid(source: &Path) -> String {
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .subsec_nanos();
+    let input = format!("{}:{nanos}", source.display());
+    let hash = blake3::hash(input.as_bytes());
+    // Return first 32 hex chars (128 bits) — UUID-like without dashes
+    hash.to_hex()[..32].to_string()
 }
 
 /// Decompose Unix epoch seconds into `(year, month, day, hour, minute, second)`.

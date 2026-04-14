@@ -1,27 +1,34 @@
 [package]
 name = "cortyx"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
-description = "MCP-native semantic cache layer for Karpathy's LLM Wiki pattern"
+description = "MCP-native semantic cache layer — AI-curated neurons per source file, BM25 + hybrid retrieval, prompt-cache optimised"
 license = "MIT"
-repository = "https://github.com/YOURNAME/cortyx"
-keywords = ["llm", "mcp", "cache", "context", "ai"]
-categories = ["command-line-utilities"]
+repository = "https://github.com/cortyx-ai/cortyx"
+keywords = ["llm", "mcp", "context", "memory", "ai"]
+categories = ["command-line-utilities", "development-tools"]
 
 [features]
-# EXPERIMENTAL — NOT YET FUNCTIONAL: Dense embeddings via fastembed (all-MiniLM-L6-v2, 384-dim).
-# This feature downloads ~80MB of model weights on first use but dense retrieval is NOT yet
-# wired into get_contexts (BM25-only retrieval is always active regardless).
-# Do NOT enable in production until v0.2 completes the hybrid RRF integration.
-# See: src/index.rs (get_contexts NOTE block) for the wiring gap.
+# Dense embeddings via fastembed (all-MiniLM-L6-v2, 384-dim).
+# Downloads ~80 MB of model weights on first use.
+# Enables hybrid BM25 + dense cosine retrieval with RRF fusion in get_contexts.
+# Falls back gracefully to BM25-only when embeddings.bin is absent or model not installed.
 embed = ["dep:fastembed"]
+# Cross-encoder reranking via ONNX (ms-marco-MiniLM-L-2-v2 INT8 quantized, ~7 MB).
+# Place .cortyx/reranker.onnx in the project root before use.
+# Activates only on low-confidence BM25 queries (top_score < LOW_CONFIDENCE_THRESHOLD).
+# ~100× smaller and faster than LLM reranking; no API calls; local/private.
+rerank = ["dep:ort", "dep:tokenizers"]
 
 [dependencies]
 anyhow = "1.0.102"
 blake3 = "1.8.4"
+rayon = "1"
 regex = "1.10"
 clap = { version = "4.6.0", features = ["derive"] }
 fastembed = { version = "5", optional = true }
+ort = { version = "=2.0.0-rc.10", optional = true }
+tokenizers = { version = "0.19", optional = true }
 notify = { version = "8.2.0", features = ["macos_fsevent"] }
 rmcp = { version = "1.4.0", features = ["server", "transport-io"] }
 schemars = "1.2.1"
