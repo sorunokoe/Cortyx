@@ -1439,6 +1439,17 @@ fn generate_query_surface(text: &str) -> Option<String> {
          &["how many has she done", "how many times has he visited", "how many total",
            "how many have i done", "how many have i visited", "how many have i tried",
            "how many total count worked done bought completed have i"]),
+
+        // ── Gifts / Presents received ─────────────────────────────────────────
+        // "I got my new stand mixer as a birthday gift from my sister" → who gave
+        (&["as a birthday gift", "birthday gift from", "birthday present from",
+           "got me for my birthday", "gave me for my birthday",
+           "gave me a new", "gave me the", "as a christmas gift",
+           "christmas present from", "received as a gift", "gifted me",
+           "got me a gift", "gave me as a gift"],
+         &["who gave me", "who got me", "what was the gift", "birthday present from",
+           "who gave me a gift", "who gave me for my birthday",
+           "gift giver gave received birthday present from sister brother"]),
     ];
 
     let lower = text.to_lowercase();
@@ -1524,14 +1535,39 @@ fn generate_query_surface(text: &str) -> Option<String> {
         }
     }
 
-    // R21 T8: Universal query_surface fallback.
-    //
-    // When no category pattern matched (edge-case facts: unusual hobbies, niche events,
-    // one-off mentions), still emit a ## query_surface populated with:
-    //   (a) proper nouns — capitalized words ≥3 chars (names, places, brands)
-    //   (b) numbers and units — numeric tokens (ages, measurements, quantities)
-    //   (c) quoted strings — content between quotation marks
-    //
+    // NE-8: Degree/field-of-study name extraction after education-specific phrases.
+    // "I graduated with a degree in Business Administration" → ["business", "administration"]
+    // This bridges the vocabulary gap: the query "what degree did I graduate with?" does not
+    // contain "business administration", but those capitalized words are unique to the session.
+    // Having them in query_surface means cross-session deduplication is stronger.
+    // Fires only when tokens is non-empty (an education or other pattern already matched).
+    if !tokens.is_empty() {
+        const EDU_TRIGGERS: &[&str] = &[
+            "degree in ", "majored in ", "major in ", "studied ",
+            "i have a degree in", "graduated with a degree in",
+            "studying for a ", "i earn my degree in",
+        ];
+        for trigger in EDU_TRIGGERS {
+            if let Some(pos) = lower.find(trigger) {
+                let after_start = (pos + trigger.len()).min(text.len());
+                let after = &text[after_start..];
+                let mut found = 0;
+                for word in after.split_whitespace().take(5) {
+                    let clean: String = word.chars().filter(|c| c.is_alphabetic()).collect();
+                    if clean.len() >= 3
+                        && clean.chars().next().map_or(false, |c| c.is_uppercase())
+                        && found < 3
+                    {
+                        extra_tokens.push(clean.to_lowercase());
+                        found += 1;
+                    }
+                    if found >= 3 { break; }
+                }
+            }
+        }
+    }
+
+
     // This catch-all layer ensures BM25 can find the neuron via ANY vocabulary in its
     // content, even when the content doesn't match any predefined category pattern.
     // Zero false-positive risk: these terms are extracted directly from the content.

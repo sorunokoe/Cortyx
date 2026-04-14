@@ -4852,7 +4852,7 @@ fn detect_oldest_query(task: &str) -> bool {
         "what was the first", "when did i first", "what did i first",
         "first time i", "first time she", "first time he",
         "first issue", "first problem", "first mention",
-        "originally", "initially", "at the beginning",
+        "originally", "at the beginning",
         "earliest", "earliest time", "earliest mention",
         "when i first", "the first x", "first ever",
         "first one", "first thing", "very first",
