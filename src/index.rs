@@ -4839,6 +4839,7 @@ fn detect_temporal_query(task: &str) -> bool {
         // belong EXCLUSIVELY in detect_oldest_query to avoid double-boost misrouting).
         "most recently", "last known", "as of", "up until", "prior to", "before that",
         "what was the last", "when did i last", "most recent time",
+        "past weekend", "this past", "last weekend",
     ];
     let lower = task.to_lowercase();
     TEMPORAL_MARKERS.iter().any(|m| lower.contains(m))
@@ -4859,7 +4860,20 @@ fn detect_oldest_query(task: &str) -> bool {
         "what was the original", "what was the initial",
     ];
     let lower = task.to_lowercase();
-    OLDEST_MARKERS.iter().any(|m| lower.contains(m))
+    if OLDEST_MARKERS.iter().any(|m| lower.contains(m)) {
+        return true;
+    }
+    // Compound: "Which X did I do first, X or Y?" — choice-ordering questions.
+    // e.g. "Which vehicle did I take care of first, the bike or the car?"
+    //      "Which event did I attend first, the workshop or the conference?"
+    // Pattern: starts with "which" AND contains " first" AND contains " or ".
+    if lower.starts_with("which")
+        && lower.contains(" first")
+        && lower.contains(" or ")
+    {
+        return true;
+    }
+    false
 }
 
 /// R21 T5: Detect counting queries — questions that need aggregate evidence from many sessions.

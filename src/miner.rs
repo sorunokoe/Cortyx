@@ -1205,7 +1205,8 @@ fn generate_query_surface(text: &str) -> Option<String> {
            "my linkedin", "my handle", "my username", "i post on", "my followers",
            "my channel", "my blog", "my podcast", "my newsletter"],
          &["what is her instagram", "what is his twitter", "social media",
-           "instagram", "twitter", "youtube", "handle", "channel", "online"]),
+           "instagram", "twitter", "youtube", "tiktok", "handle", "channel",
+           "followers", "platform", "subscribers", "views", "online"]),
 
         // ── Subscription / Membership ────────────────────────────────────────────
         (&["i subscribe", "my subscription", "i'm a member", "my membership",
@@ -1433,12 +1434,14 @@ fn generate_query_surface(text: &str) -> Option<String> {
         // ── Counting / Aggregation facts ──────────────────────────────────────
         (&["i've done", "i have done", "i've been to", "i have been to",
            "i've visited", "i have visited", "i've tried", "i have tried",
-           "i've worked on", "i've read", "i've seen", "i've watched",
-           "i've bought", "i've completed", "total of", "so far i've",
-           "i've now", "i've gone through", "i've attended"],
+           "i've worked on", "i've read", "i have read", "i've seen", "i've watched",
+           "i have watched", "i've bought", "i have bought", "i've completed",
+           "i have completed", "i have attended", "i've attended",
+           "total of", "so far i've", "so far i have",
+           "i've now", "i've gone through", "i have now"],
          &["how many has she done", "how many times has he visited", "how many total",
            "how many have i done", "how many have i visited", "how many have i tried",
-           "how many total count worked done bought completed have i"]),
+           "how many total count worked done bought completed attended read watched have i"]),
 
         // ── Gifts / Presents received ─────────────────────────────────────────
         // "I got my new stand mixer as a birthday gift from my sister" → who gave
