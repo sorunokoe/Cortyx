@@ -80,6 +80,15 @@ pub fn mine_path(
         // Single commit for the entire directory — rebuild_derived() called ONCE.
         idx.commit()?;
 
+        // Sol-A: Emit word-count aggregate neurons then arithmetic (dollar/numeric) aggregates.
+        // Both passes are additive — they emit new Aggregate neurons and stage them.
+        // A second commit is needed to index the new neurons (O(n) rebuild once).
+        let word_agg = idx.emit_aggregate_neurons(project_root).unwrap_or(false);
+        let arith_agg = idx.emit_arithmetic_aggregate_neurons(project_root).unwrap_or(false);
+        if word_agg || arith_agg {
+            idx.commit()?;
+        }
+
         // Batch embed all neurons written in this directory mine (--features embed only).
         #[cfg(feature = "embed")]
         batch_embed_paths(&all_neuron_paths, project_root);
