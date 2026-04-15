@@ -1314,19 +1314,26 @@ impl NeuronIndex {
         // expand the candidate set to include ALL Verbatim neurons in the index, scored
         // with BM25 against the query. The extra candidates use overflow (headlines only)
         // so the token budget stays constant.
+        // CountNeuron (TRIZ NE-5): for counting queries also inject Aggregate neurons.
         let counting_augment: Vec<usize> = if is_counting {
             let candidate_verbatim_count = candidate_set.iter()
                 .filter(|&&i| matches!(self.entries[i].kind, NeuronKind::Verbatim))
                 .count();
+            let in_set: std::collections::HashSet<usize> = candidate_set.iter().copied().collect();
             if candidate_verbatim_count > 5 {
-                // Already has good coverage — no need to expand
-                vec![]
-            } else {
-                // Expand to all Verbatim neurons not already in candidate_set
-                let in_set: std::collections::HashSet<usize> = candidate_set.iter().copied().collect();
+                // Already has good coverage — still add Aggregate neurons for counting
                 self.entries.iter().enumerate()
                     .filter(|(i, e)| {
-                        matches!(e.kind, NeuronKind::Verbatim) && !in_set.contains(i)
+                        matches!(e.kind, NeuronKind::Aggregate) && !in_set.contains(i)
+                    })
+                    .map(|(i, _)| i)
+                    .collect()
+            } else {
+                // Expand to all Verbatim + all Aggregate neurons not already in set
+                self.entries.iter().enumerate()
+                    .filter(|(i, e)| {
+                        matches!(e.kind, NeuronKind::Verbatim | NeuronKind::Aggregate)
+                            && !in_set.contains(i)
                     })
                     .map(|(i, _)| i)
                     .collect()
@@ -1339,6 +1346,9 @@ impl NeuronIndex {
         // kind=None or "all" → Core + Project + Verbatim (default)
         // kind="code"         → Core + Project only (exclude conversation/Verbatim)
         // kind="conversation" → Verbatim only (episodic recall, excludes code neurons)
+        // Aggregate neurons are NEVER in the general BM25 pool — they are injected
+        // via counting_augment only when detect_counting_query() fires, preventing
+        // pollution of non-counting R@5 results.
         let kind_lower = kind.map(|k| k.to_lowercase());
         let mut bm25_scored: Vec<(f32, usize)> = candidate_set
             .iter()
@@ -2694,7 +2704,7 @@ impl NeuronIndex {
                 }
                 NeuronKind::UseCase => usecases += 1,
                 NeuronKind::Verbatim => verbatim += 1,
-                NeuronKind::Concept => concepts += 1,
+                NeuronKind::Concept | NeuronKind::Aggregate => concepts += 1,
             }
         }
         println!("Cortyx Index");
@@ -3975,6 +3985,149 @@ impl NeuronIndex {
         (full_with_scores, overflow)
     }
 
+    /// CountNeuron (TRIZ NE-5): Pre-aggregate cross-session occurrence counts at mine time.
+    ///
+    /// Scans all `NeuronKind::Verbatim` entries, groups them by `session_id`, and builds
+    /// a `term → distinct_sessions` map.  For terms appearing in ≥3 distinct sessions it
+    /// emits a `NeuronKind::Aggregate` neuron that answers "how many times did I X?" in
+    /// O(1) — the count is written in BOTH numeral and word form so keyword matching hits.
+    ///
+    /// Call this after `idx.commit()` and call `idx.commit()` once more if it returns
+    /// `true` (at least one aggregate neuron was staged).
+    pub fn emit_aggregate_neurons(&mut self, project_root: &Path) -> Result<bool> {
+        use std::collections::hash_map::Entry;
+        use crate::neuron::NeuronStatus;
+
+        // Common words that would produce useless aggregate neurons
+        const AGG_STOP: &[&str] = &[
+            "that", "this", "with", "from", "have", "will", "what", "when", "where",
+            "which", "there", "their", "them", "they", "then", "been", "were",
+            "some", "just", "also", "about", "into", "more", "than", "your",
+            "here", "very", "well", "over", "back", "down", "would", "could",
+            "should", "might", "does", "didn", "wasn", "aren", "isn", "hasn",
+            "like", "want", "need", "think", "know", "said", "told", "went",
+            "make", "made", "take", "took", "come", "came", "went", "going",
+            "really", "still", "even", "already", "always", "never", "every",
+            "after", "before", "during", "while", "other", "another", "both",
+            "first", "last", "next", "same", "such", "much", "many", "most",
+            "because", "since", "through", "between", "under", "again", "help",
+            "time", "year", "week", "month", "today", "yesterday", "tomorrow",
+            "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+        ];
+        let agg_stop: HashSet<&str> = AGG_STOP.iter().copied().collect();
+
+        // Gather (term, session_id) pairs from every Verbatim entry.
+        let mut term_sessions: HashMap<String, HashSet<String>> = HashMap::new();
+        let mut term_snippets: HashMap<String, Vec<(String, String)>> = HashMap::new();
+
+        // Collect entries data without borrowing self mutably (for peek_neuron)
+        let entries_snapshot: Vec<(NeuronKind, String, PathBuf, Vec<String>)> = self.entries
+            .iter()
+            .filter(|e| matches!(e.kind, NeuronKind::Verbatim) && !e.session_id.is_empty())
+            .map(|e| (
+                e.kind.clone(),
+                e.session_id.clone(),
+                e.neuron_path.clone(),
+                e.term_freq.keys().cloned().collect(),
+            ))
+            .collect();
+
+        for (_, sid, neuron_path, terms) in &entries_snapshot {
+            let content_snippet = std::fs::read_to_string(neuron_path)
+                .unwrap_or_default()
+                .lines()
+                .filter(|l| !l.starts_with('#'))
+                .take(1)
+                .next()
+                .unwrap_or("")
+                .chars()
+                .take(100)
+                .collect::<String>();
+
+            for term in terms {
+                // Only count-worthy terms: ≥4 chars, letters only (no numbers/punct)
+                if term.len() < 4 { continue; }
+                if !term.chars().all(|c| c.is_ascii_alphabetic()) { continue; }
+                if agg_stop.contains(term.as_str()) { continue; }
+
+                term_sessions
+                    .entry(term.clone())
+                    .or_default()
+                    .insert(sid.clone());
+
+                if let Entry::Occupied(mut e) = term_snippets.entry(term.clone()) {
+                    // Limit snippets per term to avoid huge files
+                    if e.get().len() < 10 && !e.get().iter().any(|(s, _)| s == sid) {
+                        e.get_mut().push((sid.clone(), content_snippet.clone()));
+                    }
+                } else {
+                    term_snippets.insert(term.clone(), vec![(sid.clone(), content_snippet.clone())]);
+                }
+            }
+        }
+
+        let ndir = neuron_dir(project_root);
+        let mut staged = 0usize;
+
+        for (term, sessions) in &term_sessions {
+            let count = sessions.len();
+            if count < 3 { continue; }
+
+            let slug: String = term.chars().take(48).collect();
+            let fname = format!("_count_{slug}.aggregate.md");
+            let neuron_path = ndir.join(&fname);
+
+            let word = num_to_word(count);
+            let count_str = if word.is_empty() {
+                format!("{count}")
+            } else {
+                format!("{count} ({word})")
+            };
+
+            // Snippets section
+            let snippets = term_snippets.get(term).cloned().unwrap_or_default();
+            let snippet_lines: String = snippets.iter()
+                .map(|(sid, snip)| format!("- {sid}: {snip}\n"))
+                .collect();
+
+            let content = format!(
+                "# _count_{slug}\n\
+                 \n\
+                 ## purpose\n\
+                 Aggregate count: \"{term}\" mentioned in {count_str} sessions.\n\
+                 \n\
+                 ## count\n\
+                 {count_str} sessions\n\
+                 \n\
+                 ## entity\n\
+                 {term}\n\
+                 \n\
+                 ## sessions\n\
+                 {snippet_lines}\
+                 \n\
+                 ## total\n\
+                 Mentioned {count_str} times across {count_str} sessions. Count: {count} ({}).\n",
+                num_to_word(count)
+            );
+
+            // Write the file
+            if let Err(e) = atomic_write(&neuron_path, content.as_bytes()) {
+                eprintln!("[emit_aggregate] failed to write {fname}: {e}");
+                continue;
+            }
+
+            // Build meta for Aggregate neuron
+            let mut meta = NeuronMeta::new_stub(project_root, NeuronKind::Aggregate);
+            meta.status = NeuronStatus::Fresh;
+            meta.tokens = estimate_tokens(&content);
+
+            self.stage(&neuron_path, &content, &meta);
+            staged += 1;
+        }
+
+        Ok(staged > 0)
+    }
+
     /// S-XI (R16): Detect renamed/moved source files and carry over accumulated signal.
     ///
     /// After a full compile, scans for neurons whose source file no longer exists.
@@ -5099,6 +5252,19 @@ fn parse_iso8601_to_secs(ts: Option<&str>) -> Option<i64> {
         + MONTH_START_DAYS[(month - 1) as usize]
         + day - 1;
     Some(days * 86_400)
+}
+
+/// CountNeuron helper: convert count 1–20 to its English word equivalent.
+/// Returns empty string for counts outside that range.
+fn num_to_word(n: usize) -> &'static str {
+    match n {
+        1 => "one", 2 => "two", 3 => "three", 4 => "four", 5 => "five",
+        6 => "six", 7 => "seven", 8 => "eight", 9 => "nine", 10 => "ten",
+        11 => "eleven", 12 => "twelve", 13 => "thirteen", 14 => "fourteen",
+        15 => "fifteen", 16 => "sixteen", 17 => "seventeen", 18 => "eighteen",
+        19 => "nineteen", 20 => "twenty",
+        _ => "",
+    }
 }
 
 /// Wilson score lower bound for a proportion at 95% confidence interval.

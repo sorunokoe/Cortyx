@@ -21,6 +21,10 @@ pub enum NeuronKind {
     Concept,
     /// One per project — top-level overview neuron.
     Project,
+    /// Mine-time cross-session aggregate: pre-computed count and context snippets
+    /// for entities/topics mentioned in ≥3 distinct sessions. Answers "how many
+    /// times did I X?" queries in O(1) without runtime graph traversal.
+    Aggregate,
 }
 
 /// Lifecycle state of a neuron.
