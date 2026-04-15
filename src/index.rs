@@ -3086,7 +3086,7 @@ impl NeuronIndex {
                 if let Some(section_content) = sections.get(section_name) {
                     for t in tokenize(section_content) {
                         let v = tf.entry(t).or_insert(0.0);
-                        *v += 1.5; // boost: question vocab is high-signal
+                        *v += 0.5; // boost: question vocab is high-signal (kept low to avoid over-boosting generic category tokens)
                     }
                 }
             }
@@ -4840,6 +4840,14 @@ fn detect_temporal_query(task: &str) -> bool {
         "most recently", "last known", "as of", "up until", "prior to", "before that",
         "what was the last", "when did i last", "most recent time",
         "past weekend", "this past", "last weekend",
+        // Specific-day recency: "last Saturday", "last Tuesday", etc.
+        "last saturday", "last sunday", "last monday", "last tuesday",
+        "last wednesday", "last thursday", "last friday",
+        // Relative-day recency: "a couple of days ago", "10 days ago", etc.
+        "days ago", "a couple of days", "a few days ago",
+        // "a week ago", "week ago" (NOT "weeks ago" to avoid arithmetic queries like
+        // "how many weeks ago" which are a separate category from recency retrieval).
+        "week ago",
     ];
     let lower = task.to_lowercase();
     TEMPORAL_MARKERS.iter().any(|m| lower.contains(m))
@@ -5006,6 +5014,10 @@ fn detect_personal_fact_query(task: &str) -> Option<&'static str> {
         if triggers.iter().any(|t| lower.contains(t)) {
             return Some(predicate);
         }
+    }
+    // Compound trigger: "where did [name] move" / "where did ... move ... relocation"
+    if lower.contains("where did") && (lower.contains(" move") || lower.contains("relocation")) {
+        return Some("location");
     }
     None
 }
