@@ -1636,13 +1636,14 @@ impl NeuronIndex {
         #[cfg(feature = "embed")]
         {
             use crate::embedder::{cosine_sim, rrf_score};
-            // Mirror the TF-IDF high-confidence gate: when BM25 is decisively authoritative
-            // (e.g. direct fact-recall with exact keyword match), dense re-rank adds noise by
-            // promoting semantically similar but wrong sessions. Only apply when the query is
-            // ambiguous enough that cosine similarity can provide signal.
+            // Gate: only apply dense re-rank when BM25 is genuinely failing (< LOW_CONFIDENCE)
+            // AND TF-IDF was not forced. At low confidence, cosine similarity can rescue queries
+            // with vocabulary mismatch. At moderate/high confidence, the all-MiniLM-L6-v2
+            // general-purpose model adds noise that outweighs its signal on this workload.
             let top_for_embed = bm25_scored.first().map(|(s, _)| *s).unwrap_or(0.0);
             let run_embed = !self.embeddings.is_empty()
-                && (force_tfidf || top_for_embed < HIGH_CONFIDENCE_THRESHOLD);
+                && !force_tfidf
+                && top_for_embed < LOW_CONFIDENCE_THRESHOLD;
             if run_embed {
                 // Build a BM25 rank map (rank 0 = top) for the scored candidates.
                 let bm25_rank: HashMap<usize, usize> = bm25_scored
@@ -4846,8 +4847,11 @@ fn detect_temporal_query(task: &str) -> bool {
         "what was the last", "when did i last", "most recent time",
         "past weekend", "this past", "last weekend",
         // Specific-day recency: "last Saturday", "last Tuesday", etc.
-        "last saturday", "last sunday", "last monday", "last tuesday",
-        "last wednesday", "last thursday", "last friday",
+        // NOTE: These are intentionally NOT in temporal_markers because they denote a
+        // specific anchor day, not a recency preference. BM25 alone (music×33 + parents×1 etc.)
+        // correctly selects the right session; adding temporal boost here causes cross-scenario
+        // contamination (sessions with higher file-write order IDs win unfairly).
+        // "last monday", "last tuesday", ... → no temporal boost, rely on BM25.
         // Relative-day recency: "a couple of days ago", "10 days ago", etc.
         "days ago", "a couple of days", "a few days ago",
         // "a week ago", "week ago" (NOT "weeks ago" to avoid arithmetic queries like
