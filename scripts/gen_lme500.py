@@ -76,24 +76,60 @@ def _load_json(path: str) -> object:
 
 
 def _keywords_from_answer(answer: str, n: int = 5) -> list[str]:
-    """Extract up to n meaningful keywords from a gold answer string."""
+    """Extract up to n meaningful keywords from a gold answer string.
+
+    Uses two extraction passes:
+    1. Pure numerics (\b\d+\b) — captures single-digit counting answers like "2","3"
+       that the old {2,} alpha-only regex would drop.
+    2. Dollar amounts (\$\d+(?:\.\d+)?) — captures "$5", "$10" style answers.
+    3. Ratio/fraction tokens (\d+:\d+) — captures "3:1" style answers.
+    4. Alpha words ([a-zA-Z][a-zA-Z0-9'_-]+, ≥2 alpha chars) — skips stopwords.
+    """
     stopwords = {
         "the", "a", "an", "is", "was", "are", "were", "be", "been", "being",
         "have", "has", "had", "do", "does", "did", "will", "would", "could",
         "should", "may", "might", "shall", "can", "i", "you", "he", "she",
         "we", "they", "it", "my", "your", "his", "her", "our", "their",
         "in", "on", "at", "to", "for", "of", "with", "by", "from", "about",
-        "that", "this", "these", "those", "and", "or", "but", "not", "no",
-        "yes", "very", "just", "also", "so", "if", "when", "then", "there",
+        "that", "this", "these", "those", "and", "or", "but", "not",
+        "very", "just", "also", "so", "if", "when", "then", "there",
     }
     answer = str(answer)  # handles int/float answers
-    words = re.findall(r"[a-zA-Z0-9'_-]{2,}", answer.lower())
+    ans_lower = answer.lower()
+
     seen: list[str] = []
-    for w in words:
+
+    # Pass 1: ratio tokens (e.g. "3:1") — before splitting on digits
+    for m in re.finditer(r"\b\d+:\d+\b", ans_lower):
+        w = m.group()
+        if w not in seen:
+            seen.append(w)
+        if len(seen) >= n:
+            return seen
+
+    # Pass 2: dollar amounts (e.g. "$5", "$10.50")
+    for m in re.finditer(r"\$\d+(?:\.\d+)?", ans_lower):
+        w = m.group()
+        if w not in seen:
+            seen.append(w)
+        if len(seen) >= n:
+            return seen
+
+    # Pass 3: pure numerics including single digits (e.g. "2", "17")
+    for m in re.finditer(r"\b\d+\b", ans_lower):
+        w = m.group()
+        if w not in seen:
+            seen.append(w)
+        if len(seen) >= n:
+            return seen
+
+    # Pass 4: alpha words (≥2 chars, not stopwords)
+    for w in re.findall(r"[a-zA-Z][a-zA-Z0-9'_-]+", ans_lower):
         if w not in stopwords and w not in seen:
             seen.append(w)
-        if len(seen) == n:
-            break
+        if len(seen) >= n:
+            return seen
+
     return seen
 
 

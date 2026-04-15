@@ -649,8 +649,13 @@ fn bench_retrieval_accuracy_500q() {
             root,
         );
         let result_str = String::from_utf8_lossy(&out.stdout).to_lowercase();
+        // Normalize keywords: strip leading/trailing apostrophes that artifact from
+        // fixture generation splitting "'Game of Thrones'" on spaces → ["'game", "thrones'"].
+        // The actual session text has the title without surrounding quotes.
         let any_hit = entry.expected_keywords.iter().any(|kw| {
-            result_str.contains(&kw.to_lowercase())
+            let kw_norm = kw.to_lowercase();
+            let kw_norm = kw_norm.trim_matches('\'');
+            !kw_norm.is_empty() && result_str.contains(kw_norm)
         });
         if !any_hit && verbose {
             let snippet: String = result_str.chars().take(120).collect();
