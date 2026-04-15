@@ -106,26 +106,33 @@ cortyx get-contexts --task "..." --min-confidence 0.5
 
 **Live results (BM25-only, no dense embeddings, debug build):**
 
-| Category | n | R1–R5 best | R10 | R15 | R16 | R17 | R18 (latest) |
-|---|---|---|---|---|---|---|---|
-| single-session-preference | 30 | 100.0% | 100.0% | 100.0% | 100.0% | 100.0% | **100.0%** |
-| single-session-assistant | 56 | 92.9% | 94.6% | 94.6% | 94.6% | 94.6% | **94.6%** |
-| single_session_user | 70 | 78.6% | 94.3% | 97.1% | 97.1% | 97.1% | **97.1%** |
-| temporal-reasoning | 133 | 82.7% | 80.5% | 83.5% | 83.5% | 83.5% | **84.2%** |
-| knowledge_update | 78 | 57.7% | 69.2% | 79.5% | 80.8% | 82.1% | **82.1%** |
-| multi_session | 133 | 48.9% | 48.1% | 51.9% | 52.6% | 52.6% | **52.6%** |
-| **Overall** | **500** | **70.6%** | **77.0%** | **77.4%** | **77.8%** | **79.6%** | **79.4%** |
+| Category | n | R1–R5 best | R10 | R15 | R16 | R17 | R18 (BM25) | R20 (+embed) |
+|---|---|---|---|---|---|---|---|---|
+| single-session-preference | 30 | 100.0% | 100.0% | 100.0% | 100.0% | 100.0% | **100.0%** | **100.0%** |
+| single-session-assistant | 56 | 92.9% | 94.6% | 94.6% | 94.6% | 94.6% | **94.6%** | **94.6%** |
+| single_session_user | 70 | 78.6% | 94.3% | 97.1% | 97.1% | 97.1% | **97.1%** | **97.1%** |
+| temporal-reasoning | 133 | 82.7% | 80.5% | 83.5% | 83.5% | 83.5% | **84.2%** | 83.5% |
+| knowledge_update | 78 | 57.7% | 69.2% | 79.5% | 80.8% | 82.1% | **82.1%** | **82.1%** |
+| multi_session | 133 | 48.9% | 48.1% | 51.9% | 52.6% | 52.6% | 52.6% | **53.4%** |
+| **Overall** | **500** | **70.6%** | **77.0%** | **77.4%** | **77.8%** | **79.6%** | **79.4%** | **79.4%** |
 
-> R10–R18 reflect the major architectural improvements landed in commit `NE-1/NE-2/NE-4`:  
-> O(n²) mining fix, 5000-char truncation removed, temporal routing overlap fixed.
+> **Theoretical keyword-match ceiling: 88.8%** (444/500 entries have non-empty expected keywords).  
+> 56 entries have no keywords (single-digit counting answers like "3") and cannot be scored by  
+> keyword matching. Beating MemPalace (96.6%) at this ceiling requires LLM-judge evaluation —  
+> run `python3 scripts/eval_lme.py --llm-judge` for a fair comparison.
+
+> R10–R18 reflect major architectural fixes: O(n²) mining fixed (41s vs 568s), 5000-char  
+> truncation removed, temporal routing overlap fixed.  
+> R20 adds `--features embed` with corrected gating (LOW_CONFIDENCE only, skip if TF-IDF forced  
+> or BM25 is already decisive). Net: embed = BM25-only on this workload.
 
 **Timing:**
 
 | Run | Mine | Queries | Total | Notes |
 |---|---|---|---|---|
 | Run 1–5 (5k truncation) | 216–844s | 324–1104s | 540–1948s | O(n²) mining, 80% content lost |
-| Run 10 (post-fix) | **~40s** | ~900s | ~940s | O(1) rebuild, full content |
-| Run 18 (latest) | **~41s** | ~1436s | ~1477s | 14× faster mining; full content increases query cost |
+| Run 18 (BM25-only) | **~41s** | ~1436s | ~1477s | 14× faster mining; full content |
+| Run 20 (embed) | **~68s** | ~1405s | ~1473s | +27s for embedding 500 sessions |
 
 **Target with dense embeddings (`--features embed`):** R@5 ≥ 97% (beats MemPalace 96.6%)  
 **Proper eval target:** F1 ≥ 85% overall across all 5 categories
@@ -218,7 +225,7 @@ cargo test --test bench bench_binary_size -- --nocapture
 
 | System | LME-500 R@5 | LoCoMo QA F1 | Notes |
 |---|---|---|---|
-| **Cortyx (BM25 only, live)** | **79.4%** | — | Pure Rust, debug build (Run 18, BM25 + full content) |
+| **Cortyx (BM25 only, live)** | **79.4%** | — | Pure Rust, debug build (Run 18; +embed gated = same score) |
 | **Cortyx (BM25 + embed target)** | **[target] ≥97%** | **[target] ≥87%** | `--features embed`, release build |
 | MemPalace | 96.6% | not entered | Verbatim ChromaDB, Python |
 | OMEGA | 95.4% | — | Cloud |
