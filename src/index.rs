@@ -71,11 +71,12 @@ const AVG_SYNAPSE_TOKEN_COST: usize = 200;
 /// High ratio (≥ threshold) → BM25 is decisive; low ratio → tie-break with TF-IDF.
 const HYBRID_CONFIDENCE_THRESHOLD: f32 = 1.5;
 /// BM25 top-score above which retrieval is considered decisive — TF-IDF and dense
-/// re-ranking are skipped entirely (no wasted compute for clear keyword matches).
+/// BM25 top-score above which retrieval is considered high-confidence and dense re-ranking
+/// is skipped (no wasted compute for clear keyword matches).
 const HIGH_CONFIDENCE_THRESHOLD: f32 = 8.0;
-/// BM25 top-score below which retrieval is considered ambiguous.
-/// Logged as a hint for future API-embedding escalation path (Solution 3, v0.3).
-const LOW_CONFIDENCE_THRESHOLD: f32 = 0.5;
+/// BM25 top-score below which dense re-rank (embed) is activated.
+/// Only activates for genuinely ambiguous queries (moderate BM25 confidence).
+const LOW_CONFIDENCE_THRESHOLD: f32 = 4.0;
 
 /// Minimum public functions in a source file to trigger UseCase sub-neuron splitting (S3).
 ///
@@ -322,6 +323,10 @@ pub struct NeuronIndex {
     posting_list: HashMap<String, Vec<usize>>,
     /// Average document length (for BM25 length normalization)
     avg_doc_len: f32,
+    /// Average Verbatim-neuron document length (for BM25 length normalization of conversation chunks).
+    /// Computed separately from avg_doc_len to avoid Concept/entity neurons (very short, ~150 tokens)
+    /// artificially depressing the average and over-penalizing long session chunks.
+    avg_verbatim_doc_len: f32,
     /// Module → entry indices (for O(k) module-filtered queries)
     module_index: HashMap<String, Vec<usize>>,
     /// Vocabulary bridge (S2): module_fragment → set of identifier terms from that module.
@@ -3307,6 +3312,8 @@ impl NeuronIndex {
         self.session_index.clear(); // R21 T6
 
         let mut total_terms = 0usize;
+        let mut verbatim_total_terms = 0usize;
+        let mut verbatim_count = 0usize;
 
         for (i, entry) in self.entries.iter().enumerate() {
             // path_index
@@ -3355,12 +3362,21 @@ impl NeuronIndex {
             }
 
             total_terms += entry.term_count;
+            if matches!(entry.kind, NeuronKind::Verbatim) {
+                verbatim_total_terms += entry.term_count;
+                verbatim_count += 1;
+            }
         }
 
         self.avg_doc_len = if self.entries.is_empty() {
             0.0
         } else {
             total_terms as f32 / self.entries.len() as f32
+        };
+        self.avg_verbatim_doc_len = if verbatim_count == 0 {
+            self.avg_doc_len
+        } else {
+            verbatim_total_terms as f32 / verbatim_count as f32
         };
 
         self.build_vocab_bridge();
