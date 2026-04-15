@@ -126,6 +126,17 @@ cortyx get-contexts --task "..." --min-confidence 0.5
 > R20 adds `--features embed` with corrected gating (LOW_CONFIDENCE only, skip if TF-IDF forced  
 > or BM25 is already decisive). Net: embed = BM25-only on this workload.
 
+> **BM25 ceiling confirmed at 79.6% (398/500) — Run 23 analysis (f8c3ec4).**  
+> All 9 remaining structural FAILs are caused by vocabulary polysemy and chain-aggregation:  
+> - **Polysemy** (`finish`×13 in car-paint session beats book-reading session for "which book did I finish")  
+> - **Chain aggregation** (multi-chunk music session beats single-chunk session with the correct fact)  
+> - **Common-word contamination** (`meet`×14 in task-management session beats social catch-up session)  
+> - **Vocab gap** ("transcriptionist" ≠ "work from home jobs for seniors" — needs semantic bridge)  
+> 
+> Experiments tried without regression: avgdl split, BM25_B tuning, embed at 4–8 thresholds,  
+> kitchen/social PATTERN additions. All neutral or negative. BM25 is at its structural limit.  
+> **Next phase: mine-time LLM paraphrase injection to bridge vocabulary gaps (+3–5pp estimated).**
+
 **Timing:**
 
 | Run | Mine | Queries | Total | Notes |
