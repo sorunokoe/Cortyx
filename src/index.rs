@@ -1310,16 +1310,14 @@ impl NeuronIndex {
 
         // Sol-E (TRIZ P24 Mediator + P23 Feedback): Generic keyword concept expansion.
         //
-        // When ALL query terms are high-frequency (df/N > 0.40) the posting-list returns
-        // many candidates but BM25 tops out at a low score — the query is semantically
-        // underspecified by vocabulary. In this case, expand the candidate set by adding
-        // all neurons whose concept_cloud overlaps with any scoring term. The concept_cloud
-        // is built from 1-hop synapse neighbours at rebuild_derived() time — zero new data.
+        // Only fire when ALL query terms are in >80% of neurons — truly universal filler
+        // words that carry no discriminative signal at all. At 0.40 this fired for entity
+        // names in dense corpora and caused mass candidate expansion with precision loss.
         let candidate_set = {
             let n = self.entries.len().max(1) as f32;
             let all_generic = !scoring_terms.is_empty() && scoring_terms.iter().all(|t| {
                 let df = self.df_cache.get(t.as_str()).copied().unwrap_or(0) as f32;
-                df / n > 0.40
+                df / n > 0.80
             });
             if all_generic && !candidate_set.is_empty() {
                 let term_set: HashSet<&str> = scoring_terms.iter().map(|s| s.as_str()).collect();
@@ -1811,6 +1809,20 @@ impl NeuronIndex {
             }
         }
 
+        // Sol-A+: Force-inject best Aggregate neuron for counting queries (follows KG router
+        // pattern). Aggregate neurons score low in BM25 because their content is sparse
+        // (just pre-computed counts/sums). Without force-injection, they never appear in
+        // top-5 even though they contain the correct answer for "how many times?" queries.
+        // Extract before bm25_scored.into_iter() consumes it.
+        let aggregate_force_path: Option<PathBuf> = if is_counting {
+            bm25_scored.iter()
+                .filter(|(_, i)| matches!(self.entries[*i].kind, NeuronKind::Aggregate))
+                .max_by(|a, b| a.0.total_cmp(&b.0))
+                .map(|(_, i)| self.entries[*i].neuron_path.clone())
+        } else {
+            None
+        };
+
         let top_cores: Vec<(f32, usize)> =
             bm25_scored.into_iter().take(MAX_CORE_NEURONS).collect();
 
@@ -1845,6 +1857,13 @@ impl NeuronIndex {
         // P2-B: Inject KG router result at rank-1 before BM25 results.
         if let Some(ref kg_path) = kg_router_path {
             selected.insert(kg_path.clone());
+        }
+
+        // Sol-A+: Inject best Aggregate at rank-2 (after KG if present) for counting queries.
+        // Guarantees the pre-computed count/sum surfaces in results even when outnumbered by
+        // higher-scoring Verbatim neurons (which contain context but not the final count).
+        if let Some(ref agg_path) = aggregate_force_path {
+            selected.insert(agg_path.clone());
         }
 
         // top_cores are already ordered by BM25 score (descending).
@@ -3462,7 +3481,11 @@ impl NeuronIndex {
         // Terms in > DYNAMIC_STOP_RATIO of neurons have IDF ≈ 0 and cause TF
         // contamination. Mark them so bm25_score() can skip them for free.
         // Only run when the corpus is large enough to be meaningful (≥20 neurons).
-        const DYNAMIC_STOP_RATIO: f32 = 0.65;
+        // IMPORTANT: threshold must be very high (0.97+) — in dense conversational
+        // corpora, entity names like "alice" or "paris" can appear in 65-80% of neurons
+        // across 500 sessions, so any lower threshold would zero out proper nouns and
+        // devastate retrieval. At 0.97 only true universal filler words are caught.
+        const DYNAMIC_STOP_RATIO: f32 = 0.97;
         self.dynamic_stopwords.clear();
         let n = self.entries.len();
         if n >= 20 {
@@ -5402,6 +5425,14 @@ fn detect_counting_query(task: &str) -> bool {
         "what did it cost", "what was the total", "what is the total",
         "overall cost", "overall amount", "overall spend",
         "amount spent", "money spent", "dollars spent",
+        // R31: Multi-session synthesis markers — queries that need cross-session aggregation
+        "across all", "across our", "throughout all", "throughout our",
+        "in all sessions", "in any session", "in any of our", "in all of our",
+        "all our conversations", "every conversation", "all conversations",
+        "every session", "all sessions", "every time we", "all the times",
+        "all our chats", "all our discussions", "all our talks",
+        "have i ever", "did i ever", "any time i", "anytime i",
+        "over all", "through all", "during all", "among all",
     ];
     let lower = task.to_lowercase();
     COUNTING_MARKERS.iter().any(|m| lower.contains(m))
