@@ -6,3 +6,6 @@ Thumbs.db
 *~
 .env
 cortyx_export_*.json
+# Runtime model/tokenizer files (download with scripts/download_reranker.py)
+.cortyx/reranker.onnx
+.cortyx/tokenizer.json

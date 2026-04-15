@@ -1636,7 +1636,14 @@ impl NeuronIndex {
         #[cfg(feature = "embed")]
         {
             use crate::embedder::{cosine_sim, rrf_score};
-            if !self.embeddings.is_empty() {
+            // Mirror the TF-IDF high-confidence gate: when BM25 is decisively authoritative
+            // (e.g. direct fact-recall with exact keyword match), dense re-rank adds noise by
+            // promoting semantically similar but wrong sessions. Only apply when the query is
+            // ambiguous enough that cosine similarity can provide signal.
+            let top_for_embed = bm25_scored.first().map(|(s, _)| *s).unwrap_or(0.0);
+            let run_embed = !self.embeddings.is_empty()
+                && (force_tfidf || top_for_embed < HIGH_CONFIDENCE_THRESHOLD);
+            if run_embed {
                 // Build a BM25 rank map (rank 0 = top) for the scored candidates.
                 let bm25_rank: HashMap<usize, usize> = bm25_scored
                     .iter()
@@ -1692,37 +1699,35 @@ impl NeuronIndex {
         }
 
         // Phase 1c — ONNX cross-encoder reranking (feature = "rerank").
-        // Activated only when BM25 confidence is low (sparse-query escalation path).
-        // Scores top-10 BM25 candidates with a local INT8 cross-encoder, then blends
-        // with the existing hit_rate feedback prior:
-        //   final = cross_encoder_score × (0.8 + 0.2 × hit_rate)
-        // Latency: < 10 ms for 10 candidates on CPU INT8 ONNX.
+        // Low-confidence escalation: activated only when the top BM25 score is below
+        // LOW_CONFIDENCE_THRESHOLD, indicating that BM25 is genuinely uncertain.
+        // Note: structural FAILs (where BM25 is confidently WRONG) cannot be rescued
+        // this way; mine-time paraphrase injection (Phase 2) is the preferred fix.
         // Falls back silently if `.cortyx/reranker.onnx` is absent.
         #[cfg(feature = "rerank")]
         {
             let top_score = bm25_scored.first().map(|(s, _)| *s).unwrap_or(0.0);
             if top_score < LOW_CONFIDENCE_THRESHOLD {
                 if let Some(reranker) = crate::reranker::inner::global_reranker(&self.project_root) {
+                    // Normalize BM25 scores to [0, 1] range
+                    let max_bm25 = top_score.max(f32::EPSILON);
                     let rerank_n = bm25_scored.len().min(10);
                     for (score, idx) in bm25_scored.iter_mut().take(rerank_n) {
                         let entry = &self.entries[*idx];
-                        // Read neuron file content as passage; fall back to term keys on I/O error.
+                        // First 800 chars: enough for key facts, fits CE 512-token window.
                         let passage = std::fs::read_to_string(&entry.neuron_path)
+                            .map(|s| s.chars().take(800).collect::<String>())
                             .unwrap_or_else(|_| entry.term_freq.keys().cloned().collect::<Vec<_>>().join(" "));
                         let ce_score = reranker.score_pair(task, &passage);
-                        let hit_rate = if entry.use_count > 0 {
-                            entry.hit_count as f32 / entry.use_count as f32
-                        } else {
-                            0.0
-                        };
-                        let prior = 0.8 + 0.2 * hit_rate;
-                        *score = ce_score * prior;
+                        let bm25_norm = *score / max_bm25;
+                        // 80% BM25 + 20% CE blend
+                        *score = 0.80 * bm25_norm + 0.20 * ce_score;
                     }
                     bm25_scored[..rerank_n].sort_unstable_by(|a, b| {
                         b.0.total_cmp(&a.0).then(a.1.cmp(&b.1))
                     });
                     tracing::debug!(
-                        "ONNX cross-encoder reranked top-{rerank_n} (low-confidence query)."
+                        "ONNX cross-encoder blend applied to top-{rerank_n} (low-confidence query)."
                     );
                 }
             }

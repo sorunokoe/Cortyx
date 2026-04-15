@@ -596,6 +596,21 @@ fn bench_retrieval_accuracy_500q() {
     let dir = TempDir::new().unwrap();
     let root = dir.path();
 
+    // If running with the `rerank` feature, copy the model + tokenizer into the temp root.
+    #[cfg(feature = "rerank")]
+    {
+        let cortyx_dir = root.join(".cortyx");
+        fs::create_dir_all(&cortyx_dir).ok();
+        let model_src = std::path::Path::new(".cortyx/reranker.onnx");
+        let tok_src   = std::path::Path::new(".cortyx/tokenizer.json");
+        if model_src.exists() {
+            fs::copy(model_src, cortyx_dir.join("reranker.onnx")).ok();
+        }
+        if tok_src.exists() {
+            fs::copy(tok_src, cortyx_dir.join("tokenizer.json")).ok();
+        }
+    }
+
     // Stage session files outside the project root
     let conv_staging = TempDir::new().unwrap();
     for entry in &entries {
