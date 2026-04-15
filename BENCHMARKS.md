@@ -106,25 +106,26 @@ cortyx get-contexts --task "..." --min-confidence 0.5
 
 **Live results (BM25-only, no dense embeddings, debug build):**
 
-| Category | n | Run 1 | Run 2 | Run 3 | Run 4 | Run 5 | Δ R4→R5 |
+| Category | n | R1–R5 best | R10 | R15 | R16 | R17 | R18 (latest) |
 |---|---|---|---|---|---|---|---|
-| single-session-preference | 30 | 100.0% | 100.0% | 100.0% | 100.0% | **100.0%** | — |
-| single-session-assistant | 56 | 92.9% | 92.9% | 92.9% | 92.9% | **92.9%** | — |
-| single-session-user | 70 | 78.6% | 77.1% | 71.4% | 75.7% | **74.3%** | -1.4% |
-| temporal-reasoning | 133 | 78.2% | 80.5% | 78.9% | **82.7%** | 78.2% | ⚠️ -4.5% |
-| knowledge-update | 78 | 55.1% | **57.7%** | 55.1% | 55.1% | 53.8% | -1.3% |
-| multi-session | 133 | 45.9% | 48.9% | 47.4% | 48.1% | **48.9%** | +0.8% |
-| **Overall** | **500** | 69.0% | **70.6%** | 68.6% | 70.4% | **69.0%** | **⚠️ -1.4%** |
+| single-session-preference | 30 | 100.0% | 100.0% | 100.0% | 100.0% | 100.0% | **100.0%** |
+| single-session-assistant | 56 | 92.9% | 94.6% | 94.6% | 94.6% | 94.6% | **94.6%** |
+| single_session_user | 70 | 78.6% | 94.3% | 97.1% | 97.1% | 97.1% | **97.1%** |
+| temporal-reasoning | 133 | 82.7% | 80.5% | 83.5% | 83.5% | 83.5% | **84.2%** |
+| knowledge_update | 78 | 57.7% | 69.2% | 79.5% | 80.8% | 82.1% | **82.1%** |
+| multi_session | 133 | 48.9% | 48.1% | 51.9% | 52.6% | 52.6% | **52.6%** |
+| **Overall** | **500** | **70.6%** | **77.0%** | **77.4%** | **77.8%** | **79.6%** | **79.4%** |
+
+> R10–R18 reflect the major architectural improvements landed in commit `NE-1/NE-2/NE-4`:  
+> O(n²) mining fix, 5000-char truncation removed, temporal routing overlap fixed.
 
 **Timing:**
 
-| Run | Mine | Queries | Total |
-|---|---|---|---|
-| Run 1 | ~216s | ~324s | ~540s |
-| Run 2 | ~707s | ~814s | ~1521s |
-| Run 3 | ~844s | ~1104s | ~1948s |
-| Run 4 | ~569s | ~676s | ~1245s |
-| Run 5 | **~568s** | **~674s** | **~1242s** ✅ stable |
+| Run | Mine | Queries | Total | Notes |
+|---|---|---|---|---|
+| Run 1–5 (5k truncation) | 216–844s | 324–1104s | 540–1948s | O(n²) mining, 80% content lost |
+| Run 10 (post-fix) | **~40s** | ~900s | ~940s | O(1) rebuild, full content |
+| Run 18 (latest) | **~41s** | ~1436s | ~1477s | 14× faster mining; full content increases query cost |
 
 **Target with dense embeddings (`--features embed`):** R@5 ≥ 97% (beats MemPalace 96.6%)  
 **Proper eval target:** F1 ≥ 85% overall across all 5 categories
@@ -217,7 +218,7 @@ cargo test --test bench bench_binary_size -- --nocapture
 
 | System | LME-500 R@5 | LoCoMo QA F1 | Notes |
 |---|---|---|---|
-| **Cortyx (BM25 only, live)** | **69.0%** | — | Pure Rust, debug build (best run: 70.6% R2) |
+| **Cortyx (BM25 only, live)** | **79.4%** | — | Pure Rust, debug build (Run 18, BM25 + full content) |
 | **Cortyx (BM25 + embed target)** | **[target] ≥97%** | **[target] ≥87%** | `--features embed`, release build |
 | MemPalace | 96.6% | not entered | Verbatim ChromaDB, Python |
 | OMEGA | 95.4% | — | Cloud |
