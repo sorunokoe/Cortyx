@@ -1443,6 +1443,15 @@ fn generate_query_surface(text: &str) -> Option<String> {
            "cousin", "wedding", "venue", "ballroom", "reception", "hall", "grand",
            "life event relative relatives participated family ceremony celebrate"]),
 
+        // ── Cooking / Baking event disclosure ─────────────────────────────────
+        (&["i just baked", "i recently baked", "by the way, i baked", "i just cooked",
+           "i recently cooked", "by the way, i cooked", "i just made", "i recently made",
+           "by the way, i made", "baked it for my", "cooked it for my", "made it for my",
+           "i baked a", "i cooked a", "i prepared a", "i made a"],
+         &["what did i cook bake make recently", "what did i make for my friend",
+           "what did i recently prepare cook bake", "cook bake make friend ago couple days",
+           "recently made cooked baked prepared for my friend couple days ago"]),
+
         // ── Books / Reading ───────────────────────────────────────────────────
         (&["reading before bed", "book club", "a book called", "a book titled",
            "currently reading", "i've been reading", "i am reading", "my reading",

@@ -36,7 +36,7 @@ pub const HIGH_ACTIVATION_THRESHOLD: f32 = 0.6;
 const MIN_TERM_LEN: usize = 2;
 /// BM25 parameters (Okapi BM25 standard defaults).
 const BM25_K1: f32 = 1.2;
-const BM25_B: f32 = 0.75;
+const BM25_B: f32 = 0.65;
 ///
 /// Migrations: rather than discarding the index on version mismatch, `load_or_create`
 /// applies the migration chain from the stored version to INDEX_VERSION. This preserves
