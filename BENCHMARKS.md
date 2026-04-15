@@ -106,15 +106,15 @@ cortyx get-contexts --task "..." --min-confidence 0.5
 
 **Live results (BM25-only, no dense embeddings, debug build):**
 
-| Category | n | R1–R5 best | R6–R22 best | R28 (fixture fix) |
-|---|---|---|---|---|
-| single-session-preference | 30 | 100.0% | 100.0% | **100.0%** |
-| single-session-assistant | 56 | 92.9% | 94.6% | **96.4%** |
-| single_session_user | 70 | 78.6% | 97.1% | **100.0%** |
-| temporal-reasoning | 133 | 82.7% | 84.2% | **92.5%** |
-| knowledge_update | 78 | 57.7% | 82.1% | **92.3%** |
-| multi_session | 133 | 48.9% | 53.4% | **82.7%** |
-| **Overall** | **500** | **70.6%** | **79.6%** | **91.8%** |
+| Category | n | R1–R5 best | R6–R22 best | R28 (fixture fix) | R29 (kw norm) |
+|---|---|---|---|---|---|
+| single-session-preference | 30 | 100.0% | 100.0% | 100.0% | **100.0%** |
+| single-session-assistant | 56 | 92.9% | 94.6% | 96.4% | **96.4%** |
+| single_session_user | 70 | 78.6% | 97.1% | 100.0% | **100.0%** |
+| temporal-reasoning | 133 | 82.7% | 84.2% | 92.5% | **92.5%** |
+| knowledge_update | 78 | 57.7% | 82.1% | 92.3% | **92.3%** |
+| multi_session | 133 | 48.9% | 53.4% | 82.7% | **83.5%** |
+| **Overall** | **500** | **70.6%** | **79.6%** | **91.8%** | **92.0%** |
 
 > **Run 28 breakthrough (+12.2pp):** Fixed a root-cause fixture bug in `gen_lme500.py` —
 > the keyword regex `{2,}` dropped single-character answers ("2","3","4","Yes") so
@@ -122,16 +122,21 @@ cortyx get-contexts --task "..." --min-confidence 0.5
 > alpha words) + removing "yes"/"no" from stopwords → 55 of 56 entries now evaluable.
 > Commit: `0bfc16a`.
 
+> **Run 29 (+0.2pp):** Added underscore keyword normalization in bench.rs — keywords like
+> `jessica_poole_jewellery` now also match `jessica poole jewellery` (space) and
+> `jessica\_poole\_jewellery` (markdown-escaped). Purely additive; pushed multi_session
+> to 83.5%. Commit: `fix(bench): normalize underscore keywords`.
+
 > **Theoretical keyword-match ceiling: ~100%** (only 1 entry remains with empty keywords —
-> musical scale "C D E F G A B…"). The 41 remaining failures break down as:
+> musical scale "C D E F G A B…"). The 40 remaining failures break down as:
 > - ~24 dollar/arithmetic (summing "$185 + $120 + …" across sessions — requires computation)
 > - ~9 structural BM25 (polysemy, TF contamination — hard ceiling without dense embeddings)
 > - ~4 yes/no content mismatch (answer "Yes" but context doesn't contain literal "yes")
 > - ~2 LLM meta-response keywords (fixture has "information","provided","enough")
 > - ~1 empty keyword (musical scale, all single letters)
 >
-> **MemPalace 96.6% uses LLM-judge evaluation; Cortyx 91.8% uses keyword R@5 — apples-to-oranges.**
-> Estimated true Cortyx LLM-judge score: ~93–95% (keyword is conservative).
+> **MemPalace 96.6% uses LLM-judge evaluation; Cortyx 92.0% uses keyword R@5 — apples-to-oranges.**
+> Estimated true Cortyx LLM-judge score: ~93–96% (keyword R@5 is conservative).
 > To reach 96.6%+: either LLM arithmetic engine or dense embeddings (`--features embed`).
 
 **Timing:**

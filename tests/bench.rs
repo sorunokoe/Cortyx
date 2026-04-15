@@ -651,11 +651,23 @@ fn bench_retrieval_accuracy_500q() {
         let result_str = String::from_utf8_lossy(&out.stdout).to_lowercase();
         // Normalize keywords: strip leading/trailing apostrophes that artifact from
         // fixture generation splitting "'Game of Thrones'" on spaces → ["'game", "thrones'"].
-        // The actual session text has the title without surrounding quotes.
+        // Also handle underscore-joined handles: "jessica_poole_jewellery" appears in session
+        // text as "jessica poole jewellery" (space-separated) or "jessica\_poole\_jewellery"
+        // (markdown-escaped underscores). Try all three forms for _ keywords.
         let any_hit = entry.expected_keywords.iter().any(|kw| {
             let kw_norm = kw.to_lowercase();
             let kw_norm = kw_norm.trim_matches('\'');
-            !kw_norm.is_empty() && result_str.contains(kw_norm)
+            if kw_norm.is_empty() { return false; }
+            // Primary match
+            if result_str.contains(kw_norm) { return true; }
+            // Underscore variants: handle → space-separated brand, or markdown-escaped
+            if kw_norm.contains('_') {
+                // "jessica_poole_jewellery" → "jessica poole jewellery"
+                if result_str.contains(kw_norm.replace('_', " ").as_str()) { return true; }
+                // "siac_gee" → "siac\_gee" (markdown backslash escape in content)
+                if result_str.contains(kw_norm.replace('_', "\\_").as_str()) { return true; }
+            }
+            false
         });
         if !any_hit && verbose {
             let snippet: String = result_str.chars().take(120).collect();
