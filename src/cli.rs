@@ -1,8 +1,17 @@
+//! CLI argument parsing and command definitions.
+//!
+//! Defines the command-line interface for Cortyx using clap.
+
 use clap::{Parser, Subcommand, ValueEnum};
 use std::path::PathBuf;
 
+/// Cortyx CLI root command.
 #[derive(Parser)]
-#[command(name = "cortyx", version, about = "MCP-native semantic cache layer for LLM Wikis")]
+#[command(
+    name = "cortyx",
+    version,
+    about = "MCP-native context delivery engine for coding agents and long-lived memory"
+)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
@@ -12,6 +21,17 @@ pub struct Cli {
 pub enum Provider {
     Anthropic,
     Openai,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, ValueEnum, Debug)]
+pub enum RouteIntent {
+    Auto,
+    Context,
+    Answer,
+    WakeUp,
+    AgentStatus,
+    Consistency,
+    Capabilities,
 }
 
 #[derive(Subcommand)]
@@ -31,17 +51,32 @@ pub enum Commands {
         #[arg(long)]
         incremental: bool,
     },
-    /// Show neuron status, token estimates, and cache-hit prediction
+    /// Show neuron status, token estimates, cache-hit prediction, or collaboration summaries
     Status {
         /// Path to inspect (defaults to current directory)
         path: Option<PathBuf>,
+        /// Show collaboration-kernel status instead of raw index counters.
+        #[arg(long, default_value = "false")]
+        collaboration: bool,
+        /// Filter collaboration status to one agent.
+        #[arg(long)]
+        agent: Option<String>,
+        /// Filter collaboration status to one shared module.
+        #[arg(long)]
+        module: Option<String>,
+        /// Include recent collaboration timeline events.
+        #[arg(long, default_value = "false")]
+        include_timeline: bool,
     },
     /// Force a neuron to be marked stale so it gets re-evaluated on next use
     Invalidate {
         /// Source file whose neuron to invalidate
         file: PathBuf,
     },
-    /// Export a ready-to-paste prompt JSON with cache_control breakpoint
+    /// Export a ready-to-paste prompt JSON with cache_control breakpoint.
+    ///
+    /// Includes `_cortyx_meta.quickstart` and `_cortyx_meta.ux_proof` so
+    /// onboarding, recovery, and one-entrypoint coverage stay reproducible.
     Export {
         /// Target LLM provider format
         #[arg(long, value_enum, default_value = "anthropic")]
@@ -60,7 +95,11 @@ pub enum Commands {
         #[arg(long)]
         module: Option<String>,
     },
-    /// Run the file watcher daemon (keeps neurons fresh as sources change)
+    /// Keep the local index fresh as files change.
+    ///
+    /// Auto-bootstraps a missing index on first run, then keeps dirty-file hot
+    /// patches flowing until you stop the process. The startup banner includes
+    /// a stable `ux-proof` JSON line for TTFC/bootstrap benchmarking.
     Watch {
         /// Path to watch (defaults to current directory)
         path: Option<PathBuf>,
@@ -87,7 +126,7 @@ pub enum Commands {
         #[arg(long)]
         dry_run: bool,
     },
-    /// Retrieve the top neurons for a task query and print their content to stdout.
+    /// Retrieve the top local/project neurons for a task query and print their content to stdout.
     /// Useful for scripting, CI benchmarks, and debugging retrieval quality.
     GetContexts {
         /// The task query to retrieve neurons for
@@ -114,6 +153,81 @@ pub enum Commands {
         /// Increases latency by ~2× for conversational queries. Default: off.
         #[arg(long, default_value = "false")]
         multi_hop: bool,
+        /// Return a concise answer-oriented output derived from the selected
+        /// contexts instead of printing the full neuron bodies.
+        /// Keeps the retrieval path unchanged; this is an optional output layer.
+        #[arg(long, default_value = "false")]
+        answer_mode: bool,
+        /// Minimum answer confidence required when --answer-mode is enabled.
+        /// Low-support heuristic snippet guesses abstain below this threshold.
+        #[arg(long)]
+        min_answer_confidence: Option<f64>,
+        /// Include lightweight provenance/explanation metadata in the output.
+        /// In context mode this prepends a provenance block; in answer mode it
+        /// appends the supporting sources and summaries after the answer.
+        #[arg(long, default_value = "false")]
+        provenance: bool,
+        /// Project root (defaults to current directory)
+        path: Option<PathBuf>,
+    },
+    /// Default terminal entrypoint — route a task through the best matching Cortyx flow.
+    ///
+    /// This is the CLI counterpart to the universal `cortyx` MCP tool.
+    /// It auto-routes across the current local-first Cortyx surface: context
+    /// retrieval, answer mode, wake-up priming, agent status, consistency
+    /// checks, or a capability summary. The CLI prints readiness guidance on
+    /// stderr and falls back to the current capability summary when invoked
+    /// without task/agent/path inputs. The stderr banner includes a stable
+    /// `ux-proof` JSON line for TTFC + latency benchmarking.
+    Route {
+        /// High-level intent. `auto` infers the best route from the inputs.
+        #[arg(long, value_enum, default_value = "auto")]
+        intent: RouteIntent,
+        /// Task or question to route. Required for `context` and `answer`.
+        #[arg(long)]
+        task: Option<String>,
+        /// Optional agent identifier for agent-status or wake-up flows.
+        #[arg(long)]
+        agent: Option<String>,
+        /// Optional person scope for wake-up or retrieval flows.
+        #[arg(long)]
+        person: Option<String>,
+        /// Optional module filter for retrieval flows.
+        #[arg(long)]
+        module: Option<String>,
+        /// Optional kind filter: "code", "conversation", or "all".
+        #[arg(long)]
+        kind: Option<String>,
+        /// Optional path filter for consistency checks.
+        #[arg(long)]
+        scope_path: Option<String>,
+        /// Maximum token budget for routed retrieval flows.
+        #[arg(long, default_value = "4000")]
+        max_tokens: usize,
+        /// Minimum BM25 confidence for routed retrieval flows.
+        #[arg(long)]
+        min_confidence: Option<f64>,
+        /// Enable 2-hop retrieval for routed retrieval flows.
+        #[arg(long, default_value = "false")]
+        multi_hop: bool,
+        /// Enable stable capsules for routed retrieval flows.
+        #[arg(long, default_value = "false")]
+        capsule_mode: bool,
+        /// Minimum answer confidence for routed answer-mode flows.
+        #[arg(long)]
+        min_answer_confidence: Option<f64>,
+        /// Enable delta-mode context emission for routed retrieval flows.
+        #[arg(long, default_value = "false")]
+        delta_mode: bool,
+        /// Optional delta-mode context handle from a previous routed call.
+        #[arg(long)]
+        context_handle: Option<String>,
+        /// Include provenance metadata where supported.
+        #[arg(long, default_value = "false")]
+        provenance: bool,
+        /// Include timelines for agent-status routes.
+        #[arg(long, default_value = "false")]
+        include_timeline: bool,
         /// Project root (defaults to current directory)
         path: Option<PathBuf>,
     },
@@ -129,7 +243,7 @@ pub enum Commands {
     ///
     /// Before each `cortyx_evolve_context` or `cortyx_evolve_section` call, Cortyx
     /// saves the previous content in a shadow field inside the sidecar JSON.
-    /// This command restores that shadow for a named section — instant undo.
+    /// This command restores one saved step for a named section — instant rollback.
     RollbackSection {
         /// Neuron file path (e.g. ".cortyx/neurons/src/engine_rs.context.md")
         neuron: PathBuf,
@@ -150,22 +264,25 @@ pub enum Commands {
     ListConcepts,
     /// Auto-configure all detected LLM clients with the Cortyx MCP server entry.
     ///
-    /// Detects Claude Code, Cursor, Windsurf, and Codex configs in standard paths.
-    /// Writes `cortyx serve` MCP entry to each. Also writes Claude Code hook scripts
-    /// for auto-save (Stop + PreCompact events). Idempotent — safe to run multiple times.
+    /// Detects Claude Code, Cursor, Windsurf, Codex, VS Code, and Zed configs
+    /// in standard paths. Writes `cortyx serve` MCP entry to each, adds Claude
+    /// Code hook scripts for auto-save (Stop + PreCompact events), and prints
+    /// both terminal and in-tool quickstart guidance. `--global` scaffolds the
+    /// standard config files even when they do not exist yet. The summary ends
+    /// with a stable `ux-proof` JSON line for onboarding benchmarks. Idempotent
+    /// — safe to run multiple times.
     Install {
-        /// Register system-wide (searches HOME). Pass --global to force detection even
-        /// if no client configs are found.
+        /// Scaffold the standard per-client config files under HOME even if none exist yet.
         #[arg(long)]
         global: bool,
     },
-    /// Hook called by the Claude Code Stop event to commit pending feedback (S3 — NE2).
+    /// Hook-safe index readability check for external clients.
     ///
-    /// Reads the latest BM25 index and commits any provisional hits that accumulated
-    /// during the session. Called via the hook script written by `cortyx install`.
-    /// Safe to call manually: no-ops if no provisional hits are pending.
-    #[command(name = "close-task-hook")]
-    CloseTaskHook {
+    /// This command does **not** commit MCP feedback. `cortyx_close_task` feedback is
+    /// in-process/session-scoped, so a standalone CLI hook cannot flush it honestly.
+    /// Kept as a hook-friendly health check and backward-compatible alias.
+    #[command(name = "hook-check", alias = "close-task-hook")]
+    HookCheck {
         /// Project root (defaults to current directory)
         #[arg(long)]
         project: Option<PathBuf>,
@@ -200,6 +317,93 @@ pub enum ConceptsCommand {
     ///
     /// Runs `git push origin main` (or `master`) in `~/.cortyx/global/`.
     Push,
+    /// List neurons in the current project that are ready to be shared.
+    ///
+    /// Uses the same evidence Cortyx already tracks locally: use_count, hit_rate,
+    /// and self-quality score. Already-published fingerprints are filtered out.
+    Ready {
+        /// Project root to scan (defaults to current directory).
+        #[arg(long)]
+        project: Option<PathBuf>,
+        /// Maximum number of candidates to show (0 = no limit).
+        #[arg(long, default_value_t = 10)]
+        limit: usize,
+        /// Minimum use_count required to consider a neuron share-ready.
+        #[arg(long, default_value_t = 10)]
+        min_use: u32,
+        /// Minimum hit_rate required to consider a neuron share-ready.
+        #[arg(long, default_value_t = 0.5)]
+        min_hit_rate: f32,
+        /// Minimum quality_score required to consider a neuron share-ready.
+        #[arg(long, default_value_t = 0.6)]
+        min_quality: f32,
+    },
+    /// Publish all share-ready neurons from the current project into the global library.
+    ///
+    /// This batch version applies the same quality gates as `concepts ready` and
+    /// auto-commits the global concept repo when it is git-backed.
+    PublishReady {
+        /// Project root to scan (defaults to current directory).
+        #[arg(long)]
+        project: Option<PathBuf>,
+        /// Maximum number of candidates to publish (0 = no limit).
+        #[arg(long, default_value_t = 10)]
+        limit: usize,
+        /// Minimum use_count required to consider a neuron share-ready.
+        #[arg(long, default_value_t = 10)]
+        min_use: u32,
+        /// Minimum hit_rate required to consider a neuron share-ready.
+        #[arg(long, default_value_t = 0.5)]
+        min_hit_rate: f32,
+        /// Minimum quality_score required to consider a neuron share-ready.
+        #[arg(long, default_value_t = 0.6)]
+        min_quality: f32,
+    },
     /// Show the status of the global concept library (remote, commit, neuron count).
     Status,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn status_command_parses_collaboration_flags() {
+        let cli = Cli::try_parse_from([
+            "cortyx",
+            "status",
+            "--collaboration",
+            "--agent",
+            "reviewer",
+            "--include-timeline",
+        ])
+        .expect("status command should parse");
+
+        match cli.command {
+            Commands::Status {
+                collaboration,
+                agent,
+                module,
+                include_timeline,
+                ..
+            } => {
+                assert!(collaboration);
+                assert_eq!(agent.as_deref(), Some("reviewer"));
+                assert!(module.is_none());
+                assert!(include_timeline);
+            }
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn route_command_parses_capabilities_intent() {
+        let cli = Cli::try_parse_from(["cortyx", "route", "--intent", "capabilities"])
+            .expect("route command should parse capability intent");
+
+        match cli.command {
+            Commands::Route { intent, .. } => assert_eq!(intent, RouteIntent::Capabilities),
+            _ => panic!("unexpected command"),
+        }
+    }
 }

@@ -1,19 +1,24 @@
+//! File system watcher for hot-reloading neurons.
+//!
+//! Monitors project files for changes and automatically updates the index.
+
 use anyhow::Result;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
-use tokio::sync::{RwLock, mpsc};
+use tokio::sync::{mpsc, RwLock};
 
-use crate::index::{NeuronIndex, dirty_path};
-use crate::neuron::should_skip;
+use crate::index::{dirty_path, NeuronIndex};
+use crate::neuron::{atomic_write, should_skip};
 
 /// Debounce window — events within this interval are coalesced into a single batch.
 ///
 /// A 50ms window absorbs editor "atomic save" sequences (write tmp → rename) that
 /// arrive as two events in ~1ms, preventing duplicate invalidations per save.
 const DEBOUNCE_MS: u64 = 50;
+pub const HOT_PATCH_WATCH_SUMMARY: &str = "dirty-file hot patching is active";
 
 /// Starts a background file watcher that marks neurons stale when source files change.
 ///
@@ -74,17 +79,40 @@ pub fn start_watcher(
             // Write changed source paths to dirty.json for incremental compile.
             // Append to any existing dirty set — multiple watcher cycles accumulate.
             let dirty_file = dirty_path(&root_for_dirty);
-            let existing_dirty: Vec<PathBuf> = std::fs::read_to_string(&dirty_file)
-                .ok()
-                .and_then(|s| serde_json::from_str(&s).ok())
-                .unwrap_or_default();
+            let existing_dirty: Vec<PathBuf> = match std::fs::read_to_string(&dirty_file) {
+                Ok(raw) => match serde_json::from_str(&raw) {
+                    Ok(paths) => paths,
+                    Err(err) => {
+                        tracing::warn!(
+                            "Failed to parse dirty-file state {}: {}",
+                            dirty_file.display(),
+                            err
+                        );
+                        Vec::new()
+                    }
+                },
+                Err(err) if err.kind() == std::io::ErrorKind::NotFound => Vec::new(),
+                Err(err) => {
+                    tracing::warn!(
+                        "Failed to read dirty-file state {}: {}",
+                        dirty_file.display(),
+                        err
+                    );
+                    Vec::new()
+                }
+            };
             let mut merged: Vec<PathBuf> = existing_dirty;
             merged.extend(batch.iter().cloned());
             merged.sort_unstable();
             merged.dedup();
             if let Ok(json) = serde_json::to_string(&merged) {
-                let _ = std::fs::create_dir_all(dirty_file.parent().unwrap_or(std::path::Path::new(".")));
-                let _ = std::fs::write(&dirty_file, json);
+                if let Err(e) = std::fs::create_dir_all(
+                    dirty_file.parent().unwrap_or(std::path::Path::new(".")),
+                ) {
+                    tracing::warn!("Failed to create dirty-file directory: {e}");
+                } else if let Err(e) = atomic_write(&dirty_file, json.as_bytes()) {
+                    tracing::warn!("Failed to persist dirty.json: {e}");
+                }
             }
 
             let mut idx = index.write().await;
@@ -133,7 +161,10 @@ pub fn start_watcher(
     })?;
 
     watcher.watch(&project_root, RecursiveMode::Recursive)?;
-    tracing::info!("Watching {} for changes", project_root.display());
+    tracing::info!(
+        "Watching {} for changes ({HOT_PATCH_WATCH_SUMMARY}, debounce={}ms)",
+        project_root.display(),
+        DEBOUNCE_MS
+    );
     Ok(watcher)
 }
-
