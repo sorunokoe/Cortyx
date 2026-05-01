@@ -344,13 +344,13 @@ fn normalize_cortyx_route_intent(intent: &str) -> Option<CortyxRouteKind> {
         "" | "auto" => None,
         "context" | "retrieve" | "retrieval" | "search" | "get_contexts" => {
             Some(CortyxRouteKind::Context)
-        }
+        },
         "answer" | "qa" | "question" => Some(CortyxRouteKind::Answer),
         "wake" | "wake_up" | "wake-up" | "prime" | "priming" => Some(CortyxRouteKind::WakeUp),
         "agent" | "agent_status" | "agent-status" | "status" => Some(CortyxRouteKind::AgentStatus),
         "consistency" | "contradiction" | "conflict" | "check" => {
             Some(CortyxRouteKind::Consistency)
-        }
+        },
         "capability" | "capabilities" | "describe" | "help" => Some(CortyxRouteKind::Capabilities),
         _ => Some(CortyxRouteKind::Context).filter(|_| false),
     }
@@ -417,15 +417,15 @@ fn derive_cortyx_route(input: &CortyxInput) -> std::result::Result<CortyxRoutePl
                     if task.is_none() {
                         return Err("task is required for context or answer intent".to_string());
                     }
-                }
+                },
                 CortyxRouteKind::AgentStatus => {
                     if agent.is_none() {
                         return Err("agent is required for agent_status intent".to_string());
                     }
-                }
+                },
                 CortyxRouteKind::WakeUp
                 | CortyxRouteKind::Consistency
-                | CortyxRouteKind::Capabilities => {}
+                | CortyxRouteKind::Capabilities => {},
             }
             return Ok(CortyxRoutePlan { kind, task, agent });
         }
@@ -634,7 +634,7 @@ impl Drop for CortyxServer {
             return;
         }
         match flush_provisional_hits_blocking(&self.index, &self.provisional_hits) {
-            Ok(0) => {}
+            Ok(0) => {},
             Ok(n) => tracing::info!("S2: Drop cleared {n} provisional paths on exit"),
             Err(e) => tracing::warn!("S2: failed to clear provisional buffer during Drop: {e}"),
         }
@@ -813,25 +813,25 @@ impl CortyxServer {
                     provenance_mode: input.provenance_mode,
                 }))
                 .await
-            }
+            },
             CortyxRouteKind::WakeUp => {
                 self.wake_up(Parameters(WakeUpInput {
                     person: input.person,
                     agent: route.agent,
                 }))
                 .await
-            }
+            },
             CortyxRouteKind::AgentStatus => {
                 self.agent_status(Parameters(AgentStatusInput {
                     agent: route.agent.unwrap_or_default(),
                     include_timeline: input.include_timeline,
                 }))
                 .await
-            }
+            },
             CortyxRouteKind::Consistency => {
                 self.check_consistency(Parameters(CheckConsistencyInput { path: input.path }))
                     .await
-            }
+            },
             CortyxRouteKind::Capabilities => self.render_cortyx_capability_summary().await,
         }
     }
@@ -967,7 +967,7 @@ impl CortyxServer {
                 paths_with_scores.retain(|(path, _)| match path_modules.get(path) {
                     Some(module) if active_capsule_modules.contains(module) => {
                         keep_paths.contains(path)
-                    }
+                    },
                     _ => true,
                 });
                 overflow.retain(|(path, _)| match path_modules.get(path) {
@@ -1037,7 +1037,7 @@ impl CortyxServer {
                     if min_answer_confidence.is_some() =>
                 {
                     "(no confident answer — answer confidence below threshold)".to_string()
-                }
+                },
                 Err(answer_plane::AnswerAbstentionReason::LowFormConfidence)
                 | Err(answer_plane::AnswerAbstentionReason::Unsupported) => String::new(),
             };
@@ -1302,7 +1302,7 @@ impl CortyxServer {
             Ok(c) => c,
             Err(e) => {
                 return format!("ERROR: Cannot read neuron (run `cortyx compile` first): {e}");
-            }
+            },
         };
 
         // E2: Save previous section content to shadow before overwriting.
@@ -1690,7 +1690,7 @@ impl CortyxServer {
                     "ERROR: No shadow for section '{}'. Shadows are saved before each evolve call.",
                     input.section
                 )
-            }
+            },
         };
 
         if input.section == "_full" {
@@ -2133,7 +2133,7 @@ impl CortyxServer {
                         input.agent
                     )
                 }
-            }
+            },
             Err(e) => format!("ERROR: {e}"),
         }
     }
@@ -2169,14 +2169,14 @@ impl CortyxServer {
                     } else {
                         out.push_str(&format!("---\n{}\n", content));
                     }
-                }
+                },
                 Err(err) => {
                     out.push_str(&format!(
                         "- {} — read error: {}\n",
                         path.display(),
                         sanitize_comment(&err.to_string())
                     ));
-                }
+                },
             }
         }
         out
@@ -2271,7 +2271,7 @@ impl CortyxServer {
                 Ok(rel) => {
                     let src = self.project_root.join(&rel);
                     Some(core_neuron_path(&src, &self.project_root))
-                }
+                },
                 Err(e) => return format!("ERROR: Invalid path: {e}"),
             }
         } else {
@@ -2589,8 +2589,7 @@ pub async fn serve(project_name: Option<String>) -> Result<()> {
                     .metadata()
                     .and_then(|m| m.modified())
                     .map(|t| {
-                        t.elapsed()
-                            .unwrap_or(std::time::Duration::MAX)
+                        t.elapsed().unwrap_or(std::time::Duration::MAX)
                             > std::time::Duration::from_secs(3600)
                     })
                     .unwrap_or(true);
@@ -2626,7 +2625,7 @@ pub async fn serve(project_name: Option<String>) -> Result<()> {
                 match tokio::time::timeout(std::time::Duration::from_secs(5), pull_fut).await {
                     Ok(Ok(o)) if o.status.success() => {
                         tracing::debug!("S-IV: global concepts auto-fetch OK")
-                    }
+                    },
                     Ok(Ok(_)) => tracing::warn!(
                         "S-IV: global concepts auto-fetch skipped (not fast-forward)"
                     ),
@@ -3087,14 +3086,14 @@ fn render_recent_agent_memory_block(
             Ok(content) => {
                 out.push_str(&render_agent_memory_summary(&content, timestamp_secs));
                 out.push('\n');
-            }
+            },
             Err(err) => {
                 out.push_str(&format!(
                     "- {} — read error: {}\n",
                     path.display(),
                     sanitize_comment(&err.to_string())
                 ));
-            }
+            },
         }
     }
     Some(out)
@@ -3274,7 +3273,7 @@ fn render_project_collaboration_status(
             if module.attention_score > collaborator.attention_score =>
         {
             module.attention
-        }
+        },
         (Some(collaborator), _) => collaborator.attention,
         (None, Some(module)) => module.attention,
         (None, None) => CollaborationAttention::Nominal,
@@ -3768,7 +3767,7 @@ fn render_context_item(
                         path.file_name().unwrap_or_default().to_string_lossy(),
                         focused
                     )
-                }
+                },
                 EmissionTier::Summary => {
                     let summary = index
                         .summary_for(path)
@@ -3787,9 +3786,9 @@ fn render_context_item(
                         path.file_name().unwrap_or_default().to_string_lossy(),
                         sanitize_comment(&summary),
                     )
-                }
+                },
             }
-        }
+        },
         Err(err) => {
             if score >= 5.0 {
                 format!("<!-- NEURON {} — read error: {err} -->\n\n", path.display())
@@ -3806,7 +3805,7 @@ fn render_context_item(
                     sanitize_comment(&format!("(read error: {err})")),
                 )
             }
-        }
+        },
     };
 
     RenderedContextItem {
@@ -3881,7 +3880,7 @@ fn render_focused_sections(content: &str, task_terms: &[String]) -> Option<Strin
                 "patterns" | "examples" if guidance_task => score += 12,
                 "auto_evolved" => score += 6,
                 "notes" => score += 2,
-                _ => {}
+                _ => {},
             }
             (score, idx)
         })
@@ -4106,7 +4105,7 @@ fn render_module_capsule(project_root: &Path, module: &str) -> Option<RenderedCo
                     sanitize_comment(&err.to_string())
                 ),
             });
-        }
+        },
     };
     let rendered = format!(
         "<!-- === MODULE CAPSULE: {} === -->\n{}\n\n",
@@ -4542,21 +4541,22 @@ mod tests {
                 kind: Some(NeuronKind::Core),
                 module: Some("engine".to_string()),
                 summary: Some("Engine auth entrypoint".to_string()),
-                supporting_paths: vec![PathBuf::from(".cortyx/neurons/src/auth.context.md")],
+                supporting: vec![PathBuf::from(".cortyx/neurons/src/auth.context.md")],
                 strongest_step: None,
                 is_seed: false,
                 is_kg_entity: false,
             }],
-            facts: vec![ReasonedFact {
-                entity_path: PathBuf::from(".cortyx/neurons/_kg_auth.context.md"),
-                entity: "auth".to_string(),
-                predicate: "owner".to_string(),
-                value: "platform-team".to_string(),
-                score: 0.91,
-                valid_from: "2026-04-17T10:03:00Z".to_string(),
-                ended: String::new(),
-                supporting_paths: vec![PathBuf::from(".cortyx/neurons/src/engine.context.md")],
-            }],
+            facts: vec![ReasonedFact::new(
+                PathBuf::from(".cortyx/neurons/_kg_auth.context.md"),
+                "auth".to_string(),
+                "owner".to_string(),
+                "platform-team".to_string(),
+                0.91,
+                vec![PathBuf::from(".cortyx/neurons/src/engine.context.md")],
+                true,
+                "2026-04-17T10:03:00Z".to_string(),
+                String::new(),
+            )],
             conflicts: Vec::new(),
         };
 
