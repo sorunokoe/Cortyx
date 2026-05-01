@@ -54,17 +54,19 @@ pub(super) fn build_reasoned_facts(
                 node.score * REVERSE_EDGE_WEIGHT_FACTOR
             };
 
-            let entry = merged.entry(key).or_insert_with(|| ReasonedFact::new(
-                entity.path.clone(),
-                entity.entity.clone(),
-                fact.predicate.clone(),
-                fact.value.clone(),
-                fact_score,
-                node.supporting.clone(),
-                fact.ended.is_empty(),
-                fact.valid_from.clone(),
-                fact.ended.clone(),
-            ));
+            let entry = merged.entry(key).or_insert_with(|| {
+                ReasonedFact::new(
+                    entity.path.clone(),
+                    entity.entity.clone(),
+                    fact.predicate.clone(),
+                    fact.value.clone(),
+                    fact_score,
+                    node.supporting.clone(),
+                    fact.ended.is_empty(),
+                    fact.valid_from.clone(),
+                    fact.ended.clone(),
+                )
+            });
 
             entry.score = entry.score.max(fact_score);
             merge_supporting_paths(&mut entry.supporting, &node.supporting);

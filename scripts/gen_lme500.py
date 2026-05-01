@@ -4,8 +4,11 @@
 LongMemEval: "Benchmarking Chat Assistants on Long-Term Interactive Memory"
 arXiv:2410.10813 — https://github.com/xiaowu0162/LongMemEval
 
+Dataset source:
+    https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned
+
 Requirements:
-    pip install requests
+    Standard library only.
 
 Usage:
     python3 scripts/gen_lme500.py
@@ -13,16 +16,20 @@ Usage:
     python3 scripts/gen_lme500.py --local path/to/longmemeval_oracle.json
 
 The script produces a JSON array of entries, each:
-{
-  "question":               str,   # the evaluation question
-  "expected_answer":        str,   # gold answer (for LLM-judge / EM eval)
-  "expected_keywords":      [str], # key terms from expected_answer (for fast bench.rs R@5 check)
-  "neuron_source_content":  str,   # the evidence session(s) as plain text
-  "neuron_filename":        str,   # filename for cortyx compile (used as neuron ID)
-  "kind":                   str,   # always "conversation"
-  "category":               str,   # question type (see CATEGORIES below)
-  "session_id":             str    # original session ID for debugging
-}
+ {
+   "question_id":            str,   # original LongMemEval public question id
+   "question_type":          str,   # original LongMemEval public question type
+   "question":               str,   # the evaluation question
+   "expected_answer":        str,   # gold answer (for LLM-judge / EM eval)
+   "question_date":          str,   # raw oracle question timestamp when available
+   "expected_keywords":      [str], # key terms from expected_answer (for fast bench.rs R@5 check)
+   "neuron_source_content":  str,   # the evidence session(s) as plain text
+   "evidence_dates":         [str], # raw oracle date strings aligned to evidence sessions
+   "neuron_filename":        str,   # filename for cortyx compile (used as neuron ID)
+   "kind":                   str,   # always "conversation"
+   "category":               str,   # question type (see CATEGORIES below)
+   "session_id":             str    # original session ID for debugging
+ }
 
 CATEGORIES (maps to LongMemEval question_type):
   single_session_user      — fact stated by the user in one session
@@ -36,15 +43,17 @@ CATEGORIES (maps to LongMemEval question_type):
 import argparse
 import json
 import re
+import ssl
+import subprocess
 import sys
+import urllib.error
 import urllib.request
 from pathlib import Path
 
 # ── Dataset location ───────────────────────────────────────────────────────────
 
-REPO_RAW = "https://raw.githubusercontent.com/xiaowu0162/LongMemEval/main"
-ORACLE_URL = f"{REPO_RAW}/data/longmemeval_oracle.json"
-HAYSTACK_URL = f"{REPO_RAW}/data/longmemeval_haystack.json"
+HF_DATASET_BASE = "https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned/resolve/main"
+ORACLE_URL = f"{HF_DATASET_BASE}/longmemeval_oracle.json"
 
 # Category → human tag
 CATEGORY_MAP = {
@@ -66,8 +75,19 @@ CATEGORY_MAP = {
 
 def _fetch_json(url: str) -> object:
     print(f"  Downloading {url} …", flush=True)
-    with urllib.request.urlopen(url, timeout=60) as resp:
-        return json.loads(resp.read().decode())
+    try:
+        with urllib.request.urlopen(url, timeout=60) as resp:
+            return json.loads(resp.read().decode())
+    except urllib.error.URLError as exc:
+        if not isinstance(getattr(exc, "reason", None), ssl.SSLCertVerificationError):
+            raise
+        result = subprocess.run(
+            ["curl", "--fail", "--silent", "--show-error", "--location", url],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return json.loads(result.stdout)
 
 
 def _load_json(path: str) -> object:
@@ -79,10 +99,10 @@ def _keywords_from_answer(answer: str, n: int = 5) -> list[str]:
     """Extract up to n meaningful keywords from a gold answer string.
 
     Uses two extraction passes:
-    1. Pure numerics (\b\d+\b) — captures single-digit counting answers like "2","3"
-       that the old {2,} alpha-only regex would drop.
-    2. Dollar amounts (\$\d+(?:\.\d+)?) — captures "$5", "$10" style answers.
-    3. Ratio/fraction tokens (\d+:\d+) — captures "3:1" style answers.
+    1. Pure numerics (\\b\\d+\\b) — captures single-digit counting answers like
+       "2","3" that the old {2,} alpha-only regex would drop.
+    2. Dollar amounts (\\$\\d+(?:\\.\\d+)?) — captures "$5", "$10" style answers.
+    3. Ratio/fraction tokens (\\d+:\\d+) — captures "3:1" style answers.
     4. Alpha words ([a-zA-Z][a-zA-Z0-9'_-]+, ≥2 alpha chars) — skips stopwords.
     """
     stopwords = {
@@ -149,41 +169,88 @@ def _safe_filename(session_id: str, idx: int) -> str:
     return f"lme_{idx:04d}_{slug}.conv.md"
 
 
+def _select_evidence_session_indexes(entry: dict) -> list[int]:
+    """Select the evidence session indexes for an oracle row.
+
+    The cleaned LongMemEval oracle file already provides `haystack_sessions`, plus
+    aligned `haystack_session_ids` and `answer_session_ids`. Prefer the explicit
+    ID mapping and fall back to turn-level `has_answer` markers for older exports.
+    """
+    haystack = entry.get("haystack_sessions") or []
+    if not haystack:
+        return []
+
+    answer_ids = {
+        str(session_id)
+        for session_id in (entry.get("answer_session_ids") or [])
+        if session_id is not None
+    }
+    haystack_ids = [
+        str(session_id)
+        for session_id in (entry.get("haystack_session_ids") or [])
+        if session_id is not None
+    ]
+
+    if answer_ids and len(haystack_ids) == len(haystack):
+        matched = [
+            index
+            for index, session_id in enumerate(haystack_ids)
+            if session_id in answer_ids
+        ]
+        if matched:
+            return matched
+
+    if answer_ids:
+        matched = [
+            index
+            for index, session in enumerate(haystack)
+            if isinstance(session, list)
+            and any(
+                isinstance(turn, dict) and turn.get("has_answer")
+                for turn in session
+            )
+        ]
+        if matched:
+            return matched
+        return [0]
+
+    return list(range(len(haystack)))
+
+
 # ── Conversion ─────────────────────────────────────────────────────────────────
 
 def convert_oracle(oracle: list[dict]) -> list[dict]:
     """Convert LongMemEval oracle entries to Cortyx fixture entries."""
     out = []
     for idx, entry in enumerate(oracle):
-        question    = entry.get("question") or entry.get("query", "")
-        answer      = str(entry.get("answer") or entry.get("gold_answer") or "")
-        qtype       = entry.get("question_type") or entry.get("type", "")
-        session_id  = entry.get("session_id") or entry.get("id", str(idx))
+        question = entry.get("question") or entry.get("query", "")
+        answer = str(entry.get("answer") or entry.get("gold_answer") or "")
+        qtype = entry.get("question_type") or entry.get("type", "")
+        question_id = str(entry.get("question_id") or entry.get("id") or idx)
+        session_id = entry.get("session_id") or question_id or str(idx)
 
         # Normalise category
         category = CATEGORY_MAP.get(qtype.lower(), qtype or "single_session_user")
 
         # --- Build neuron content -----------------------------------------
-        # For the oracle dataset, use the answer_session_ids to pick the
-        # evidence sessions from haystack_sessions (those with has_answer turns).
         haystack = entry.get("haystack_sessions") or []
-        answer_ids = set(entry.get("answer_session_ids") or [])
+        selected_indexes = _select_evidence_session_indexes(entry)
+        evidence_dates = []
 
-        if answer_ids and haystack:
-            # Filter to sessions that contain the answer
-            evidence = [s for s in haystack if any(
-                t.get("has_answer") for t in (s if isinstance(s, list) else [])
-            )]
-            if not evidence:
-                evidence = haystack[:1]  # fallback to first session
-        elif haystack:
-            evidence = haystack
+        # evidence is a list of sessions (list-of-lists) or a single session (list-of-dicts)
+        if haystack and selected_indexes:
+            evidence = [haystack[index] for index in selected_indexes if index < len(haystack)]
+            haystack_dates = entry.get("haystack_dates") or []
+            evidence_dates = [
+                str(haystack_dates[index])
+                for index in selected_indexes
+                if index < len(haystack_dates) and haystack_dates[index] is not None
+            ]
         else:
             evidence = entry.get("evidence_session") or []
 
-        # evidence is a list of sessions (list-of-lists) or a single session (list-of-dicts)
         if evidence and isinstance(evidence[0], list):
-            session_texts = [_session_to_text(s) for s in evidence]
+            session_texts = [_session_to_text(session) for session in evidence]
             content = "\n\n---\n\n".join(session_texts)
         elif evidence and isinstance(evidence[0], dict):
             content = _session_to_text(evidence)
@@ -194,10 +261,14 @@ def convert_oracle(oracle: list[dict]) -> list[dict]:
             content = f"(no session content available for entry {idx})"
 
         out.append({
+            "question_id":            question_id,
+            "question_type":          str(qtype or ""),
             "question":              question,
             "expected_answer":       answer,
+            "question_date":         str(entry.get("question_date") or ""),
             "expected_keywords":     _keywords_from_answer(answer),
             "neuron_source_content": content,
+            "evidence_dates":        evidence_dates,
             "neuron_filename":       _safe_filename(session_id, idx),
             "kind":                  "conversation",
             "category":              category,
@@ -230,9 +301,10 @@ def main():
         except Exception as exc:
             print(f"\nERROR: Could not download dataset: {exc}")
             print("\nAlternatives:")
-            print("  1. Clone the repo:  git clone https://github.com/xiaowu0162/LongMemEval")
-            print("     Then:            python3 scripts/gen_lme500.py --local LongMemEval/data/longmemeval_oracle.json")
-            print("  2. Download manually from https://github.com/xiaowu0162/LongMemEval/tree/main/data")
+            print("  1. Download the cleaned oracle file from:")
+            print("     https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned")
+            print("  2. Then run:")
+            print("     python3 scripts/gen_lme500.py --local data/longmemeval_oracle.json")
             sys.exit(1)
 
     if isinstance(oracle, dict):

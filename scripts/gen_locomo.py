@@ -11,17 +11,24 @@ Usage:
     python3 scripts/gen_locomo.py
     python3 scripts/gen_locomo.py --output tests/fixtures/locomo_sample.json
     python3 scripts/gen_locomo.py --local path/to/locomo10.json
+    python3 scripts/gen_locomo.py --per-type 50
 
 The script produces a JSON array of entries for the bench_locomo test, each:
 {
   "session":           str,   # full conversation history as plain text
   "query":             str,   # the QA question
   "expected_answer":   str,   # gold answer (for F1/EM eval)
-  "expected_keyword":  str,   # single keyword used in basic bench_locomo hit check
+  "expected_keyword":  str,   # primary anchor used in basic bench_locomo hit check
+  "expected_keywords": [str], # alternate anchors used in basic bench_locomo hit check
   "question_type":     str,   # single_hop | multi_hop | temporal | open_qa
   "conv_id":           str,   # conversation ID for debugging
   "gold_tokens":       [str]  # tokenised gold answer for F1 calculation
 }
+
+By default it writes a **deterministic stratified sample** (50 entries per
+question type) rather than the full released QA set. This keeps `bench_locomo`
+and `eval_locomo.py` in the "benchmark" regime instead of turning them into an
+hours-long exhaustive replay of all LoCoMo QA items.
 
 QUESTION TYPES:
   single_hop — answer comes from one turn, no reasoning required
@@ -33,6 +40,7 @@ QUESTION TYPES:
 import argparse
 import json
 import re
+import subprocess
 import sys
 import urllib.request
 from pathlib import Path
@@ -56,14 +64,31 @@ QTYPE_MAP = {
     # Alternate spellings
     "single":      "single_hop",
     "multi":       "multi_hop",
+    # Current public LoCoMo release uses numeric categories.
+    "1":           "multi_hop",
+    "2":           "temporal",
+    "3":           "open_qa",
+    "4":           "single_hop",
 }
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 def _fetch_json(url: str) -> object:
     print(f"  Trying {url} …", flush=True)
-    with urllib.request.urlopen(url, timeout=60) as resp:
-        return json.loads(resp.read().decode())
+    try:
+        with urllib.request.urlopen(url, timeout=60) as resp:
+            return json.loads(resp.read().decode())
+    except Exception as exc:
+        print(f"    urllib failed ({exc}); retrying with curl …", flush=True)
+        result = subprocess.run(
+            ["curl", "-fsSL", url],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode == 0 and result.stdout:
+            return json.loads(result.stdout)
+        raise
 
 
 def _load_json(path: str) -> object:
@@ -76,14 +101,93 @@ def _tokenise(text: str) -> list[str]:
     return re.findall(r"[a-zA-Z0-9']+", text.lower())
 
 
-def _first_keyword(answer: str) -> str:
-    """Return the first meaningful word from an answer string."""
-    stopwords = {"the", "a", "an", "is", "was", "are", "were", "i", "he", "she",
-                 "it", "they", "we", "you", "my", "his", "her", "their", "its"}
-    for w in re.findall(r"[a-zA-Z0-9]{3,}", answer.lower()):
-        if w not in stopwords:
-            return w
-    return answer.split()[0].lower() if answer.split() else "answer"
+ANCHOR_STOPWORDS = {
+    "the", "a", "an", "is", "was", "are", "were", "i", "he", "she", "it",
+    "they", "we", "you", "my", "his", "her", "their", "its", "and", "or",
+    "but", "for", "with", "from", "that", "this", "have", "just", "into",
+    "what", "when", "where", "after", "before", "over", "under", "through",
+    "about", "your", "been", "than", "then", "because", "while", "would",
+    "could", "should", "did", "does", "doing", "done", "made", "make", "made",
+}
+
+WEAK_ANCHORS = {
+    "own", "really", "very", "more", "some", "many", "such", "good", "great",
+    "nice", "first", "last", "next", "later", "early", "approximately",
+    "nearly", "almost", "attending", "visiting", "working", "started",
+    "joining", "joined", "went", "going", "taking", "having", "getting",
+    "received", "support", "life", "thing", "things", "place", "places",
+}
+
+
+def _answer_anchors(answer: str, session_text: str, *, limit: int = 4) -> list[str]:
+    """Return deterministic answer anchors for the basic LoCoMo recall check."""
+    session_lower = session_text.lower()
+    raw_tokens = re.findall(r"[a-zA-Z0-9']+", answer.lower())
+
+    seen = set()
+    ranked: list[tuple[int, str]] = []
+    for idx, token in enumerate(raw_tokens):
+        if token in seen:
+            continue
+        seen.add(token)
+
+        if token in ANCHOR_STOPWORDS:
+            continue
+        if len(token) < 3 and not token.isdigit():
+            continue
+
+        in_session = token in session_lower
+        strong = token not in WEAK_ANCHORS
+        numeric = token.isdigit()
+
+        score = 0
+        if in_session:
+            score += 100
+        if strong:
+            score += 20
+        if numeric:
+            score += 10
+        score += min(len(token), 12)
+        score -= idx  # prefer earlier anchors when otherwise similar
+        ranked.append((score, token))
+
+    ranked.sort(key=lambda item: (-item[0], item[1]))
+    anchors = [token for _, token in ranked[:limit]]
+
+    if not anchors:
+        fallback = [t for t in raw_tokens if len(t) >= 3]
+        if fallback:
+            anchors = [fallback[0]]
+        elif answer.split():
+            anchors = [answer.split()[0].lower()]
+        else:
+            anchors = ["answer"]
+
+    return anchors
+
+
+def _extract_answer(qa: dict) -> str:
+    """Return the canonical gold answer text from a LoCoMo QA record."""
+    answer = qa.get("answer")
+    if isinstance(answer, dict):
+        for key in ("answer", "text", "gold_answer"):
+            value = answer.get(key)
+            if value:
+                return str(value)
+    elif answer:
+        return str(answer)
+
+    gold_answer = qa.get("gold_answer")
+    if gold_answer:
+        return str(gold_answer)
+
+    answers = qa.get("answers")
+    if isinstance(answers, list) and answers:
+        return str(answers[0])
+    if answers:
+        return str(answers)
+
+    return ""
 
 
 def _turns_to_text(turns: list[dict]) -> str:
@@ -104,6 +208,39 @@ def _sessions_to_text(sessions) -> str:
     """Convert sessions (list of session-dicts or list of turn-lists) to text."""
     if not sessions:
         return ""
+
+    if isinstance(sessions, dict):
+        parts = []
+        speaker_a = sessions.get("speaker_a")
+        speaker_b = sessions.get("speaker_b")
+        if speaker_a or speaker_b:
+            speaker_lines = []
+            if speaker_a:
+                speaker_lines.append(f"Speaker A: {speaker_a}")
+            if speaker_b:
+                speaker_lines.append(f"Speaker B: {speaker_b}")
+            if speaker_lines:
+                parts.append("\n".join(speaker_lines))
+
+        session_keys = sorted(
+            [
+                key for key in sessions
+                if re.fullmatch(r"session_\d+", key)
+            ],
+            key=lambda key: int(key.split("_")[1]),
+        )
+        for key in session_keys:
+            turns = sessions.get(key) or []
+            date = sessions.get(f"{key}_date_time")
+            block = _turns_to_text(turns if isinstance(turns, list) else [turns])
+            if not block.strip():
+                continue
+            header = key.replace("_", " ").title()
+            if date:
+                header = f"{header} — {date}"
+            parts.append(f"[{header}]\n{block}")
+
+        return "\n\n".join(parts)
 
     # sessions may be: list[list[turn]], list[dict with 'turns'], or list[turn]
     parts = []
@@ -146,22 +283,26 @@ def convert_locomo(data) -> list[dict]:
         conversations = [data]
 
     for conv in conversations:
-        conv_id = str(conv.get("conv_id") or conv.get("id") or len(out))
+        conv_id = str(conv.get("conv_id") or conv.get("sample_id") or conv.get("id") or len(out))
 
         # Extract sessions / full conversation
         sessions = (conv.get("sessions") or conv.get("history") or
-                    conv.get("conversation") or conv.get("turns") or [])
+                     conv.get("conversation") or conv.get("turns") or [])
         session_text = _sessions_to_text(sessions) if sessions else ""
 
         # QA pairs
         qa_pairs = (conv.get("qa_pairs") or conv.get("questions") or
-                    conv.get("qas") or [])
+                    conv.get("qas") or conv.get("qa") or [])
 
         for qa in qa_pairs:
+            # The current public LoCoMo release includes category 5 adversarial
+            # questions whose correct behaviour is abstention, not answer recall.
+            # Skip them in this fixture: the basic bench and eval harness both
+            # target single-hop / multi-hop / temporal / open QA.
+            if str(qa.get("category")) == "5":
+                continue
             question = (qa.get("question") or qa.get("query") or "")
-            answer   = (qa.get("answer") or qa.get("gold_answer") or
-                        qa.get("answers", [""])[0] if isinstance(qa.get("answers"), list)
-                        else qa.get("answers", ""))
+            answer = _extract_answer(qa)
             qtype_raw = (qa.get("question_type") or qa.get("type") or
                          qa.get("category") or "single_hop")
             qtype = QTYPE_MAP.get(str(qtype_raw).lower(), "single_hop")
@@ -181,17 +322,46 @@ def convert_locomo(data) -> list[dict]:
             if not neuron_text.strip():
                 neuron_text = session_text
 
+            anchors = _answer_anchors(str(answer), session_text or neuron_text)
             out.append({
-                "session":          neuron_text or "(empty session)",
+                "session":          session_text or neuron_text or "(empty session)",
                 "query":            question,
                 "expected_answer":  str(answer),
-                "expected_keyword": _first_keyword(str(answer)),
+                "expected_keyword": anchors[0],
+                "expected_keywords": anchors,
                 "question_type":    qtype,
                 "conv_id":          conv_id,
                 "gold_tokens":      _tokenise(str(answer)),
             })
 
     return out
+
+
+def _evenly_sample(entries: list[dict], limit: int) -> list[dict]:
+    """Deterministically sample across the full list span instead of taking a prefix."""
+    if limit <= 0 or len(entries) <= limit:
+        return entries
+    if limit == 1:
+        return [entries[len(entries) // 2]]
+
+    last = len(entries) - 1
+    idxs = {round(i * last / (limit - 1)) for i in range(limit)}
+    return [entries[i] for i in sorted(idxs)]
+
+
+def stratified_sample(entries: list[dict], per_type: int) -> list[dict]:
+    """Return up to `per_type` entries per question type, preserving type balance."""
+    if per_type <= 0:
+        return entries
+
+    grouped = {}
+    for entry in entries:
+        grouped.setdefault(entry["question_type"], []).append(entry)
+
+    sampled = []
+    for qtype in ["single_hop", "multi_hop", "temporal", "open_qa"]:
+        sampled.extend(_evenly_sample(grouped.get(qtype, []), per_type))
+    return sampled
 
 
 # ── Main ───────────────────────────────────────────────────────────────────────
@@ -203,6 +373,8 @@ def main():
                         help="Output fixture path (default: tests/fixtures/locomo_sample.json)")
     parser.add_argument("--local", default=None,
                         help="Path to a local LoCoMo JSON file (skip download)")
+    parser.add_argument("--per-type", type=int, default=50,
+                        help="Deterministic sample size per question type (default: 50, use 0 for full dataset)")
     args = parser.parse_args()
 
     print("=== gen_locomo.py — LoCoMo fixture generator ===")
@@ -234,6 +406,11 @@ def main():
 
     entries = convert_locomo(data)
     print(f"  Converted {len(entries)} QA entries.")
+
+    sampled_entries = stratified_sample(entries, args.per_type)
+    if args.per_type > 0:
+        print(f"  Sampled {len(sampled_entries)} QA entries ({args.per_type} per type max).")
+    entries = sampled_entries
 
     # Category stats
     from collections import Counter

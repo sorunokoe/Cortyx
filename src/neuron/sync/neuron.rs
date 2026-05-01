@@ -1,7 +1,9 @@
 //! Syncable neuron construction and boundary checking.
 
 use super::hash::{canonicalize_paths, hash_sync_body, hash_sync_payload, provenance_sync_summary};
-use super::types::{SyncBoundaryReason, SyncConflict, SyncHeaders, SyncSynapse, SYNC_HEADERS_VERSION};
+use super::types::{
+    SyncBoundaryReason, SyncConflict, SyncHeaders, SyncSynapse, SYNC_HEADERS_VERSION,
+};
 use crate::neuron::kind::{NeuronKind, NeuronStatus};
 use crate::neuron::meta::NeuronMeta;
 use crate::neuron::provenance::NeuronProvenance;

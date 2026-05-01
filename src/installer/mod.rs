@@ -94,13 +94,16 @@ pub fn run_install(global: bool) -> Result<String> {
         match register_mcp_server(client, &exe) {
             Ok(true) => {
                 registered_count += 1;
-            }
+            },
             Ok(false) => {
                 already_count += 1;
-            }
+            },
             Err(err) => {
-                eprintln!("Warning: failed to register {} MCP server: {err}", client.name);
-            }
+                eprintln!(
+                    "Warning: failed to register {} MCP server: {err}",
+                    client.name
+                );
+            },
         }
     }
 
@@ -111,13 +114,13 @@ pub fn run_install(global: bool) -> Result<String> {
         match write_hook_scripts(&hooks_dir, &exe) {
             Ok(true) => {
                 hook_created_count = 2; // close + precompact
-            }
+            },
             Ok(false) => {
                 // Scripts already exist
-            }
+            },
             Err(err) => {
                 eprintln!("Warning: failed to write Claude Code hooks: {err}");
-            }
+            },
         }
     }
 

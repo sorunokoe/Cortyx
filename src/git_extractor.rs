@@ -19,11 +19,46 @@ const MIN_TERM_LEN: usize = 3;
 
 /// Terms that add no BM25 signal — filtered from both git and comment extraction.
 const STOP_WORDS: &[&str] = &[
-    "the", "and", "for", "this", "that", "with", "from", "into", "also", "were",
-    "are", "was", "has", "have", "had", "can", "will", "may", "its", "not",
-    "but", "via", "per", "see", "use", "used", "uses", "adds", "new",
-    "update", "updates", "updated", "remove", "removed", "minor", "misc",
-    "todo", "fixme", "note", "workaround",
+    "the",
+    "and",
+    "for",
+    "this",
+    "that",
+    "with",
+    "from",
+    "into",
+    "also",
+    "were",
+    "are",
+    "was",
+    "has",
+    "have",
+    "had",
+    "can",
+    "will",
+    "may",
+    "its",
+    "not",
+    "but",
+    "via",
+    "per",
+    "see",
+    "use",
+    "used",
+    "uses",
+    "adds",
+    "new",
+    "update",
+    "updates",
+    "updated",
+    "remove",
+    "removed",
+    "minor",
+    "misc",
+    "todo",
+    "fixme",
+    "note",
+    "workaround",
 ];
 
 /// Extract soft vocabulary terms from git history and inline comments in a source file.
@@ -53,22 +88,48 @@ pub fn extract_soft_terms(source_abs: &Path) -> Vec<String> {
 /// - the file is untracked (no commits touching it)
 /// - the command takes >1 second (prevents compile-time slowdown)
 fn extract_git_terms(source_abs: &Path) -> Vec<String> {
-    use std::process::Command;
-    use std::time::Duration;
+    use std::process::{Command, Stdio};
+    use std::thread;
+    use std::time::{Duration, Instant};
 
     let parent = source_abs.parent().unwrap_or(source_abs);
 
-    let output = Command::new("git")
-        .args(["log", "--oneline", "--no-walk=unsorted", "--", source_abs.to_str().unwrap_or("")])
+    let mut child = match Command::new("git")
+        .args([
+            "log",
+            "--oneline",
+            "--no-walk=unsorted",
+            "--",
+            source_abs.to_str().unwrap_or(""),
+        ])
         .current_dir(parent)
-        .output();
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+    {
+        Ok(child) => child,
+        Err(_) => return vec![],
+    };
 
-    match output {
-        Ok(o) if o.status.success() => {
-            let text = String::from_utf8_lossy(&o.stdout);
-            tokenize(&text)
+    let deadline = Instant::now() + Duration::from_secs(1);
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => match child.wait_with_output() {
+                Ok(output) if output.status.success() => {
+                    let text = String::from_utf8_lossy(&output.stdout);
+                    return tokenize(&text);
+                },
+                _ => return vec![],
+            },
+            Ok(None) if Instant::now() < deadline => thread::sleep(Duration::from_millis(10)),
+            Ok(None) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return vec![];
+            },
+            Err(_) => return vec![],
         }
-        _ => vec![],
     }
 }
 

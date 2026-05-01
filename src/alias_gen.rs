@@ -10,7 +10,6 @@
 /// user queries ("how to look up an account by email") and code identifiers ("get_user_by_email").
 /// Together with A1 (git/comment vocab) and B1 (morphemic trie), B3 closes the remaining
 /// cold-start vocabulary gap.
-
 use std::collections::{HashMap, HashSet};
 
 /// Verb synonym groups — any verb in a group is an alias for all others.
@@ -20,25 +19,103 @@ use std::collections::{HashMap, HashSet};
 fn verb_groups() -> &'static [&'static [&'static str]] {
     &[
         &["get", "fetch", "retrieve", "find", "load", "read", "lookup"],
-        &["set", "update", "write", "save", "store", "put", "persist", "upsert"],
-        &["delete", "remove", "drop", "clear", "clean", "purge", "erase"],
-        &["create", "new", "make", "build", "generate", "produce", "construct", "add"],
-        &["check", "validate", "verify", "test", "assert", "ensure", "confirm", "guard"],
-        &["send", "publish", "emit", "dispatch", "broadcast", "notify", "push"],
-        &["parse", "decode", "deserialize", "extract", "process", "consume"],
-        &["encode", "serialize", "format", "render", "transform", "convert"],
-        &["connect", "join", "link", "attach", "bind", "register", "subscribe"],
-        &["disconnect", "close", "stop", "terminate", "shutdown", "cancel", "abort"],
-        &["list", "query", "search", "filter", "scan", "enumerate", "paginate"],
-        &["log", "trace", "debug", "record", "report", "audit", "track"],
-        &["init", "initialize", "setup", "configure", "boot", "start", "launch"],
+        &[
+            "set", "update", "write", "save", "store", "put", "persist", "upsert",
+        ],
+        &[
+            "delete", "remove", "drop", "clear", "clean", "purge", "erase",
+        ],
+        &[
+            "create",
+            "new",
+            "make",
+            "build",
+            "generate",
+            "produce",
+            "construct",
+            "add",
+        ],
+        &[
+            "check", "validate", "verify", "test", "assert", "ensure", "confirm", "guard",
+        ],
+        &[
+            "send",
+            "publish",
+            "emit",
+            "dispatch",
+            "broadcast",
+            "notify",
+            "push",
+        ],
+        &[
+            "parse",
+            "decode",
+            "deserialize",
+            "extract",
+            "process",
+            "consume",
+        ],
+        &[
+            "encode",
+            "serialize",
+            "format",
+            "render",
+            "transform",
+            "convert",
+        ],
+        &[
+            "connect",
+            "join",
+            "link",
+            "attach",
+            "bind",
+            "register",
+            "subscribe",
+        ],
+        &[
+            "disconnect",
+            "close",
+            "stop",
+            "terminate",
+            "shutdown",
+            "cancel",
+            "abort",
+        ],
+        &[
+            "list",
+            "query",
+            "search",
+            "filter",
+            "scan",
+            "enumerate",
+            "paginate",
+        ],
+        &[
+            "log", "trace", "debug", "record", "report", "audit", "track",
+        ],
+        &[
+            "init",
+            "initialize",
+            "setup",
+            "configure",
+            "boot",
+            "start",
+            "launch",
+        ],
         &["handle", "process", "run", "execute", "invoke", "call"],
         &["lock", "acquire", "claim"],
         &["unlock", "release", "free"],
         &["import", "load", "require", "include", "inject"],
         &["export", "expose", "provide", "serve"],
         &["open", "begin", "start"],
-        &["merge", "combine", "aggregate", "collect", "gather", "reduce"],
+        &[
+            "merge",
+            "combine",
+            "aggregate",
+            "collect",
+            "gather",
+            "reduce",
+        ],
         &["split", "partition", "divide", "chunk", "segment", "slice"],
         &["sort", "order", "rank", "prioritize"],
         &["apply", "use", "consume", "activate"],
@@ -48,12 +125,46 @@ fn verb_groups() -> &'static [&'static [&'static str]] {
 /// Noun synonym groups — domain-specific entity synonyms.
 fn noun_groups() -> &'static [&'static [&'static str]] {
     &[
-        &["user", "account", "member", "person", "profile", "player", "actor", "owner"],
-        &["token", "credential", "secret", "api_key", "apikey", "jwt", "bearer", "auth"],
+        &[
+            "user", "account", "member", "person", "profile", "player", "actor", "owner",
+        ],
+        &[
+            "token",
+            "credential",
+            "secret",
+            "api_key",
+            "apikey",
+            "jwt",
+            "bearer",
+            "auth",
+        ],
         &["session", "context", "state", "scope"],
-        &["message", "event", "notification", "alert", "signal", "payload"],
-        &["error", "exception", "failure", "fault", "panic", "problem", "issue"],
-        &["config", "settings", "options", "params", "parameters", "configuration", "prefs"],
+        &[
+            "message",
+            "event",
+            "notification",
+            "alert",
+            "signal",
+            "payload",
+        ],
+        &[
+            "error",
+            "exception",
+            "failure",
+            "fault",
+            "panic",
+            "problem",
+            "issue",
+        ],
+        &[
+            "config",
+            "settings",
+            "options",
+            "params",
+            "parameters",
+            "configuration",
+            "prefs",
+        ],
         &["file", "document", "resource", "artifact", "blob", "asset"],
         &["id", "identifier", "uuid", "key", "ref", "handle"],
         &["data", "content", "body", "info", "information", "record"],
@@ -66,7 +177,14 @@ fn noun_groups() -> &'static [&'static [&'static str]] {
         &["email", "mail", "address"],
         &["password", "pass", "secret", "hash"],
         &["name", "title", "label", "slug", "identifier"],
-        &["role", "permission", "policy", "access", "scope", "privilege"],
+        &[
+            "role",
+            "permission",
+            "policy",
+            "access",
+            "scope",
+            "privilege",
+        ],
         &["url", "path", "route", "endpoint", "uri", "link"],
         &["index", "idx", "pos", "offset", "position"],
         &["time", "timestamp", "date", "datetime", "epoch"],
@@ -184,7 +302,10 @@ mod tests {
     fn test_get_user_aliases() {
         let aliases = generate_alias_terms(&["get_user".to_string()]);
         // "get" → fetch, retrieve, find, load, read, lookup
-        assert!(aliases.contains(&"fetch".to_string()), "aliases: {aliases:?}");
+        assert!(
+            aliases.contains(&"fetch".to_string()),
+            "aliases: {aliases:?}"
+        );
         assert!(aliases.contains(&"retrieve".to_string()));
         assert!(aliases.contains(&"find".to_string()));
         // "user" → account, member, person, profile
@@ -215,8 +336,10 @@ mod tests {
     #[test]
     fn test_camel_case_split() {
         let parts = split_identifier("getUserByEmail");
-        assert!(parts.contains(&"get".to_string()) || parts.contains(&"user".to_string()),
-            "parts: {parts:?}");
+        assert!(
+            parts.contains(&"get".to_string()) || parts.contains(&"user".to_string()),
+            "parts: {parts:?}"
+        );
     }
 
     #[test]

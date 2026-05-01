@@ -20,7 +20,10 @@ pub mod inner {
     use std::path::Path;
     use std::sync::{Mutex, OnceLock};
 
-    use ort::{value::Tensor, session::{builder::GraphOptimizationLevel, Session}};
+    use ort::{
+        session::{builder::GraphOptimizationLevel, Session},
+        value::Tensor,
+    };
     use tokenizers::Tokenizer;
 
     /// Model file name within the project's `.cortyx/` directory.
@@ -63,7 +66,10 @@ pub mod inner {
             let tokenizer = Tokenizer::from_file(&tokenizer_path)
                 .map_err(|e| anyhow::anyhow!("Tokenizer load failed: {e}"))?;
 
-            Ok(Self { session: Mutex::new(session), tokenizer })
+            Ok(Self {
+                session: Mutex::new(session),
+                tokenizer,
+            })
         }
 
         /// Score a (query, passage) pair. Returns a relevance score in [0, 1].
@@ -80,29 +86,40 @@ pub mod inner {
             let len = encoding.get_ids().len().min(MAX_TOKENS);
             let shape = [1usize, len];
 
-            let input_ids: Vec<i64> =
-                encoding.get_ids()[..len].iter().map(|&x| x as i64).collect();
-            let attention_mask: Vec<i64> =
-                encoding.get_attention_mask()[..len].iter().map(|&x| x as i64).collect();
-            let token_type_ids: Vec<i64> =
-                encoding.get_type_ids()[..len].iter().map(|&x| x as i64).collect();
+            let input_ids: Vec<i64> = encoding.get_ids()[..len]
+                .iter()
+                .map(|&x| x as i64)
+                .collect();
+            let attention_mask: Vec<i64> = encoding.get_attention_mask()[..len]
+                .iter()
+                .map(|&x| x as i64)
+                .collect();
+            let token_type_ids: Vec<i64> = encoding.get_type_ids()[..len]
+                .iter()
+                .map(|&x| x as i64)
+                .collect();
 
             let ids_t = match Tensor::<i64>::from_array((shape, input_ids)) {
-                Ok(t) => t, Err(_) => return 0.0,
+                Ok(t) => t,
+                Err(_) => return 0.0,
             };
             let mask_t = match Tensor::<i64>::from_array((shape, attention_mask)) {
-                Ok(t) => t, Err(_) => return 0.0,
+                Ok(t) => t,
+                Err(_) => return 0.0,
             };
             let type_t = match Tensor::<i64>::from_array((shape, token_type_ids)) {
-                Ok(t) => t, Err(_) => return 0.0,
+                Ok(t) => t,
+                Err(_) => return 0.0,
             };
 
             let mut sess = match self.session.lock() {
-                Ok(s) => s, Err(_) => return 0.0,
+                Ok(s) => s,
+                Err(_) => return 0.0,
             };
 
             let outputs = match sess.run(ort::inputs![ids_t, mask_t, type_t]) {
-                Ok(o) => o, Err(_) => return 0.0,
+                Ok(o) => o,
+                Err(_) => return 0.0,
             };
 
             // MiniLM-L-2-v2 outputs a single logit; sigmoid maps it to [0, 1].
@@ -128,11 +145,11 @@ pub mod inner {
                 Ok(r) => {
                     tracing::info!("Cross-encoder reranker loaded from {}", MODEL_FILE);
                     Some(r)
-                }
+                },
                 Err(e) => {
                     tracing::debug!("Reranker not available ({}); BM25-only mode active.", e);
                     None
-                }
+                },
             })
             .as_ref()
     }

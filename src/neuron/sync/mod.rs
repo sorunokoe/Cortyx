@@ -26,9 +26,9 @@ mod tests {
     };
     use super::super::synapse::{Synapse, SynapseType};
     use super::*;
+    use crate::neuron::kind::{NeuronKind, NeuronStatus};
     use std::path::{Path, PathBuf};
     use types::{SyncBoundaryReason, SyncConflictKind};
-    use crate::neuron::kind::{NeuronKind, NeuronStatus};
 
     fn sync_meta(kind: NeuronKind, status: NeuronStatus) -> NeuronMeta {
         let mut meta = NeuronMeta::new_stub(Path::new("src/engine.rs"), kind);

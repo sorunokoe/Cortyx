@@ -14,7 +14,9 @@
 #[cfg(feature = "embed")]
 mod inner {
     use anyhow::Result;
-    use fastembed::{EmbeddingModel, InitOptions, TextEmbedding, TextRerank, RerankInitOptions, RerankerModel};
+    use fastembed::{
+        EmbeddingModel, InitOptions, RerankInitOptions, RerankerModel, TextEmbedding, TextRerank,
+    };
     use std::path::PathBuf;
 
     /// Returns the directory where model weights are cached.
@@ -32,14 +34,25 @@ mod inner {
 
     impl EmbeddingBackend {
         /// Load the model (downloads on first use, ~80MB).
+        ///
+        /// Respects `CORTYX_NO_DOWNLOAD=1` (or any value): when set, returns an error
+        /// immediately so the caller falls back to BM25-only without any network access.
+        /// Use this in air-gapped environments, CI, or corporate proxies that block downloads.
         pub fn new() -> Result<Self> {
+            if std::env::var("CORTYX_NO_DOWNLOAD").is_ok() {
+                anyhow::bail!(
+                    "CORTYX_NO_DOWNLOAD is set — dense embedding model not loaded. \
+                     Falling back to BM25-only retrieval."
+                );
+            }
             let dir = cache_dir();
             std::fs::create_dir_all(&dir)?;
             let model = TextEmbedding::try_new(
-                InitOptions::new(EmbeddingModel::AllMiniLML6V2)
-                    .with_cache_dir(dir),
+                InitOptions::new(EmbeddingModel::AllMiniLML6V2).with_cache_dir(dir),
             )?;
-            Ok(Self { model: std::sync::Mutex::new(model) })
+            Ok(Self {
+                model: std::sync::Mutex::new(model),
+            })
         }
 
         /// Embed a batch of texts. Returns a list of 384-dim f32 vectors.
@@ -50,7 +63,9 @@ mod inner {
         /// Embed a single query string.
         pub fn embed_query(&self, query: &str) -> Result<Vec<f32>> {
             let mut batch = self.embed_batch(&[query])?;
-            batch.pop().ok_or_else(|| anyhow::anyhow!("Empty embedding result"))
+            batch
+                .pop()
+                .ok_or_else(|| anyhow::anyhow!("Empty embedding result"))
         }
     }
 
@@ -64,11 +79,16 @@ mod inner {
 
     impl RerankerBackend {
         pub fn new() -> Result<Self> {
+            if std::env::var("CORTYX_NO_DOWNLOAD").is_ok() {
+                anyhow::bail!(
+                    "CORTYX_NO_DOWNLOAD is set — reranker model not loaded. \
+                     Falling back to BM25+TF-IDF."
+                );
+            }
             let dir = cache_dir();
             std::fs::create_dir_all(&dir)?;
             let model = TextRerank::try_new(
-                RerankInitOptions::new(RerankerModel::BGERerankerBase)
-                    .with_cache_dir(dir),
+                RerankInitOptions::new(RerankerModel::BGERerankerBase).with_cache_dir(dir),
             )?;
             Ok(Self { model })
         }
@@ -90,7 +110,7 @@ mod inner {
 // ─── Public re-exports ────────────────────────────────────────────────────────
 
 #[cfg(feature = "embed")]
-pub use inner::{EmbeddingBackend, RerankerBackend, cosine_sim, cache_dir};
+pub use inner::{cache_dir, cosine_sim, EmbeddingBackend, RerankerBackend};
 
 // ─── No-op stubs (no `embed` feature) ────────────────────────────────────────
 
@@ -145,7 +165,7 @@ pub fn load_embeddings(project_root: &Path) -> EmbeddingStore {
         Err(e) => {
             tracing::warn!("Failed to load embeddings.bin: {e} — falling back to BM25-only");
             HashMap::new()
-        }
+        },
     }
 }
 
@@ -156,7 +176,8 @@ pub fn save_embeddings(project_root: &Path, store: &EmbeddingStore) -> Result<()
     std::fs::create_dir_all(path.parent().unwrap_or(Path::new(".")))?;
     anyhow::ensure!(
         store.len() <= u32::MAX as usize,
-        "Embedding store too large to serialize ({} entries)", store.len()
+        "Embedding store too large to serialize ({} entries)",
+        store.len()
     );
     let mut buf = Vec::new();
     write_u32(&mut buf, MAGIC);
@@ -167,7 +188,8 @@ pub fn save_embeddings(project_root: &Path, store: &EmbeddingStore) -> Result<()
         let path_bytes = p.to_string_lossy().into_owned().into_bytes();
         anyhow::ensure!(
             path_bytes.len() <= u32::MAX as usize,
-            "Path too long to serialize: {} bytes", path_bytes.len()
+            "Path too long to serialize: {} bytes",
+            path_bytes.len()
         );
         write_u32(&mut buf, path_bytes.len() as u32);
         buf.extend_from_slice(&path_bytes);
@@ -209,7 +231,9 @@ pub fn rrf_score(bm25_rank: usize, cos_rank: usize) -> f32 {
 pub fn unit_norm(mut v: Vec<f32>) -> Vec<f32> {
     let norm: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt();
     if norm > 0.0 {
-        for x in &mut v { *x /= norm; }
+        for x in &mut v {
+            *x /= norm;
+        }
     }
     v
 }
@@ -257,28 +281,36 @@ fn read_embeddings(path: &Path) -> Result<EmbeddingStore> {
     let dim = read_u32(&data, &mut off)? as usize;
     anyhow::ensure!(dim <= MAX_DIM, "dim too large in embeddings.bin: {dim}");
     let count = read_u32(&data, &mut off)? as usize;
-    anyhow::ensure!(count <= MAX_ENTRIES, "entry count too large in embeddings.bin: {count}");
+    anyhow::ensure!(
+        count <= MAX_ENTRIES,
+        "entry count too large in embeddings.bin: {count}"
+    );
 
     let mut store = HashMap::with_capacity(count);
     for _ in 0..count {
         let path_len = read_u32(&data, &mut off)? as usize;
         anyhow::ensure!(path_len <= MAX_PATH_LEN, "path_len too large: {path_len}");
-        let end = off.checked_add(path_len)
+        let end = off
+            .checked_add(path_len)
             .ok_or_else(|| anyhow::anyhow!("path_len overflow"))?;
         anyhow::ensure!(end <= data.len(), "Truncated path");
         let path_str = std::str::from_utf8(&data[off..end])?;
         let neuron_path = PathBuf::from(path_str);
         off = end;
 
-        let vec_bytes = dim.checked_mul(4)
+        let vec_bytes = dim
+            .checked_mul(4)
             .ok_or_else(|| anyhow::anyhow!("dim*4 overflow"))?;
-        let vec_end = off.checked_add(vec_bytes)
+        let vec_end = off
+            .checked_add(vec_bytes)
             .ok_or_else(|| anyhow::anyhow!("vector offset overflow"))?;
         anyhow::ensure!(vec_end <= data.len(), "Truncated vector");
-        let vec: Vec<f32> = (0..dim).map(|i| {
-            // Safety: bounds checked above; slice is always exactly 4 bytes.
-            f32::from_le_bytes(data[off + i * 4..off + i * 4 + 4].try_into().unwrap())
-        }).collect();
+        let vec: Vec<f32> = (0..dim)
+            .map(|i| {
+                // Safety: bounds checked above; slice is always exactly 4 bytes.
+                f32::from_le_bytes(data[off + i * 4..off + i * 4 + 4].try_into().unwrap())
+            })
+            .collect();
         off = vec_end;
         store.insert(neuron_path, vec);
     }
@@ -298,8 +330,12 @@ mod tests {
         let mut store: EmbeddingStore = HashMap::new();
         let p1 = PathBuf::from(".cortyx/neurons/a.context.md");
         let p2 = PathBuf::from(".cortyx/neurons/b.context.md");
-        let v1: Vec<f32> = (0..EMBEDDING_DIM).map(|i| i as f32 / EMBEDDING_DIM as f32).collect();
-        let v2: Vec<f32> = (0..EMBEDDING_DIM).map(|i| (EMBEDDING_DIM - i) as f32 / EMBEDDING_DIM as f32).collect();
+        let v1: Vec<f32> = (0..EMBEDDING_DIM)
+            .map(|i| i as f32 / EMBEDDING_DIM as f32)
+            .collect();
+        let v2: Vec<f32> = (0..EMBEDDING_DIM)
+            .map(|i| (EMBEDDING_DIM - i) as f32 / EMBEDDING_DIM as f32)
+            .collect();
         store.insert(p1.clone(), unit_norm(v1.clone()));
         store.insert(p2.clone(), unit_norm(v2));
 

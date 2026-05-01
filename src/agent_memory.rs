@@ -144,18 +144,18 @@ pub fn parse_structured_diary_entry(content: &str) -> Option<StructuredDiaryEntr
                 saw_structure = true;
                 current_section = None;
                 continue;
-            }
+            },
             "## action" => {
                 saw_structure = true;
                 current_section = Some(Section::Action);
                 continue;
-            }
+            },
             "## outcome" => {
                 saw_structure = true;
                 current_section = Some(Section::Outcome);
                 continue;
-            }
-            _ => {}
+            },
+            _ => {},
         }
         if line.starts_with("## ") || line.starts_with('#') {
             current_section = None;
@@ -175,14 +175,14 @@ pub fn parse_structured_diary_entry(content: &str) -> Option<StructuredDiaryEntr
                         .split(',')
                         .filter_map(|part| normalize_inline(Some(part)))
                         .collect();
-                }
+                },
                 "depends_on" => {
                     entry.depends_on = value
                         .split(',')
                         .filter_map(|part| normalize_inline(Some(part)))
                         .collect();
-                }
-                _ => {}
+                },
+                _ => {},
             }
             continue;
         }
@@ -190,7 +190,7 @@ pub fn parse_structured_diary_entry(content: &str) -> Option<StructuredDiaryEntr
         match current_section {
             Some(Section::Action) => action_lines.push(line.to_string()),
             Some(Section::Outcome) => outcome_lines.push(line.to_string()),
-            None => {}
+            None => {},
         }
     }
 

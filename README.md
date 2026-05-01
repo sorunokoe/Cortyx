@@ -1,20 +1,128 @@
 # Cortyx
 
-> **MCP-native semantic cache layer for LLMs.**
-> Every source file gets an AI-curated `.context.md` "neuron." Only the relevant ones activate per task — placed after a byte-identical static prefix for **maximum prompt-cache efficiency** and significant token cost reduction.
+> **MCP-native context delivery engine for coding agents and long-lived conversations.**
+> Cortyx caches the stable part of the prompt, delivers only the most relevant context for the current task, keeps long-term memory local as git-tracked neurons, temporal facts, and agent diaries, and can share proven reusable concepts through a git-federated library.
 
 ---
 
 ## Why Cortyx
 
-| Approach | Cache hit rate | Token cost | Accuracy | Cold start | Setup |
-|----------|---------------|------------|----------|-----------|-------|
-| Raw full context | 0% (always changes) | 100% | High | N/A | None |
-| RAG / GraphRAG | ~10% (chunks shift) | 30–60% | Medium | Weak | Complex |
-| MemPalace | ~15% (verbatim chunks) | 30–50% | 96.6% R@5 | ~30% | Medium |
-| **Cortyx** | **High (static prefix)** | **15–30%** | **100% R@5 (LME-100)** | **~75% (R14)** | **One command** |
+Think of Cortyx as a **context delivery engine** with three jobs:
+- **Cache context:** keep the static prefix byte-identical so provider prompt caches can hit.
+- **Save tokens:** deliver only the relevant neurons, or only the delta on repeat calls.
+- **Keep and share long-term memory:** persist project, conversation, KG, and agent-memory state locally, then publish proven reusable concepts to the shared library when they clear quality gates.
 
-**How:** The static prefix (schema + instructions) is always byte-identical → Anthropic/OpenAI cache it. Dynamic neurons (3–5 per task, ~800–2 000 tokens) are injected *after* the `cache_control` breakpoint. Cache key = static prefix only.
+| Dimension | State | Current live surface | Honest read |
+|----------|-------|----------------------|-------------|
+| Retrieval | **Proven** | **96.8% R@5** on regenerated LME-500 cleaned oracle (**484/500**); **92.0% recall** on the corrected LoCoMo sample | Current apples-to-apples external proof surface; frozen-fixture and regression rows stay separate support data |
+| Answer quality | **Proven** | Full LME answer proof bundle **macro F1 0.153 / EM 0.109 / AnsR 0.188** with 500/500 official-QA hypotheses; full LoCoMo answer proof bundle **macro F1 0.133 / EM 0.053 / Recall 0.154** over 1540/1540 | Proven means full public proof surface, not best-in-class or a recorded win |
+| Latency | **Proven** | **~22ms p95** activation; **~40ms** `cortyx status` cold start | Strong interactive local-first latency proof |
+| Token economy | **Proven** | **56.9%** first-call savings; **98.4%** capsule+delta repeat savings | Proven on a deterministic sample harness, not a universal all-prompts claim |
+| Collaboration / shared memory | **Proven** | Deterministic shared-memory handoff proof: verified resolution clears conflicts/blockers and improves workflow quality | Proven on the shipped local shared-sync path, not as a hosted multi-user scale benchmark |
+| Graph reasoning | **Smoke** | Concept-cloud retrieval and provenance graph-summary tests are executable | Support exists, but no standalone scorecard yet |
+| Provenance / trust | **Proven** | Deterministic trust proof: verified lineage improves sync trust and tampered handoffs are rejected | Proven on the shipped sync/provenance path, not as a third-party audit or trust leaderboard |
+| UX / install / routing | **Proven** | Stable `ux-proof` JSON covers TTFC, route/watch recovery, onboarding, and export metadata | Proven as deterministic shipped CLI flows, not as a human-subject usability study |
+| Footprint | **Proven** | **~6.9MB** stripped release binary | Lightweight, local, and no runtime database or always-on model |
+
+The registry uses **`proven`** (reproducible benchmark/sample), **`diagnostic`** (measured but non-headline), **`contract`** (invariant/interop proof), **`smoke`** (capability proof), and **`pending`** (declared gap).
+
+The strongest externally comparable claim today is the **regenerated cleaned-oracle LME-500 retrieval run**. It now slightly exceeds the cited MemPalace baseline on that specific retrieval surface, but the rest of the claims in this README stay tied to the exact metric or proof state shown above rather than implying “best at everything.”
+
+The checked-in **proof matrix** and **best-overall claim gate** live in
+`benchmarks/registry.json` and are queryable via
+`python3 scripts/benchmark_registry.py matrix`, `scorecard`, `scorecard --json`,
+`guardrails`, `list`, `show` (for example `show best-overall`), and `validate`
+(for example `--proof-status diagnostic` or `--dimension
+collaboration-shared-memory`). That manifest is the source of truth behind the
+claims above.
+
+## Best overall claim gate
+
+`python3 scripts/benchmark_registry.py scorecard` is now the public contract
+for any future “best overall” claim. It uses a 100-point weighted scorecard
+with `win=1`, `tie=0.5`, and `loss=0`, but only **`proven`** surfaces can
+count.
+
+| Weighted dimension | Weight | Counts today? |
+|----------|-------:|-------------|
+| Retrieval | 20 | ✅ |
+| Answer quality | 20 | ✅ (`proven`) |
+| Speed (`latency`) | 15 | ✅ |
+| Token economy | 10 | ✅ |
+| Collaboration / shared memory | 15 | ✅ |
+| Trust / provenance | 10 | ✅ |
+| UX | 10 | ✅ |
+
+That means **100/100** weighted points are currently claim-eligible, and the
+scorecard is now **`ready-to-score`**. But any best-overall language still
+remains blocked from use: only part of the same-surface ledger is populated,
+and the must-win gates (retrieval, answer quality, collaboration/shared
+memory) are not all wins. Footprint is a hard
+**must-not-regress** gate, and graph reasoning is **support-only** until it has
+its own proven comparator-backed score surface.
+
+The registry now also carries a machine-readable
+`overall_scorecard.comparison_scaffold`: the shared comparator roster is seeded
+from the repo-cited systems (**MemPalace, OMEGA, Hindsight, Zep, Letta /
+MemGPT, Mem0**), the current claim-eligible dimensions already have
+apples-to-apples scope rules filled in, and the same-surface ledgers are now
+partially populated without inventing coverage the repo does not have:
+retrieval records LME-500 wins vs **MemPalace** and **OMEGA**, answer quality
+records LoCoMo QA F1 losses vs **Hindsight**, **Zep**, **Letta / MemGPT**, and
+**Mem0**, and every remaining gap stays explicit as `insufficient-evidence` or
+`no-repo-evidence`.
+
+Before the claim is allowed, retrieval still needs same-surface evidence for
+Hindsight / Zep / Letta / Mem0, answer quality still lacks same-surface
+MemPalace / OMEGA answer baselines and already fails the must-win gate on the
+recorded LoCoMo QA rows, speed / token economy / UX still only have capability
+notes or no same-surface evidence, collaboration/shared memory still lacks any
+competitor ledger, and the must-not-regress gates (retrieval, speed, token
+economy, footprint) must stay green.
+
+`python3 scripts/benchmark_registry.py scorecard --json` now exposes
+`comparison_scaffold`, roster metadata, per-dimension outcome-ledger entries,
+`claim_readiness` phases, blocker ids, and `next_flip` text so the repo can say
+exactly why the claim is blocked and what must change before any final proof
+pass.
+
+The latest full answer-proof artifacts, plus the shared-trust and UX proof
+harnesses, now promote answer quality, collaboration/shared memory,
+trust/provenance, and UX to `proven` public surfaces. The scorecard still stops
+short of any best-overall claim because only partial weighted ledgers are
+populated and several same-surface competitor gaps are still open.
+
+The executable local-core guardrail entrypoint is:
+
+```bash
+python3 scripts/benchmark_registry.py guardrails best-overall-local-core --run
+```
+
+For day-to-day iteration, keep the fast/default loop on:
+
+```bash
+cargo test -- --nocapture
+```
+
+Run the slow proof lanes explicitly when you need the full benchmark/proof path:
+
+```bash
+bash scripts/test-full-proof.sh
+```
+
+That suite keeps the fast retrieval drift checks, latency budgets, token budgets,
+and release-binary footprint budget green in CI.
+
+Startup stays honest too: Cortyx only uses the binary activation-cache artifact when it is actually smaller than the canonical `index.json`. On the current benchmark-sized projects, rebuilding from `index.json` is the faster default path, so Cortyx now skips oversized cache artifacts automatically instead of paying a slower deserialization cost.
+
+## Product contract
+
+- **Local core (shipped):** compile/mine/index/get-contexts/route/status over local neurons, temporal facts, agent diaries, and the optional git-federated concept library.
+- **Answer plane (shipped, separately benchmarked):** `answer_mode` and provenance sit on top of retrieved evidence and do **not** change the retrieval hot path.
+- **Delivery/control planes (shipped, separately benchmarked):** token economy, prompt-cache-aware delivery, startup, and control-plane latency are tracked independently.
+- **Shared/team/trust + UX proofs (shipped, non-headline):** shared-memory handoff resolution, provenance integrity, and machine-readable CLI UX now have deterministic proven proof harnesses. Shared-sync contracts and graph-backed summaries remain support surfaces, not hosted-platform or human-study claims.
+
+**How:** The static prefix (schema + instructions) is always byte-identical → Anthropic/OpenAI cache it. Dynamic neurons (3–5 per task, ~800–2 000 tokens) are injected *after* the `cache_control` breakpoint. Cache key = static prefix only. On iterative same-session work, `delta_mode=true` + `context_handle` lets Cortyx resend only added/changed dynamic chunks instead of the full prior set, and `capsule_mode=true` can collapse repeated same-module background into a stable cached capsule plus a tiny task delta.
 
 ---
 
@@ -31,7 +139,7 @@ cargo install cortyx
 cd /path/to/your/project
 cortyx compile .
 
-# 3. Start MCP server (works with Claude Code, Cursor, Codex, Windsurf)
+# 3. Start MCP server (works with Claude Code, Cursor, Codex, Windsurf, VS Code, Zed)
 cortyx serve
 
 # 4. Add to .mcp.json
@@ -43,10 +151,10 @@ cortyx install
 
 Then in your LLM session:
 ```
-cortyx_get_contexts(task="add dark mode to SwiftUI view")
+cortyx(task="add dark mode to SwiftUI view")
 ```
 
-The server returns only the 3–5 most relevant `.context.md` neurons, emitted in **BM25-relevance order** (best first), ready to inject after your `cache_control` breakpoint.
+The universal router picks the best matching flow (usually context retrieval, sometimes answer mode / wake-up / agent status). If you want the narrower retrieval surface explicitly, call `cortyx_get_contexts(task="...")`.
 
 ---
 
@@ -65,12 +173,17 @@ cortyx doctor [path] --json        # Machine-readable JSON (CI integration)
 cortyx mine <file>                 # Mine a conversation export into Verbatim neurons
 cortyx prune [path]                # Remove unused/outdated neurons
 cortyx get-contexts --task "..."   # Query top neurons via CLI (scripting / CI)
+cortyx get-contexts --task "..." --answer-mode --provenance   # Optional answer/provenance layer
+cortyx route --task "what is my job?"         # Universal router (auto → answer/context/wake-up/status)
+cortyx route --intent wake-up --agent reviewer # Prime a session with project + agent memory
 cortyx rollback <neuron-path>      # Restore neuron to previous git commit (E1)
-cortyx rollback-section <path> <section>  # Restore one section from shadow copy (E2)
+cortyx rollback-section <path> <section>  # Restore one section from recent shadow history (E2)
 cortyx publish-concept <neuron-path>      # Publish a Core neuron to global concept library (D1)
 cortyx list-concepts               # List all published global concept neurons
 cortyx concepts init [--remote <url>]     # Init git-federated concept library (S-IV R16)
 cortyx concepts pull               # Pull latest shared concepts from remote
+cortyx concepts ready              # List local neurons ready for sharing (quality-gated)
+cortyx concepts publish-ready      # Batch-publish share-ready neurons and auto-commit local library updates
 cortyx concepts push               # Push local concepts to remote
 cortyx concepts status             # Show concept library git status + neuron count
 cortyx install                     # Auto-configure all detected LLM clients
@@ -82,9 +195,10 @@ cortyx install                     # Auto-configure all detected LLM clients
 
 | Tool | Description |
 |------|-------------|
-| `cortyx_get_contexts(task, max_tokens?, module?, kind?, person?, previous_response?)` | Activate 3–5 relevant neurons; returns full bodies in relevance order + compressed headlines for budget overflow. `kind="conversation"` restricts to Verbatim neurons; `kind="code"` to Core/Project. `person="alice"` scopes to `@alice` namespace. Contradiction warnings appended when activated neurons conflict. |
+| `cortyx(intent?, task?, agent?, person?, module?, kind?, path?, max_tokens?, min_confidence?, multi_hop?, previous_response?, delta_mode?, context_handle?, capsule_mode?, min_answer_confidence?, provenance_mode?, include_timeline?)` | Universal Cortyx entrypoint for the **current local-first product surface**. `intent="auto"` (or omitted) routes to the best matching shipped flow: context retrieval, answer mode, wake-up priming, agent status, or consistency checking. When `agent` is supplied without an explicit `module`, Cortyx automatically scopes context/answer routes to `@agent/{agent}` so specialist-agent questions hit the right diary/state surface. |
+| `cortyx_get_contexts(task, max_tokens?, module?, kind?, person?, previous_response?, delta_mode?, context_handle?, capsule_mode?, answer_mode?, min_answer_confidence?, provenance_mode?)` | Activate 3–5 relevant **local/project** neurons; returns full bodies in relevance order + compressed headlines for budget overflow. `kind="conversation"` restricts to Verbatim neurons; `kind="code"` to Core/Project. `person="alice"` scopes to `@alice` namespace. `delta_mode=true` emits only added/changed chunks and returns a reusable `context_handle` comment for iterative same-session work. `capsule_mode=true` prepends stable module capsule(s) and compresses redundant same-module summaries into capsule + task-specific delta. `answer_mode=true` switches to an optional answer-oriented layer that first checks mine-time `answer_surface` / derived-answer spans from the selected contexts without changing retrieval. `min_answer_confidence` makes answer mode abstain instead of emitting weak snippet guesses. `provenance_mode=true` adds lightweight source/explanation metadata. Contradiction warnings appended when activated neurons conflict. |
 | `cortyx_recall(query, person?)` | Conversation-memory recall — retrieves `kind=conversation` neurons, optionally scoped to a person. |
-| `cortyx_wake_up(person?)` | Prime the LLM with project identity (~50 tok) + critical facts (~120 tok). Call once at session start. Optionally include `@person` memories. |
+| `cortyx_wake_up(person?, agent?)` | Prime the LLM with project identity (~50 tok) + critical facts (~120 tok). Call once at session start. Optionally include `@person` memories and recent `@agent/{name}` action-memory summaries. |
 | `cortyx_list_modules` | List all modules/namespaces with neuron count and avg hit-rate — hierarchical navigation. |
 | `cortyx_list_neurons(module?)` | List neuron paths + status for a module (or all). |
 | `cortyx_peek_neuron(path, lines?)` | Preview first N lines of a neuron file. |
@@ -98,9 +212,10 @@ cortyx install                     # Auto-configure all detected LLM clients
 | `cortyx_invalidate(path)` | Force stale mark |
 | `cortyx_status` | Neuron count, synapse count, freshness breakdown, cache-hit prediction |
 | `cortyx_mine_conversation(content, speaker, module?, timestamp?)` | Mine a conversation turn into a Verbatim neuron |
-| `cortyx_rollback_section(path, section)` | Restore a neuron section from its shadow copy (E2 undo) |
-| `cortyx_diary_write(agent, content, timestamp?)` | Write an agent diary entry under `@agent/{name}` namespace |
-| `cortyx_diary_read(agent, last_n?)` | Read recent diary entries for an agent |
+| `cortyx_rollback_section(path, section)` | Restore a neuron section from recent shadow history (E2 undo) |
+| `cortyx_diary_write(agent, content, title?, status?, goal?, next_step?, blocker?, outcome?, entities?, depends_on?, timestamp?)` | Write an agent diary entry under `@agent/{name}`; optional structured fields turn it into compact agent-state memory and mirror the latest state into the temporal KG |
+| `cortyx_diary_read(agent, last_n?)` | Read recent diary entries for an agent, with structured agent-state memories summarized by status, blockers, next steps, outcomes, dependencies, and entities |
+| `cortyx_agent_status(agent, include_timeline?)` | Show the latest structured agent-state snapshot for an agent, combining recent diary entries with the mirrored temporal KG facts |
 | `cortyx_check_consistency(path?)` | Scan for contradicting neurons (all or one path) — surfaces `Contradicts` synapse pairs |
 | `cortyx_kg_add(entity, predicate, value, valid_from?)` | Add a temporal fact to a KG entity neuron (git-tracked, BM25-indexed Markdown) |
 | `cortyx_kg_query(entity, as_of?)` | Query active facts for a KG entity as of an optional ISO-8601 date |
@@ -109,6 +224,10 @@ cortyx install                     # Auto-configure all detected LLM clients
 | `cortyx_kg_stats` | Aggregate statistics: entity count, active vs ended facts |
 
 ---
+
+Structured agent diaries are **not** a separate database. Cortyx stores them in the existing `@agent/{name}` namespace and mirrors the latest structured fields into a normal KG entity (`agent_{name}` with `focus`, `status`, `goal`, `next_step`, `blocker`, `action`, `outcome`, `related_entity`, and `depends_on` predicates), so specialist-agent handoff stays local, temporal, and queryable through the same proof surface.
+
+The shared concept layer stays equally inspectable. `cortyx concepts ready` surfaces only Core/Concept neurons that have already proven useful locally (`use_count`, `hit_rate`, `quality_score`) and are not already in `~/.cortyx/global/`; `cortyx concepts publish-ready` batches those into the shared library and auto-commits the library when it is git-backed.
 
 ## How It Works
 
@@ -151,21 +270,24 @@ Combined effect: `budget = clamp(max × F1 × F2, 512, max(8192, 2×max))`. Expe
 ```
 Task start  → cortyx_get_contexts(task, previous_response?)  → 3-5 neurons activated
                                                                  use_count++ on each
-                                                                 S6: previous_response → soft-cite prev activation ↓
-                                                                 implicit intersection feedback ↓
-              next cortyx_get_contexts(task2)               → neurons in ∩(prev, curr) get hit_count++
+                                                                 previous_response → response-overlap cite on prior activation
 Task end    → cortyx_close_task(response_text)              → name match + term-freq overlap → hit_count++
                                                              → C1: ≥15 terms → soft cite; ≥30 → hard cite
-                                                             → C2: activated-but-uncited neurons → −0.1 signal
-Evolve      → cortyx_evolve_context / _section              → neuron improved, hit_count++
-                                                             → E2: shadow copy saved before write
-Undo        → cortyx_rollback_section(path, section)        → restore from shadow (instant, no git required)
-             cortyx rollback <path>                          → restore from git (E1)
+Evolve      → cortyx_evolve_context / _section              → neuron improved
+                                                             → E2: shadow history appended before write
+Undo        → cortyx_rollback_section(path, section)        → restore one saved step from shadow history
+              cortyx rollback <path>                          → restore from git (E1)
 ```
 
-**Implicit full-session feedback (S6):** Pass `previous_response` to `cortyx_get_contexts` to close the feedback loop without a separate `cortyx_close_task` call. Cortyx soft-cites neurons from the previous activation whose vocabulary overlaps the response — `close_task` becomes optional. Designed for LLMs that chain tasks without explicit tool calls.
+**Response-evidenced feedback (S6):** Pass `previous_response` to `cortyx_get_contexts` to let Cortyx cite neurons from the immediately previous activation when their vocabulary overlaps the actual assistant response. This keeps ranking updates grounded in response evidence instead of control-plane actions or task-to-task carry-over.
 
-**Implicit passive feedback** (resolves NE6): Even when neither `cortyx_close_task` nor `previous_response` is provided, consecutive `get_contexts` activations are intersected. Neurons appearing in both tasks' contexts receive an implicit hit — the LLM returning to the same context is a passive signal of usefulness. **Term-freq soft citation (R14 C1)**: response text token overlap ≥ 15 terms with a neuron's vocabulary → soft citation; ≥ 30 terms → hard citation. Captures semantic grounding without explicit name matching. **Silence signal (R14 C2)**: when a session closes without a neuron being cited (but it was activated 10+ times in the past), a weak negative signal (−0.1) is recorded — surfacing content that consistently fails to help.
+**Differential context emission:** Set `delta_mode=true` on `cortyx_get_contexts`. The first call returns full context plus a `Context handle` comment. Reuse that handle on the next call and Cortyx emits only newly added or changed chunks, which cuts repeated-token waste during same-module coding loops while preserving the existing full fallback path.
+
+**Module capsules:** Set `capsule_mode=true` on `cortyx_get_contexts` to prepend deterministic per-module capsule files generated at save time from existing module shards. Cortyx then keeps only the strongest same-module task-specific neurons and suppresses redundant same-module summaries/headlines, so repeated subsystem work becomes “stable capsule + small delta” instead of “new auth explainer every turn.”
+
+**Optional answer plane:** Set `answer_mode=true` on `cortyx_get_contexts` or pass `--answer-mode` to `cortyx get-contexts` to derive a concise answer from the selected contexts without changing the retrieval hot path. The current layer reuses Cortyx's existing synthetic derived answers when available, prefers mine-time `## answer_surface` rows for high-confidence direct facts and adjacent dialogue question→answer pairs without perturbing retrieval indexing, extracts compact spans for direct fact questions, and can resolve reusable temporal + aggregate families such as dated binary-choice prompts, elapsed-day intervals, month-scoped activity-day counts, distinct event/cuisine/venue counts, citrus / delivery-service counts, weekly fitness schedules, missed-event counts, recent ceremony counts, narrow device-count questions, peak-season weekly-hour arithmetic, recent activity-duration totals, and current magazine-subscription counts. Direct fact coverage still includes common classes such as job, residence, degree, and pet name. Add `provenance_mode=true` or `--provenance` to append lightweight source metadata and summaries. This mode is **opt-in** and should be read as an answer-oriented upper layer; the published benchmark tables in this README remain the default retrieval-path numbers unless noted otherwise.
+
+**Explicit training boundary:** Cortyx now trains long-term ranking only from explicit response evidence: `cortyx_close_task`, manual `cortyx_record_hit`, or `previous_response` overlap against the prior activation. Consecutive `get_contexts` calls, evolve/edit tools, preview tools, and rollback operations do **not** auto-promote hits.
 
 **Adaptive synapse weights** (resolves NE9): Each synapse edge has a `learned_weight` that starts at the static type multiplier and updates via **exponential moving average** (α = 0.1) from citation signals. After ~100 traversals, the weight encodes actual helpfulness for this specific project's call patterns. Cold-start: identical to static weights (learned_weight not applied until 10+ traversals).
 
@@ -183,17 +305,17 @@ At `cortyx compile`, function signatures, type names, and doc comments are extra
 
 **R14 A2 — Peer template borrowing:** Cold stubs with <10 BM25 terms automatically borrow vocabulary from their 3 most structurally similar neighbours (Jaccard + same-module bonus) at 0.2× weight. Eliminates vocabulary deserts in newly-added modules.
 
-**Supported languages:** Rust, Python, TypeScript/JavaScript, Go, Swift, Kotlin, Java, C#, Ruby, C/C++
+**AST bootstrap languages:** Rust, Python, TypeScript/JavaScript, Go, Swift, Kotlin, Java, C#, Ruby, C/C++, PHP, Lua, R/Rmd, Julia, Elixir, Zig, Dart, Shell/Bash/Zsh, SQL, HCL/Terraform, Protocol Buffers, GraphQL, Jupyter Notebooks (`.ipynb`). Every other file type activates the **universal vocabulary fallback** — identifier tokens and comment text are harvested into BM25 from day 1, without affecting the `sig_hash` that drives staleness detection.
 
 ### Auto-wiring
 
-- **Import synapses:** `import`/`use`/`require` statements are parsed and converted to `Imports`-typed synapse edges automatically at compile time.
+- **Import synapses:** `import`/`use`/`require` statements are parsed and converted to `Imports`-typed synapse edges automatically at compile time. Import-edge auto-wiring covers Rust, Python, TypeScript/JavaScript, Go, C/C++ (`#include`), Ruby (`require_relative`), Swift, Kotlin, Dart, and Elixir (`alias`/`import`/`use`).
 - **Call-graph synapses:** A second compile pass scans each source file for calls to public functions defined in *other* files and emits `Calls`-typed synapses automatically. A 200-neuron project gains ~500 structural `Calls` edges with zero curation.
-- **Git co-change synapses:** Files committed together ≥3 times receive a `SemanticRelated` synapse — they evolve together and share context.
+- **Git co-change synapses:** Files committed together receive a `SemanticRelated` synapse. The minimum co-change threshold is **adaptive by repo size**: ≤50 neurons → 2 commits (small-project precision), ≤500 → 3 (default), >500 → 5 (noise resistance on large repos).
 - **Staleness cascade:** When a file changes, all neurons that import it are demoted (`staleness_multiplier × 0.7`) so context drift surfaces immediately.
 - **Semantic staleness (S1):** Compile computes a **AST signature hash** (BLAKE3 of sorted public function/type names) alongside the full content hash. A staleness event fires *only* when the signature hash changes — whitespace edits, doc-comment tweaks, or formatter passes leave `sig_hash` identical and the LLM-curated stub is preserved. Eliminates ~60% of false-positive stale cascades.
 - **Section-level API refresh (R11-S1):** When the signature hash *does* change (real API change), only the `api` section of the existing neuron is replaced with fresh AST content. LLM-curated `purpose`, `pitfalls`, and cross-references survive. Combined with sub-neuron idempotency, **~60% fewer LLM re-evolution calls** after refactors that rename/add functions.
-- **Live in-memory hot-patch:** The file watcher not only marks changed neurons stale — it immediately calls `compile_dirty()` under the existing write lock, so the MCP server serves fresh content within 100 ms of a file save, without a restart.
+- **Live in-memory hot-patch:** The file watcher not only marks changed neurons stale — it immediately calls `compile_dirty()` under the existing write lock, so the MCP server serves fresh content within 100 ms of a file save, without a restart. The watcher uses `RecommendedWatcher` (FSEvents on macOS, inotify on Linux, ReadDirectoryChangesW on Windows) — fully cross-platform.
 - **Auto module detection:** Module tags are inferred from directory structure (`src/auth/` → module `"auth"`) so `cortyx_get_contexts(module="auth")` works from day 1.
 - **Git confidence:** Committed files score 1.0, modified 0.9, untracked 0.85 — applied as a mild BM25 multiplier.
 - **Parallel compile (S4):** `cortyx compile` uses a **Rayon thread pool** to hash-check, AST-extract, and write stubs in parallel. Phase 1 (I/O + CPU) runs across all available cores; Phase 3 batch-inserts results sequentially. Expected speedup: 4–8× on modern laptops for 1 000-file projects.
@@ -215,9 +337,9 @@ Result: vocabulary gap rate drops from ~15% to ~3% — pure Rust, O(1) map looku
 
 **Morphemic trie bridge (R14 B1):** A morpheme map is built at compile time from every identifier token split on `_` and camelCase boundaries. At query time, each sub-token resolves to all full identifiers that contain it: `"auth"` → `["auth_guard", "authentication", "oauth_token"]`. Applied as a pre-BM25 expansion phase — zero model calls, O(|term|) lookup. **Vocabulary gap: ~3% → ~0.3%.**
 
-**Synonym cloud (R14 B2):** Terms that co-activate the same neuron ≥30 times across sessions are promoted to per-neuron synonyms (`synonym_cloud`). Stored in `index.json` and applied at query time before the S2/B1 phases. Self-building: zero configuration; improves automatically with usage. After ~500 sessions, query expansion matches project-specific terminology that no static synonym table could cover.
+**Synonym cloud (R14 B2):** Terms that co-activate the same neuron ≥30 times across sessions are promoted to per-neuron synonyms (`synonym_cloud`). Promoted synonyms are stored in `index.json`, while the raw coactivation counters persist in `.cortyx/coactivation.json` so learning survives restarts. Applied at query time before the S2/B1 phases. Self-building: zero configuration; improves automatically with usage.
 
-**Tool-Call Citation Detection (R12-S2):** Cortyx now closes the feedback loop at the tool boundary. Every `cortyx_evolve_context`, `cortyx_evolve_section`, `cortyx_create_synapse`, and `cortyx_extract_from_raw` call automatically records a citation hit for the referenced neuron — the LLM's action is the signal. Additionally, a *provisional hits* buffer tracks paths returned by the last `get_contexts` call: if the LLM calls `get_contexts` again without an intervening `close_task`, those paths are committed as implicit hits (the session continued = they were useful). `close_task` supersedes this with actual citation evidence. **Result: near-zero silent sessions even without explicit `close_task` discipline.**
+**Truthful feedback boundary (R12-S2):** Cortyx no longer treats control-plane actions as citations. `cortyx_evolve_context`, `cortyx_evolve_section`, `cortyx_create_synapse`, `cortyx_extract_from_raw`, preview tools, and rollback tools update content/state only. A provisional activation buffer is kept only to scope the next `cortyx_close_task` call to the latest retrieval set; it is cleared rather than auto-promoted into ranking feedback.
 
 ### Global Concept Library (R14 D1+D2, R16 S-IV)
 
@@ -247,7 +369,7 @@ cortyx concepts push   # publish your local concepts
 | Solution | What it does | Impact |
 |----------|-------------|--------|
 | **S-I Multi-Resolution** | Score-based tiered emission: ≥5.0 → full body; 1.5–5.0 → `## purpose` + `## pitfalls` summary (~50 tok); <1.5 → headline only | ~40% token reduction on mixed-relevance results |
-| **S-II LSH SimHash** | 1024-bit SimHash fallback (R17 Sol4: 16 independent seeds); Hamming distance ≤14 bridges lexical gaps | ~15% recall boost on lexically-distant queries |
+| **S-II LSH SimHash** | 1024-bit SimHash ensemble fallback (R17 Sol4: 16 independent seeds); Hamming distance ≤14 bridges lexical gaps | ~15% recall boost on lexically-distant queries |
 | **S-III Self-Quality Score** | `|neuron_terms ∩ source_ast_terms| / |ast_terms|` ratio; low-quality neurons flagged in `cortyx status` and penalized (×0.7 BM25) | Silent stale content surfaced proactively |
 | **S-IV Git-Federated Concepts** | `cortyx concepts init/pull/push` — plain git repo at `~/.cortyx/global/`; auto-fetch at serve startup | Teams share concepts; zero server required |
 | **S-V Editor Context Injection** | `open_files` + `error_context` in `get_contexts` input → soft term boost (0.4×/0.6×) | +15% warm-query R@5 with editor hints |
@@ -255,10 +377,10 @@ cortyx concepts push   # publish your local concepts
 | **S-VII Synapse Temporal Decay** | `λ=0.01` half-life 70d exponential decay; prune edges <0.05 at startup | Graph stays lean as project grows |
 | **S-VIII Auto-Mine UseCases** | Code blocks ≥5 lines in `close_task` response → `.usecase.auto-{hash}.md` stubs | Continuous UseCase growth, zero extra calls |
 | **S-IX CI/CD Integration** | `cortyx doctor --json` → machine-readable health JSON; GitHub Actions template | Neuron health in CI alongside test coverage |
-| **S-X Pre-built Binaries** | GitHub Actions 4-platform release matrix; `install.sh` auto-detects OS/arch | Removes Rust toolchain barrier |
+| **S-X Pre-built Binaries** | GitHub Actions 6-platform release matrix (x86\_64-linux-gnu, x86\_64-linux-musl, aarch64-linux-gnu, x86\_64-macOS, aarch64-macOS, x86\_64-Windows); `install.sh` auto-detects OS/arch | Removes Rust toolchain barrier; works on Alpine/Docker (musl) and ARM Linux |
 | **S-XI Stable Neuron UUIDs** | BLAKE3-based UUID per neuron; rename detection transfers learned weights + synapses | Refactoring no longer destroys accumulated signal |
 
-### R17 Model-Free Accuracy Boost (5 inventions — beat MemPalace without a model)
+### R17 Model-Free Accuracy Boost (5 inventions — beat MemPalace without a runtime model)
 
 Root insight: LongMemEval questions are generated by humans reading the conversations. The question vocabulary is **latent in the conversations** — extract it at mine time. Zero model, zero downloads, pure Rust.
 
@@ -267,24 +389,26 @@ Root insight: LongMemEval questions are generated by humans reading the conversa
 | **Sol1 Prospective Query Pre-image** | At mine time, ~100 pattern categories detect fact-bearing assertions and inject `## query_surface` question vocabulary into each neuron before BM25 indexing | +12–18 pp — closes vocabulary polarity gap |
 | **Sol2 Co-occurrence Ontology** | Firth Principle: builds term co-occurrence map (same-turn +3, adjacent +1) during `cortyx mine`, saved to `.cortyx/cooccurrence.json`, merged into `vocab_bridge` at index load | +6–10 pp — conversation-specific synonym expansion |
 | **Sol3 Automated Temporal KG** | IE patterns extract (entity, predicate, value) triples from each turn; wires directly into `kg.rs` (`invalidate_fact` → `add_fact` → `save`); KG neurons auto-indexed | +10–15 pp on knowledge-update queries |
-| **Sol4 1024-bit Random Projection** | J-L lemma upgrade: 16 independent 64-bit SimHash seeds (1024-bit total); ε drops from 0.38 → 0.09; match on ANY of 16 fingerprint pairs | +4–7 pp as mathematical LSH fallback |
+| **Sol4 1024-bit SimHash Ensemble** | 16 independent 64-bit SimHash seeds (1024-bit total); match on ANY of 16 fingerprint pairs as an empirical lexical-gap fallback | +4–7 pp as a lightweight LSH fallback |
 | **Sol5 Entity Profile Neurons** | Detects proper-noun entities (≥4 chars, ≥2 occurrences); creates `_entity_{slug}.verbatim.md` Concept neurons aggregating all entity-relevant vocabulary and excerpts | +8–12 pp on multi-session entity queries |
 
 **Plus L2 quick wins:** 3-hop BFS for Verbatim neurons (+4–6 pp) + broader recency detection (current/now/still/today/latest) (+3–5 pp).
 
-**Predicted R@5 trajectory (LongMemEval-500):**
+**Verified LongMemEval-500 surfaces (BM25-only, debug build):**
 
-| Stage | Overall | knowledge-update | multi-session |
-|-------|---------|-----------------|---------------|
-| R16 baseline | 69.0% | 55.1% | 45.9% |
-| + L2 (3-hop + recency) | ~72% | ~57% | ~51% |
-| + Sol1 (query pre-image) | ~81% | ~68% | ~63% |
-| + Sol3 (auto KG) | ~90% | ~88% | ~74% |
-| + Sol5 (entity profiles) | ~93% | ~90% | ~87% |
-| + Sol2 (co-occurrence) | ~94% | ~91% | ~90% |
-| + Sol4 (1024-bit LSH) | ~95% | ~92% | ~91% |
-| + fastembed (optional) | **≥97%** | ~96% | ~97% |
-| **MemPalace** | **96.6%** | **~96%** | **~97%** |
+| Surface | Result |
+|-------|--------|
+| Regenerated cleaned upstream oracle | **484/500 = 96.8%** |
+| Checked-in frozen repo fixture | **481/500 = 96.2%** |
+
+Only the regenerated cleaned-oracle run is the apples-to-apples external surface.
+The checked-in fixture differs from the current upstream oracle in **56/500 rows**
+and is retained only for internal regression tracking. Clean `HEAD` (`f78f78a`)
+scored **447/500 = 89.4%**; the current tree reaches **484/500 = 96.8%** on the
+regenerated cleaned oracle. See `BENCHMARKS.md` for the full category table,
+timing, truth-surface notes, and the latest frozen-fixture answer-mode repro
+(**macro F1 / EM / AnsR = 0.733 / 0.608 / 0.703; single_session_preference = 0.812 / 0.300 /
+0.844; multi_session = 0.983 / 0.967 / 0.983; temporal_reasoning = 0.386 / 0.236 / 0.401**).
 
 
 ### Neuron safety (R14 E1+E2)
@@ -292,7 +416,7 @@ Root insight: LongMemEval questions are generated by humans reading the conversa
 Every neuron edit is reversible:
 
 ```bash
-# Restore a section from shadow copy (instant, no git required)
+# Restore a section from recent shadow history (instant, no git required)
 cortyx rollback-section .cortyx/neurons/src_engine_rs.context.md pitfalls
 
 # Or via MCP tool
@@ -302,7 +426,7 @@ cortyx_rollback_section(path, "pitfalls")
 cortyx rollback .cortyx/neurons/src_engine_rs.context.md
 ```
 
-- **E2 (section shadow copy):** Before every `cortyx_evolve_context` or `cortyx_evolve_section` call, the current content of each modified section is saved to the sidecar JSON (`shadow_sections`). One shadow per section (~200 bytes). `rollback-section` restores in < 1 ms with no git required.
+- **E2 (section shadow history):** Before every `cortyx_evolve_context` or `cortyx_evolve_section` call, the current content of each modified section is appended to the sidecar JSON (`shadow_sections`). Cortyx keeps the 3 most recent saved versions per section and `rollback-section` steps back one saved version at a time in < 1 ms with no git required.
 - **E1 (git rollback):** `cortyx rollback <path>` runs `git checkout HEAD~1 -- <neuron>` for full version history. Zero storage overhead — git stores delta-compressed diffs.
 
 
@@ -313,6 +437,8 @@ When `embeddings.bin` is present, Cortyx performs **three-tier retrieval**:
 3. Dense cosine + RRF fusion (when `--features embed` and embeddings are indexed)
 
 The dense model (all-MiniLM-L6-v2, ~80 MB, downloaded once) is loaded lazily at server startup. Per-query cost ≤ 0.1 ms (cosine over pre-computed unit-norm vectors). Falls back gracefully to BM25-only when the model is not installed.
+
+**Air-gap / offline mode:** Set `CORTYX_NO_DOWNLOAD=1` to prevent any model download attempt entirely (useful in corporate proxies or CI environments without internet access). Cortyx will operate in BM25-only mode with no error.
 
 ### Cross-encoder reranking (`--features rerank`, TRIZ R13-G4)
 
@@ -411,62 +537,78 @@ your-project/
     │   ├── src_engine_rs.context.json         ← Sidecar metadata (hash, status, synapses)
     │   ├── src_engine_rs.usecase.dark-mode.md ← Use-case neuron
     │   └── ...
+    ├── capsules/                              ← Optional module capsules for capsule_mode
+    ├── coactivation.json                      ← Persisted synonym-cloud counters
     ├── index.json                             ← BM25 index + adjacency list (auto-generated)
+    ├── index.fast.bin                         ← Fast activation cache for derived retrieval state
     ├── dirty.json                             ← Changed paths list (watcher → incremental compile)
     └── embeddings.bin                         ← Dense vectors (--features embed, optional)
 ```
 
 **No database. No always-on LLM. Git-friendly. Human-readable.**
 
+Mined conversation neurons may also carry `## query_surface` and `## answer_surface` sections. `query_surface` is retrieval-facing mine-time vocabulary, while `answer_surface` is a mine-time direct-answer scaffold used by answer mode and synthetic-answer helpers. Those hidden surfaces are stripped from default render/token budgeting, but the neuron content is still indexed.
+
 ---
 
 ## Benchmark Results
 
-| Metric | Target | Status |
-|--------|--------|--------|
-| Prompt-cache hit rate (static prefix) | High | ✓ Static prefix byte-identical across calls |
-| Token savings vs raw context | ≥70% | ✓ 3–5 neurons vs full codebase |
-| Activation latency (p95, 100 neurons) | ≤50 ms | ✓ Pure BM25 in-memory, ≤40 ms |
-| Compile 100 files | ≤5 s | ✓ BLAKE3 + walkdir |
-| Incremental compile (10 changed files) | ≤500 ms | ✓ dirty.json path — O(changed) |
-| Binary size (release, no embed) | ≤8 MB | ✓ `cargo build --release` |
-| Cold-start (serve) | ≤200 ms | ✓ Index load + MCP handshake |
-| **LongMemEval-100 R@5** | **≥97%** | **✓ 100% (vs MemPalace 96.6%)** |
+`benchmarks/registry.json` is the machine-readable proof matrix. Every row is intentionally tagged as `proven`, `diagnostic`, `contract`, `smoke`, or `pending` instead of flattening everything into one headline bucket.
 
-Run benchmarks:
+Current `official` headline entries:
+
+- `lme-500-official` — **484/500 = 96.8% R@5** on the regenerated cleaned oracle
+- `locomo-retrieval-sample` — **184/200 = 92.0%** corrected sample recall
+
+Everything else in the registry stays scope-tagged instead of being flattened
+into one headline: internal regression fixtures, checked-in answer-proof
+bundles plus support diagnostics, latency/token/footprint measurements, proven
+shared-memory/trust/UX harnesses, support sync contracts, graph smoke tests,
+and CI guards.
+
+Inspect or validate the proof matrix:
 ```bash
-cargo test --test bench -- --nocapture
+python3 scripts/benchmark_registry.py matrix
+python3 scripts/benchmark_registry.py scorecard
+python3 scripts/benchmark_registry.py list --proof-status diagnostic
+python3 scripts/benchmark_registry.py show collaboration-shared-memory
+python3 scripts/benchmark_registry.py validate
 ```
 
 ### Cortyx vs MemPalace
 
+For methodology, caveats, and the legitimacy audit notes, see `BENCHMARKS.md`. Only the retrieval rows below are benchmark-headline surfaces today; the remaining yes/no rows are capability comparisons, not a claim that every non-retrieval surface is benchmark-complete.
+
 | Metric | MemPalace | Cortyx |
 |--------|-----------|--------|
-| LongMemEval R@5 (raw) | 96.6% (dense-only) | **100% (BM25 + graph)** |
-| LongMemEval R@5 (compressed) | 84.2% (char-abbrev) | **>95% (AI-curated neurons)** |
-| Cold-start R@5 (no LLM curation) | ~30% | **~75% (R14 A3 + A1 + B3)** |
-| Vocabulary gap rate | ~15% | **< 0.1% (B1 + B2 + S2 + R12)** |
-| Startup latency | ~2–5 s | **4 ms** |
-| Query latency | 50–500 ms | **≤40 ms** |
-| Binary size | ~150 MB | **≤8 MB** |
-| Peak RSS | ~200–500 MB | **≤25 MB** |
-| MCP tools | 19 | **25** |
+| LongMemEval-500 R@5 (cleaned oracle) | 96.6% | **96.8%** |
+| LoCoMo sample recall | not entered | **92.0%** |
+| Default retrieval stack | Dense-only + ChromaDB | **BM25 + temporal KG + evidence-derived answers** |
+| Runtime model on default path | Yes | **No** |
+| Query time on latest 500-query run | n/a | **~39.7s total (~79.5ms/query)** |
+| Status cold start | n/a | **~40ms avg** |
+| Binary size | Python stack | **~7MB release target** |
+| Runtime dependencies | Python + vector DB | **Pure Rust binary** |
 | One-command setup | ❌ | ✓ `cortyx install` (S1) |
 | Auto-save on exit | ❌ | ✓ Drop auto-commit (S2) + hook scripts (S3) |
 | Wake-up context layer | ❌ | ✓ `cortyx_wake_up` — identity + critical facts (S5) |
-| Agent diaries | ❌ | ✓ `cortyx_diary_write/read` — `@agent/{name}` (S6) |
+| Agent diaries | ❌ | ✓ `cortyx_diary_write/read` — structured `@agent/{name}` memory + KG mirror (S6) |
+| Agent handoff/status | ❌ | ✓ `cortyx_agent_status` — latest specialist-agent state + optional timeline |
 | Contradiction detection | ❌ | ✓ `cortyx_check_consistency` + inline warnings (S7) |
 | Temporal knowledge graph | ❌ | ✓ `cortyx_kg_*` — git-tracked Markdown KG (S4) |
 | Hierarchical navigation | 5-level tree | ✓ `cortyx_list_modules/neurons/peek` |
 | Conversation isolation | ❌ global | ✓ `@person` namespace |
 | Kind filtering | ❌ | ✓ code vs conversation |
 | Cross-encoder reranker | ❌ | ✓ ONNX INT8 (optional, ~7 MB) |
-| Standardized R@5 benchmark | ❌ | ✓ LME-100 + LME-500 + LoCoMo stubs |
+| Executable proof matrix | ❌ | ✓ registry-backed official retrieval, full proven answer-proof bundles, proven shared-memory/trust/UX harnesses, and support rows for sync and graph surfaces |
 | Self-improving | ❌ | ✓ learned synapse weights + synonym cloud |
 | Neuron safety / undo | ❌ | ✓ shadow copy (E2) + git rollback (E1) |
 | Global concept library | ❌ | ✓ `~/.cortyx/global/` (D1+D2) |
 | Adaptive token budget | ❌ | ✓ F1 task complexity + F2 session history |
 | Offline / local-only | ✓ | ✓ |
+
+Cortyx also scores **96.2%** on the checked-in frozen LME fixture, but that
+surface is internal and not the apples-to-apples comparison against MemPalace.
 
 ---
 
@@ -476,7 +618,7 @@ cargo test --test bench -- --nocapture
 ```bash
 cortyx install
 ```
-Detects Claude Code, Cursor, Windsurf, and Codex config files automatically and writes the MCP entry + hook scripts into each. Idempotent — safe to run multiple times.
+Detects Claude Code, Cursor, Windsurf, Codex, VS Code, and Zed config files automatically and writes the MCP entry + hook scripts into each. Idempotent — safe to run multiple times.
 
 ### Manual setup
 ```json

@@ -136,13 +136,16 @@ mod tests {
         let temp = TempDir::new().unwrap();
         let cortyx_dir = temp.path().join(".cortyx");
         fs::create_dir_all(&cortyx_dir).unwrap();
-        
+
         // Create minimal valid index.json
         let index_json = cortyx_dir.join("index.json");
-        fs::write(&index_json, r#"{"version":1,"neurons":{},"inverted_index":{}}"#).unwrap();
-        
+        fs::write(
+            &index_json,
+            r#"{"version":1,"neurons":{},"inverted_index":{}}"#,
+        )
+        .unwrap();
+
         let exit_code = run(temp.path(), true);
         assert_eq!(exit_code, 0, "Should succeed with valid index");
     }
 }
-

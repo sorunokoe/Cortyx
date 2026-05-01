@@ -391,7 +391,7 @@ mod tests {
                 assert_eq!(agent.as_deref(), Some("reviewer"));
                 assert!(module.is_none());
                 assert!(include_timeline);
-            }
+            },
             _ => panic!("unexpected command"),
         }
     }

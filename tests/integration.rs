@@ -51,9 +51,16 @@ pub enum ColorToken { Background, Text, Accent }
 fn compile_creates_neuron_stubs() {
     let dir = make_project();
     let out = run(&["compile"], dir.path());
-    assert!(out.status.success(), "compile failed: {}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "compile failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     let stdout = String::from_utf8_lossy(&out.stdout);
-    assert!(stdout.contains("Compiled"), "Expected 'Compiled' in output: {stdout}");
+    assert!(
+        stdout.contains("Compiled"),
+        "Expected 'Compiled' in output: {stdout}"
+    );
 
     // Verify .cortyx/neurons/ exists and has .context.md stubs
     let neurons_dir = dir.path().join(".cortyx").join("neurons");
@@ -91,9 +98,16 @@ fn status_shows_neuron_count() {
     let dir = make_project();
     run(&["compile"], dir.path());
     let out = run(&["status"], dir.path());
-    assert!(out.status.success(), "status failed: {}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "status failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     let stdout = String::from_utf8_lossy(&out.stdout);
-    assert!(stdout.contains("Core neurons:"), "Expected 'Core neurons' in status output: {stdout}");
+    assert!(
+        stdout.contains("Core neurons:"),
+        "Expected 'Core neurons' in status output: {stdout}"
+    );
 }
 
 #[test]
@@ -102,7 +116,11 @@ fn invalidate_marks_neuron_stale() {
     run(&["compile"], dir.path());
 
     let out = run(&["invalidate", "engine.rs"], dir.path());
-    assert!(out.status.success(), "invalidate failed: {}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "invalidate failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
 
     // Verify the sidecar JSON now has status: Stale
     let neurons_dir = dir.path().join(".cortyx").join("neurons");
@@ -117,7 +135,10 @@ fn invalidate_marks_neuron_stale() {
     assert!(!engine_json.is_empty(), "No engine sidecar JSON found");
 
     let data = fs::read_to_string(engine_json[0].path()).unwrap();
-    assert!(data.contains("\"stale\""), "Expected Stale status in sidecar: {data}");
+    assert!(
+        data.contains("\"stale\""),
+        "Expected Stale status in sidecar: {data}"
+    );
 }
 
 #[test]
@@ -144,7 +165,10 @@ fn hash_invalidation_detects_file_change() {
         .collect();
     assert!(!engine_json.is_empty(), "No engine sidecar JSON found");
     let data = fs::read_to_string(engine_json[0].path()).unwrap();
-    assert!(data.contains("\"stale\""), "Expected Stale status after file change: {data}");
+    assert!(
+        data.contains("\"stale\""),
+        "Expected Stale status after file change: {data}"
+    );
 }
 
 #[test]
@@ -153,7 +177,11 @@ fn export_produces_valid_json_anthropic() {
     run(&["compile"], dir.path());
 
     let out = run(&["export", "--provider", "anthropic"], dir.path());
-    assert!(out.status.success(), "export failed: {}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "export failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
 
     let json_str = String::from_utf8_lossy(&out.stdout);
     let parsed: serde_json::Value =
@@ -174,13 +202,19 @@ fn export_produces_valid_json_openai() {
     run(&["compile"], dir.path());
 
     let out = run(&["export", "--provider", "openai"], dir.path());
-    assert!(out.status.success(), "export failed: {}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "export failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
 
     let json_str = String::from_utf8_lossy(&out.stdout);
     let parsed: serde_json::Value =
         serde_json::from_str(&json_str).expect("Export output is not valid JSON");
 
-    let messages = parsed["messages"].as_array().expect("messages must be array");
+    let messages = parsed["messages"]
+        .as_array()
+        .expect("messages must be array");
     assert!(!messages.is_empty(), "messages must not be empty");
     assert_eq!(messages[0]["role"], "system");
 }

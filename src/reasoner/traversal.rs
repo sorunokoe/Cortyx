@@ -10,8 +10,8 @@ use super::graph_ops::{
     build_adjacency, build_reasoned_nodes, ordered_pair, upsert_contribution, NodeContribution,
     TraversalEdge, EPSILON,
 };
-use super::types::{ReasonedStep, ReasonerConflict, ReasonerNeuron, ReasonerSeed, ReasoningReport,
-    TraversalOptions,
+use super::types::{
+    ReasonedStep, ReasonerConflict, ReasonerNeuron, ReasonerSeed, ReasoningReport, TraversalOptions,
 };
 
 #[derive(Debug, Clone)]
@@ -172,8 +172,11 @@ impl GraphReasoner {
 
         let mut nodes =
             build_reasoned_nodes(&contributions, &self.neurons, &self.kg_entities, &seed_set);
-        let facts =
-            super::facts::build_reasoned_facts(&nodes, &self.kg_entities, options.include_inactive_facts);
+        let facts = super::facts::build_reasoned_facts(
+            &nodes,
+            &self.kg_entities,
+            options.include_inactive_facts,
+        );
 
         nodes.sort_by(|a, b| {
             b.score

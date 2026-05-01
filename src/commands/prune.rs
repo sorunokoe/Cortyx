@@ -58,22 +58,30 @@ pub fn run(root: &Path, min_use: u32, older_than: Option<u64>, dry_run: bool) ->
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
     use std::fs;
+    use tempfile::TempDir;
 
     #[test]
     fn prune_returns_zero_when_no_candidates() {
         let temp = TempDir::new().unwrap();
         let cortyx_dir = temp.path().join(".cortyx");
         fs::create_dir_all(&cortyx_dir).unwrap();
-        
+
         // Create minimal valid index
         let index_json = cortyx_dir.join("index.json");
-        fs::write(&index_json, r#"{"version":1,"neurons":{},"inverted_index":{}}"#).unwrap();
-        
+        fs::write(
+            &index_json,
+            r#"{"version":1,"neurons":{},"inverted_index":{}}"#,
+        )
+        .unwrap();
+
         let result = run(temp.path(), 5, None, true);
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), 0, "Should return 0 when no neurons to prune");
+        assert_eq!(
+            result.unwrap(),
+            0,
+            "Should return 0 when no neurons to prune"
+        );
     }
 
     #[test]
@@ -81,15 +89,17 @@ mod tests {
         let temp = TempDir::new().unwrap();
         let cortyx_dir = temp.path().join(".cortyx");
         fs::create_dir_all(&cortyx_dir).unwrap();
-        
+
         let index_json = cortyx_dir.join("index.json");
         let index_content = r#"{"version":1,"neurons":{},"inverted_index":{}}"#;
         fs::write(&index_json, index_content).unwrap();
-        
+
         let _ = run(temp.path(), 0, None, true);
-        
+
         let after_content = fs::read_to_string(&index_json).unwrap();
-        assert_eq!(after_content, index_content, "Dry run should not modify index");
+        assert_eq!(
+            after_content, index_content,
+            "Dry run should not modify index"
+        );
     }
 }
-

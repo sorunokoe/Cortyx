@@ -1,12 +1,20 @@
 {
   "source_path": "/Users/yesa/Documents/Projects/Personal/Apps/Cortyx/LICENSE",
-  "source_hash": "a7dfae691bca9b008e14ba571eef4b9abc95b30a688762563ef7111288de77da",
-  "kind": "Core",
+  "kind": "core",
+  "status": "stub",
+  "source_hash": "a7dfae691bca9b00",
+  "sig_hash": "af1349b9f5f9a1a6",
+  "tokens": 348,
+  "last_updated": "2026-04-18T17:21:50Z",
+  "use_count": 0,
+  "hit_count": 0,
+  "synapses": [],
   "task_pattern": null,
   "parent": null,
-  "tokens": 144,
-  "last_updated": "2026-04-12T12:29:36Z",
-  "status": "Stub",
-  "use_count": 0,
-  "synapses": []
+  "module": "LICENSE",
+  "source_files": [],
+  "speaker": null,
+  "timestamp": null,
+  "confidence_score": 1.0,
+  "uuid": "a7862944c43c702d30530b69d91fce5a"
 }

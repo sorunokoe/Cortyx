@@ -58,14 +58,14 @@ pub fn start_watcher(
                     while let Ok(p) = rx.try_recv() {
                         batch.push(p);
                     }
-                }
+                },
                 Ok(None) => break, // channel closed
                 Err(_timeout) => {
                     // Debounce window expired — flush batch if non-empty.
                     if batch.is_empty() {
                         continue;
                     }
-                }
+                },
             }
 
             if batch.is_empty() {
@@ -89,7 +89,7 @@ pub fn start_watcher(
                             err
                         );
                         Vec::new()
-                    }
+                    },
                 },
                 Err(err) if err.kind() == std::io::ErrorKind::NotFound => Vec::new(),
                 Err(err) => {
@@ -99,7 +99,7 @@ pub fn start_watcher(
                         err
                     );
                     Vec::new()
-                }
+                },
             };
             let mut merged: Vec<PathBuf> = existing_dirty;
             merged.extend(batch.iter().cloned());
@@ -132,7 +132,7 @@ pub fn start_watcher(
             // The write lock is held for ≤100 ms; queued reads resume normally.
             match idx.compile_dirty() {
                 Ok(n) if n > 0 => tracing::info!("Hot-patched {n} neuron(s) in-memory."),
-                Ok(_) => {}
+                Ok(_) => {},
                 Err(e) => tracing::warn!("Hot-patch compile_dirty failed: {e}"),
             }
         }

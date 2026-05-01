@@ -190,7 +190,11 @@ impl ReasoningReport {
 
     pub fn top_facts(&self, n: usize) -> Vec<&ReasonedFact> {
         let mut facts: Vec<&ReasonedFact> = self.active_facts();
-        facts.sort_by(|a, b| b.score.total_cmp(&a.score).then_with(|| a.path.cmp(&b.path)));
+        facts.sort_by(|a, b| {
+            b.score
+                .total_cmp(&a.score)
+                .then_with(|| a.path.cmp(&b.path))
+        });
         facts.into_iter().take(n).collect()
     }
 

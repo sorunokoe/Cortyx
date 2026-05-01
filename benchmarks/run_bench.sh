@@ -14,6 +14,9 @@
 #
 # Proper eval harnesses (F1/EM scoring, replaces keyword-match in bench.rs):
 #   ./benchmarks/run_bench.sh --eval
+#
+# Fast diagnostic loop (stratified samples + cached corpora):
+#   ./benchmarks/run_bench.sh --extended --eval --quick
 
 set -euo pipefail
 
@@ -21,6 +24,7 @@ EMBED=0
 EXTENDED=0
 EVAL=0
 RELEASE=0
+QUICK=0
 
 for arg in "$@"; do
   case $arg in
@@ -28,6 +32,7 @@ for arg in "$@"; do
     --extended) EXTENDED=1 ;;
     --eval)     EVAL=1 ;;
     --release)  RELEASE=1 ;;
+    --quick)    QUICK=1 ;;
     --help|-h)
       sed -n '2,20p' "$0"
       exit 0
@@ -63,6 +68,10 @@ echo "  Cortyx Benchmark Suite"
 echo "══════════════════════════════════════════════════════"
 echo ""
 
+if [[ $QUICK -eq 1 ]]; then
+  echo "▶ Quick mode enabled — stratified samples, cached corpora, faster feedback"
+fi
+
 # ── Standard benchmarks (always run) ──────────────────────────────────────────
 
 echo "▶ Running standard benchmarks …"
@@ -92,9 +101,17 @@ if [[ $EXTENDED -eq 1 ]]; then
   fi
 
   if [[ -n $FEATURES ]]; then
-    cargo test --test bench --features "$FEATURES" bench_retrieval_accuracy_500q bench_locomo -- --ignored --nocapture 2>&1
+    if [[ $QUICK -eq 1 ]]; then
+      QUICK=1 cargo test --test bench --features "$FEATURES" bench_retrieval_accuracy_500q bench_locomo -- --ignored --nocapture 2>&1
+    else
+      cargo test --test bench --features "$FEATURES" bench_retrieval_accuracy_500q bench_locomo -- --ignored --nocapture 2>&1
+    fi
   else
-    cargo test --test bench bench_retrieval_accuracy_500q bench_locomo -- --ignored --nocapture 2>&1
+    if [[ $QUICK -eq 1 ]]; then
+      QUICK=1 cargo test --test bench bench_retrieval_accuracy_500q bench_locomo -- --ignored --nocapture 2>&1
+    else
+      cargo test --test bench bench_retrieval_accuracy_500q bench_locomo -- --ignored --nocapture 2>&1
+    fi
   fi
 fi
 
@@ -103,17 +120,21 @@ fi
 if [[ $EVAL -eq 1 ]]; then
   echo ""
   echo "▶ Running proper evaluation harnesses …"
+  EVAL_ARGS=()
+  if [[ $QUICK -eq 1 ]]; then
+    EVAL_ARGS+=(--profile quick)
+  fi
 
   if [[ -f "tests/fixtures/longmemeval_500.json" ]]; then
     echo "  eval_lme.py (LME-500 F1/EM) …"
-    python3 scripts/eval_lme.py
+    python3 scripts/eval_lme.py "${EVAL_ARGS[@]}"
   else
     echo "  Skipping eval_lme.py — fixture missing (run gen_lme500.py first)"
   fi
 
   if [[ -f "tests/fixtures/locomo_sample.json" ]]; then
     echo "  eval_locomo.py (LoCoMo F1/EM) …"
-    python3 scripts/eval_locomo.py
+    python3 scripts/eval_locomo.py "${EVAL_ARGS[@]}"
   else
     echo "  Skipping eval_locomo.py — fixture missing (run gen_locomo.py first)"
   fi

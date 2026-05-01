@@ -15,7 +15,6 @@
 /// - No sync, no cloud, no daemon — purely local file system operations
 /// - Zero performance cost when global index is absent (graceful fallback)
 /// - Concept fingerprint deduplication (D2) prevents publishing redundant neurons
-
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -24,7 +23,10 @@ use serde::{Deserialize, Serialize};
 
 /// Default global concept directory.
 pub fn global_dir() -> PathBuf {
-    dirs_home().join(".cortyx").join("global")
+    dirs::home_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join(".cortyx")
+        .join("global")
 }
 
 /// Path to the global neuron storage directory.
@@ -35,13 +37,6 @@ pub fn global_neurons_dir() -> PathBuf {
 /// Path to the global index file.
 pub fn global_index_path() -> PathBuf {
     global_dir().join("index.json")
-}
-
-fn dirs_home() -> PathBuf {
-    std::env::var("HOME")
-        .or_else(|_| std::env::var("USERPROFILE"))
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("."))
 }
 
 /// A minimal BM25 entry for global concept neurons.
@@ -60,26 +55,46 @@ pub struct GlobalEntry {
 }
 
 /// The global index — serialized to `~/.cortyx/global/index.json`.
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct GlobalIndex {
     pub version: u32,
     pub entries: Vec<GlobalEntry>,
 }
 
 impl GlobalIndex {
-    pub const VERSION: u32 = 1;
+    pub const VERSION: u32 = 2;
 
     /// Load the global index from disk. Returns an empty index if file is absent.
     pub fn load() -> Self {
         let path = global_index_path();
         if !path.exists() {
-            return Self { version: Self::VERSION, entries: Vec::new() };
+            return Self::default();
         }
         let data = match std::fs::read_to_string(&path) {
             Ok(d) => d,
-            Err(_) => return Self::default(),
+            Err(err) => {
+                tracing::warn!(
+                    path = %path.display(),
+                    "Failed to read global index; falling back to empty index: {err}"
+                );
+                return Self::default();
+            },
         };
-        serde_json::from_str(&data).unwrap_or_default()
+        let mut index: Self = match serde_json::from_str(&data) {
+            Ok(index) => index,
+            Err(err) => {
+                tracing::warn!(
+                    path = %path.display(),
+                    "Failed to parse global index; falling back to empty index: {err}"
+                );
+                return Self::default();
+            },
+        };
+        if index.version < Self::VERSION {
+            index.upgrade_legacy_fingerprints();
+            index.version = Self::VERSION;
+        }
+        index
     }
 
     /// Save the global index to disk, creating directories as needed.
@@ -106,7 +121,10 @@ impl GlobalIndex {
         let avg_len: f32 = if self.entries.is_empty() {
             1.0
         } else {
-            self.entries.iter().map(|e| e.term_count as f32).sum::<f32>()
+            self.entries
+                .iter()
+                .map(|e| e.term_count as f32)
+                .sum::<f32>()
                 / self.entries.len() as f32
         };
 
@@ -118,19 +136,28 @@ impl GlobalIndex {
             }
         }
 
-        let mut scored: Vec<(f32, &PathBuf)> = self.entries.iter().map(|entry| {
-            let dl = entry.term_count as f32;
-            let len_norm = 0.25 + 0.75 * (dl / avg_len.max(1.0));
-            let k1 = 1.5_f32;
-            let score: f32 = terms.iter().map(|t| {
-                let tf = entry.term_freq.get(t.as_str()).copied().unwrap_or(0.0);
-                if tf == 0.0 { return 0.0; }
-                let df_val = df.get(t.as_str()).copied().unwrap_or(1) as f32;
-                let idf = ((n - df_val + 0.5) / (df_val + 0.5) + 1.0).ln().max(0.0);
-                idf * (tf * (k1 + 1.0)) / (tf + k1 * len_norm)
-            }).sum();
-            (score, &entry.path)
-        }).collect();
+        let mut scored: Vec<(f32, &PathBuf)> = self
+            .entries
+            .iter()
+            .map(|entry| {
+                let dl = entry.term_count as f32;
+                let len_norm = 0.25 + 0.75 * (dl / avg_len.max(1.0));
+                let k1 = 1.5_f32;
+                let score: f32 = terms
+                    .iter()
+                    .map(|t| {
+                        let tf = entry.term_freq.get(t.as_str()).copied().unwrap_or(0.0);
+                        if tf == 0.0 {
+                            return 0.0;
+                        }
+                        let df_val = df.get(t.as_str()).copied().unwrap_or(1) as f32;
+                        let idf = ((n - df_val + 0.5) / (df_val + 0.5) + 1.0).ln().max(0.0);
+                        idf * (tf * (k1 + 1.0)) / (tf + k1 * len_norm)
+                    })
+                    .sum();
+                (score, &entry.path)
+            })
+            .collect();
 
         scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
         scored
@@ -190,6 +217,36 @@ impl GlobalIndex {
         self.save()?;
         Ok(dest)
     }
+
+    /// Return true when the library already contains a concept with the same content fingerprint.
+    pub fn contains_content(&self, content: &str) -> bool {
+        let (tf, _) = build_term_freq(content);
+        let fingerprint = compute_fingerprint(&tf);
+        self.entries
+            .iter()
+            .any(|entry| entry.fingerprint == fingerprint)
+    }
+
+    /// Return true when the library already contains the given neuron's content.
+    pub fn contains_neuron(&self, neuron_path: &Path) -> Result<bool> {
+        let content = std::fs::read_to_string(neuron_path)?;
+        Ok(self.contains_content(&content))
+    }
+
+    fn upgrade_legacy_fingerprints(&mut self) {
+        for entry in &mut self.entries {
+            entry.fingerprint = compute_fingerprint(&entry.term_freq);
+        }
+    }
+}
+
+impl Default for GlobalIndex {
+    fn default() -> Self {
+        Self {
+            version: Self::VERSION,
+            entries: Vec::new(),
+        }
+    }
 }
 
 /// Build a term-frequency map from neuron content.
@@ -207,22 +264,16 @@ fn build_term_freq(content: &str) -> (HashMap<String, f32>, usize) {
     (tf, count)
 }
 
-/// Compute a BLAKE3-like fingerprint from the top-20 terms by frequency.
-///
-/// Uses a simple deterministic hash (sorted term list joined) since BLAKE3
-/// is not a dependency. Sufficient for D2 deduplication purposes.
+/// Compute a BLAKE3 fingerprint from the top-20 terms by frequency.
 fn compute_fingerprint(tf: &HashMap<String, f32>) -> String {
     let mut sorted: Vec<(&String, &f32)> = tf.iter().collect();
     sorted.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap_or(std::cmp::Ordering::Equal));
     let top20: Vec<&str> = sorted.iter().take(20).map(|(t, _)| t.as_str()).collect();
-    // Deterministic hash: sorted top-20 terms joined
     let mut terms_sorted = top20.clone();
     terms_sorted.sort_unstable();
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
-    let mut hasher = DefaultHasher::new();
-    terms_sorted.join("|").hash(&mut hasher);
-    format!("{:x}", hasher.finish())
+    blake3::hash(terms_sorted.join("|").as_bytes())
+        .to_hex()
+        .to_string()
 }
 
 /// List all published global concepts.
@@ -238,7 +289,20 @@ pub fn list_global_concepts() -> Vec<(PathBuf, String)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::hash_map::DefaultHasher;
     use std::collections::HashMap;
+    use std::hash::{Hash, Hasher};
+
+    fn legacy_fingerprint(tf: &HashMap<String, f32>) -> String {
+        let mut sorted: Vec<(&String, &f32)> = tf.iter().collect();
+        sorted.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap_or(std::cmp::Ordering::Equal));
+        let top20: Vec<&str> = sorted.iter().take(20).map(|(t, _)| t.as_str()).collect();
+        let mut terms_sorted = top20.clone();
+        terms_sorted.sort_unstable();
+        let mut hasher = DefaultHasher::new();
+        terms_sorted.join("|").hash(&mut hasher);
+        format!("{:x}", hasher.finish())
+    }
 
     #[test]
     fn test_fingerprint_deterministic() {
@@ -263,6 +327,7 @@ mod tests {
     #[test]
     fn test_global_index_default_empty() {
         let idx = GlobalIndex::default();
+        assert_eq!(idx.version, GlobalIndex::VERSION);
         assert!(idx.entries.is_empty());
     }
 
@@ -271,5 +336,48 @@ mod tests {
         let idx = GlobalIndex::default();
         let result = idx.query(&["auth".to_string()], 3);
         assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_upgrade_legacy_fingerprints_recomputes_blake3() {
+        let mut tf = HashMap::new();
+        tf.insert("auth".to_string(), 5.0);
+        tf.insert("token".to_string(), 3.0);
+
+        let mut idx = GlobalIndex {
+            version: 1,
+            entries: vec![GlobalEntry {
+                path: PathBuf::from("auth.context.md"),
+                source_project: "demo".to_string(),
+                term_freq: tf.clone(),
+                term_count: 8,
+                fingerprint: legacy_fingerprint(&tf),
+            }],
+        };
+
+        idx.upgrade_legacy_fingerprints();
+
+        assert_eq!(idx.entries[0].fingerprint, compute_fingerprint(&tf));
+        assert_ne!(idx.entries[0].fingerprint, legacy_fingerprint(&tf));
+    }
+
+    #[test]
+    fn test_contains_content_matches_existing_fingerprint() {
+        let mut tf = HashMap::new();
+        tf.insert("auth".to_string(), 5.0);
+        tf.insert("token".to_string(), 3.0);
+        let idx = GlobalIndex {
+            version: GlobalIndex::VERSION,
+            entries: vec![GlobalEntry {
+                path: PathBuf::from("auth.context.md"),
+                source_project: "demo".to_string(),
+                term_freq: tf.clone(),
+                term_count: 8,
+                fingerprint: compute_fingerprint(&tf),
+            }],
+        };
+
+        assert!(idx.contains_content("auth token auth token"));
+        assert!(!idx.contains_content("database migration schema"));
     }
 }

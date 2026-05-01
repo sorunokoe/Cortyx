@@ -1705,7 +1705,7 @@ fn format_answer_list(items: &[String]) -> String {
             out.push_str(", and ");
             out.push_str(items.last().unwrap_or(&String::new()));
             out
-        }
+        },
     }
 }
 
@@ -3706,7 +3706,7 @@ fn relation_predicate_query_bonus(task_lower: &str, predicate: &str) -> f32 {
                 .any(|needle| task_lower.contains(needle)) =>
         {
             6.0
-        }
+        },
         "location"
             if task_lower.starts_with("where ")
                 || [
@@ -3722,7 +3722,7 @@ fn relation_predicate_query_bonus(task_lower: &str, predicate: &str) -> f32 {
                 .any(|needle| task_lower.contains(needle)) =>
         {
             6.0
-        }
+        },
         "partner"
             if task_lower.starts_with("who ")
                 || [
@@ -3737,63 +3737,63 @@ fn relation_predicate_query_bonus(task_lower: &str, predicate: &str) -> f32 {
                 .any(|needle| task_lower.contains(needle)) =>
         {
             6.0
-        }
+        },
         "major"
             if ["major", "field"]
                 .iter()
                 .any(|needle| task_lower.contains(needle)) =>
         {
             6.0
-        }
+        },
         "education"
             if ["study", "studied", "degree", "education", "graduated"]
                 .iter()
                 .any(|needle| task_lower.contains(needle)) =>
         {
             5.0
-        }
+        },
         "school"
             if ["school", "college", "university"]
                 .iter()
                 .any(|needle| task_lower.contains(needle)) =>
         {
             6.0
-        }
+        },
         "pet"
             if ["pet", "dog", "cat", "name", "called"]
                 .iter()
                 .any(|needle| task_lower.contains(needle)) =>
         {
             6.0
-        }
+        },
         "phone"
             if ["phone", "number", "call"]
                 .iter()
                 .any(|needle| task_lower.contains(needle)) =>
         {
             6.0
-        }
+        },
         "book"
             if ["book", "read", "reading", "novel"]
                 .iter()
                 .any(|needle| task_lower.contains(needle)) =>
         {
             6.0
-        }
+        },
         "project_name"
             if ["project", "playlist", "blog", "channel", "called", "name"]
                 .iter()
                 .any(|needle| task_lower.contains(needle)) =>
         {
             6.0
-        }
+        },
         "vehicle_model"
             if ["vehicle", "car", "truck", "model", "drive"]
                 .iter()
                 .any(|needle| task_lower.contains(needle)) =>
         {
             6.0
-        }
+        },
         "family_trip_location"
             if task_lower.starts_with("where ")
                 || ["family", "trip", "vacation", "travel", "destination"]
@@ -3801,35 +3801,35 @@ fn relation_predicate_query_bonus(task_lower: &str, predicate: &str) -> f32 {
                     .any(|needle| task_lower.contains(needle)) =>
         {
             5.0
-        }
+        },
         "commute_time"
             if ["commute", "travel", "minutes", "time"]
                 .iter()
                 .any(|needle| task_lower.contains(needle)) =>
         {
             5.0
-        }
+        },
         "diet"
             if ["diet", "vegan", "vegetarian", "pescatarian", "keto"]
                 .iter()
                 .any(|needle| task_lower.contains(needle)) =>
         {
             5.0
-        }
+        },
         "allergy"
             if ["allergy", "allergic"]
                 .iter()
                 .any(|needle| task_lower.contains(needle)) =>
         {
             5.0
-        }
+        },
         "studying"
             if ["study", "studying"]
                 .iter()
                 .any(|needle| task_lower.contains(needle)) =>
         {
             4.0
-        }
+        },
         _ => 0.0,
     }
 }
@@ -3907,28 +3907,15 @@ fn answer_surface_score(
     retrieval_score + overlap as f32 * 4.0 + coverage * 6.0 + specificity * 2.0 + row.confidence
 }
 
-
 pub(super) mod temporal;
 use self::temporal::{
-    best_calendar_grounded_current_anchor_rank,
-    collect_temporal_candidates,
-    current_kg_values,
-    is_temporal_reasoning_query,
-    is_temporal_sequence_query,
-    kg_entity_query_terms,
-    kg_predicate_query_terms,
-    parse_temporal_elapsed_query,
-    parse_temporal_gap_query,
-    select_comparison_answer,
-    required_tail_anchor_tokens,
-    select_dialogue_temporal_answer,
-    select_temporal_count_answer,
-    select_temporal_duration_answer,
-    select_temporal_employment_duration_answer,
-    select_temporal_order_answer,
-    select_temporal_state_answer,
-    shift_date_by_days,
-    split_once_case_insensitive,
+    best_calendar_grounded_current_anchor_rank, collect_temporal_candidates, current_kg_values,
+    is_temporal_reasoning_query, is_temporal_sequence_query, kg_entity_query_terms,
+    kg_predicate_query_terms, parse_temporal_elapsed_query, parse_temporal_gap_query,
+    required_tail_anchor_tokens, select_comparison_answer, select_dialogue_temporal_answer,
+    select_temporal_count_answer, select_temporal_duration_answer,
+    select_temporal_employment_duration_answer, select_temporal_order_answer,
+    select_temporal_state_answer, shift_date_by_days, split_once_case_insensitive,
     temporal_focus_terms,
 };
 
@@ -3990,7 +3977,7 @@ fn read_context_text(path: &Path, stage: &str) -> Option<String> {
                 err
             );
             None
-        }
+        },
     }
 }
 
@@ -3999,23 +3986,14 @@ fn explicit_read_error_snippet(path: &Path) -> String {
 }
 
 mod dialogue;
-pub use self::dialogue::{mine_dialogue_answer_surface_span, mine_dialogue_question_pattern};
 use self::dialogue::{
-    looks_like_question_turn,
-    parse_dialogue_turns,
-    select_structured_diary_answer,
-    select_subject_turn_answer,
-    select_turn_pair_answer,
-    should_skip_generated_answer_line,
-    structured_diary_action_query,
-    structured_diary_blocker_query,
-    structured_diary_dependencies_query,
-    structured_diary_entities_query,
-    structured_diary_goal_query,
-    structured_diary_status_query,
-    structured_diary_title_query,
+    looks_like_question_turn, parse_dialogue_turns, select_structured_diary_answer,
+    select_subject_turn_answer, select_turn_pair_answer, should_skip_generated_answer_line,
+    structured_diary_action_query, structured_diary_blocker_query,
+    structured_diary_dependencies_query, structured_diary_entities_query,
+    structured_diary_goal_query, structured_diary_status_query, structured_diary_title_query,
 };
-
+pub use self::dialogue::{mine_dialogue_answer_surface_span, mine_dialogue_question_pattern};
 
 fn update_best_answer(best: &mut Option<(f32, String)>, score: f32, answer: String) {
     if best
