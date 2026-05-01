@@ -117,3 +117,32 @@ pub fn run(root: &Path, json_output: bool) -> i32 {
         0
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::TempDir;
+
+    #[test]
+    fn doctor_detects_missing_cortyx_dir() {
+        let temp = TempDir::new().unwrap();
+        let exit_code = run(temp.path(), true);
+        assert_eq!(exit_code, 1, "Should return error when .cortyx/ missing");
+    }
+
+    #[test]
+    fn doctor_succeeds_with_valid_index() {
+        let temp = TempDir::new().unwrap();
+        let cortyx_dir = temp.path().join(".cortyx");
+        fs::create_dir_all(&cortyx_dir).unwrap();
+        
+        // Create minimal valid index.json
+        let index_json = cortyx_dir.join("index.json");
+        fs::write(&index_json, r#"{"version":1,"neurons":{},"inverted_index":{}}"#).unwrap();
+        
+        let exit_code = run(temp.path(), true);
+        assert_eq!(exit_code, 0, "Should succeed with valid index");
+    }
+}
+
