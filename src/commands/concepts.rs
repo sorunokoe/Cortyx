@@ -1,12 +1,79 @@
 //! Concepts command - manage global concept registry.
 
 use crate::cli::ConceptsCommand;
-use crate::global_index;
+use crate::{global_index, index};
 use anyhow::Result;
-use std::path::PathBuf;
+use std::path::Path;
+
+/// Helper to auto-commit changes to global concepts directory
+fn auto_commit_global_concepts(global_dir: &Path, message: &str) -> Result<bool> {
+    if !global_dir.join(".git").exists() {
+        return Ok(false);
+    }
+
+    let status = std::process::Command::new("git")
+        .args(["status", "--porcelain"])
+        .current_dir(global_dir)
+        .output()?;
+    if !status.status.success() {
+        let stderr = String::from_utf8_lossy(&status.stderr);
+        anyhow::bail!("git status failed in {}: {stderr}", global_dir.display());
+    }
+    if String::from_utf8_lossy(&status.stdout).trim().is_empty() {
+        return Ok(false);
+    }
+
+    let add = std::process::Command::new("git")
+        .args(["add", "-A"])
+        .current_dir(global_dir)
+        .output()?;
+    if !add.status.success() {
+        let stderr = String::from_utf8_lossy(&add.stderr);
+        anyhow::bail!("git add failed in {}: {stderr}", global_dir.display());
+    }
+
+    let commit = std::process::Command::new("git")
+        .args(["commit", "-m", message])
+        .current_dir(global_dir)
+        .output()?;
+    if !commit.status.success() {
+        let stderr = String::from_utf8_lossy(&commit.stderr);
+        anyhow::bail!(
+            "git commit failed in {}: {}",
+            global_dir.display(),
+            stderr.trim()
+        );
+    }
+
+    Ok(true)
+}
+
+/// Helper to collect publish-ready concepts from local index
+fn collect_ready_concepts(
+    root: &Path,
+    global_idx: &global_index::GlobalIndex,
+    limit: usize,
+    min_use: u32,
+    min_hit_rate: f32,
+    min_quality: f32,
+) -> Result<Vec<index::PublishReadySummary>> {
+    let idx = index::NeuronIndex::load_or_create(root)?;
+    let mut ready = Vec::new();
+    for candidate in idx.publish_ready_candidates(min_use, min_hit_rate, min_quality, 0) {
+        if global_idx.contains_neuron(&candidate.path)? {
+            continue;
+        }
+        ready.push(candidate);
+        if limit > 0 && ready.len() >= limit {
+            break;
+        }
+    }
+    Ok(ready)
+}
 
 pub fn run(sub: ConceptsCommand) -> Result<()> {
     let global_dir = global_index::global_dir();
+    let global_idx = global_index::GlobalIndex::load();
 
     match sub {
         ConceptsCommand::Init { remote } => {
@@ -96,29 +163,80 @@ pub fn run(sub: ConceptsCommand) -> Result<()> {
         },
 
         ConceptsCommand::Ready {
-            project: _,
-            limit: _,
-            min_use: _,
-            min_hit_rate: _,
-            min_quality: _,
+            project,
+            limit,
+            min_use,
+            min_hit_rate,
+            min_quality,
         } => {
-            // TODO: Extract collect_ready_concepts helper from main.rs
-            anyhow::bail!(
-                "Ready command not yet implemented - extract collect_ready_concepts from main.rs"
-            );
+            let project_root = project
+                .as_ref()
+                .map(|p| p.as_path())
+                .unwrap_or_else(|| Path::new("."));
+            let ready = collect_ready_concepts(
+                project_root,
+                &global_idx,
+                limit,
+                min_use,
+                min_hit_rate,
+                min_quality,
+            )?;
+            if ready.is_empty() {
+                println!("No publish-ready concepts found.");
+            } else {
+                println!("Found {} publish-ready concept(s):", ready.len());
+                for summary in ready {
+                    println!(
+                        "  {} (use: {}, hit_rate: {:.2}, quality: {:.2})",
+                        summary.path.display(),
+                        summary.use_count,
+                        summary.hit_rate,
+                        summary.quality_score
+                    );
+                }
+            }
         },
 
         ConceptsCommand::PublishReady {
-            project: _,
-            limit: _,
-            min_use: _,
-            min_hit_rate: _,
-            min_quality: _,
+            project,
+            limit,
+            min_use,
+            min_hit_rate,
+            min_quality,
         } => {
-            // TODO: Extract collect_ready_concepts and auto_commit_global_concepts helpers from main.rs
-            anyhow::bail!(
-                "PublishReady command not yet implemented - extract helpers from main.rs"
-            );
+            let project_root = project
+                .as_ref()
+                .map(|p| p.as_path())
+                .unwrap_or_else(|| Path::new("."));
+            let ready = collect_ready_concepts(
+                project_root,
+                &global_idx,
+                limit,
+                min_use,
+                min_hit_rate,
+                min_quality,
+            )?;
+            if ready.is_empty() {
+                println!("No publish-ready concepts found.");
+                return Ok(());
+            }
+
+            println!("Publishing {} concept(s)...", ready.len());
+            let neurons_dir = global_dir.join("neurons");
+            std::fs::create_dir_all(&neurons_dir)?;
+
+            for summary in &ready {
+                let src = project_root.join(&summary.path);
+                let dest = neurons_dir.join(summary.path.file_name().unwrap());
+                std::fs::copy(&src, &dest)?;
+                println!("  ✓ {}", summary.path.display());
+            }
+
+            if auto_commit_global_concepts(&global_dir, "publish ready concepts")? {
+                println!("Changes committed to global concepts.");
+            } else {
+                println!("Note: No git repository in global_dir — changes not committed.");
+            }
         },
 
         ConceptsCommand::Status => {
