@@ -1,0 +1,32 @@
+// Cortyx public library API.
+//
+// Exposes `index` and `miner` for in-process use by integration tests and benchmarks.
+// This eliminates the need for subprocess spawning (500 × binary-startup overhead)
+// and allows tests to load the NeuronIndex once and query it N times in-process.
+// TRIZ P10 (Preliminary Action) + P20 (Continuity of Useful Action).
+
+pub mod error;
+pub mod types;
+
+pub mod agent_memory;
+pub mod alias_gen;
+pub mod answer_plane;
+pub mod ast_extractor;
+pub mod cli;
+pub mod collaboration_kernel;
+pub mod commands;
+pub mod embedder;
+pub mod export;
+pub mod git_extractor;
+pub mod global_index;
+pub mod import_parser;
+pub mod index;
+pub mod installer;
+pub mod kg;
+pub mod mcp;
+pub mod miner;
+pub mod neuron;
+pub mod reasoner;
+pub mod reranker;
+pub mod sync_transport;
+pub mod watcher;
