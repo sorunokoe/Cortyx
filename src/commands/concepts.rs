@@ -225,11 +225,38 @@ pub fn run(sub: ConceptsCommand) -> Result<()> {
             let neurons_dir = global_dir.join("neurons");
             std::fs::create_dir_all(&neurons_dir)?;
 
+            let mut published = 0usize;
             for summary in &ready {
                 let src = project_root.join(&summary.path);
+                // A6: ECS gate — skip neurons whose content is too risky.
+                #[cfg(feature = "verify")]
+                {
+                    if let Ok(body) = std::fs::read_to_string(&src) {
+                        let verdict = crate::verify_gate::check(&body);
+                        if verdict.risk_score > 0.65 {
+                            println!(
+                                "  ⚠ skipped (ECS risk {:.2}): {}",
+                                verdict.risk_score,
+                                summary.path.display()
+                            );
+                            continue;
+                        }
+                    }
+                }
                 let dest = neurons_dir.join(summary.path.file_name().unwrap());
                 std::fs::copy(&src, &dest)?;
                 println!("  ✓ {}", summary.path.display());
+                published += 1;
+            }
+
+            let skipped = ready.len() - published;
+            if skipped > 0 {
+                println!("{skipped} neuron(s) skipped by ECS quality gate.");
+            }
+
+            if published == 0 {
+                println!("No neurons passed ECS quality gate — nothing committed.");
+                return Ok(());
             }
 
             if auto_commit_global_concepts(&global_dir, "publish ready concepts")? {

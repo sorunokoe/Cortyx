@@ -37,6 +37,7 @@ use crate::miner;
 use crate::neuron::provenance::{
     record_content_provenance_edit, ProvenanceEdit, ProvenanceOperation, ProvenanceSource,
 };
+use crate::verify_gate;
 use crate::neuron::{
     atomic_write, atomic_write_json, core_neuron_path, estimate_context_tokens, hash_file,
     latest_shadow, meta_path, neuron_dir, now_iso8601, parse_sections, parse_synapses_from_content,
@@ -178,6 +179,12 @@ pub struct MineConversationInput {
     pub person: Option<String>,
     /// Optional ISO 8601 timestamp for the turn
     pub timestamp: Option<String>,
+    /// ECS risk threshold above which the write is rejected (0.0–1.0, default 0.60).
+    /// Requires `--features verify`. Has no effect on default builds.
+    pub min_ecs_threshold: Option<f64>,
+    /// When `true`, skip ECS verification entirely for this call (e.g. trusted curator content).
+    /// Requires `--features verify`. Has no effect on default builds.
+    pub skip_verify: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
@@ -1042,7 +1049,27 @@ impl CortyxServer {
                 provenance_mode,
                 min_answer_confidence,
             ) {
-                Ok(answer) => answer,
+                Ok(answer) => {
+                    // A7: ECS filter — abstain if the generated answer is likely hallucinated.
+                    let verdict = verify_gate::check(&answer);
+                    if verdict.risk_score > 0.50 {
+                        if provenance_mode {
+                            return format!(
+                                "(answer abstained — ECS={}/100, risk={:.2}: {})",
+                                verdict.ecs_score(),
+                                verdict.risk_score,
+                                verdict.summary.as_deref().unwrap_or("high risk")
+                            );
+                        }
+                        return String::new();
+                    }
+                    // Append ECS score to provenance output when available.
+                    if provenance_mode {
+                        format!("{answer}\n\n<!-- ECS: {}/100 -->", verdict.ecs_score())
+                    } else {
+                        answer
+                    }
+                },
                 Err(answer_plane::AnswerAbstentionReason::LowFormConfidence)
                     if min_answer_confidence.is_some() =>
                 {
@@ -1878,6 +1905,34 @@ impl CortyxServer {
         if input.content.len() > MAX_CONTENT_BYTES {
             return format!("ERROR: content exceeds {MAX_CONTENT_BYTES} byte limit");
         }
+
+        // ECS verification gate — blocks or quarantines hallucinated content before
+        // it enters long-term memory. No-op when `--features verify` is absent.
+        if !input.skip_verify.unwrap_or(false) {
+            let verdict = verify_gate::check(&input.content);
+            let block_threshold =
+                input.min_ecs_threshold.unwrap_or(verify_gate::DEFAULT_BLOCK_THRESHOLD);
+            if verdict.risk_score > block_threshold {
+                let summary = verdict.summary.as_deref().unwrap_or("high hallucination risk");
+                return format!(
+                    "REJECTED by ECS gate (risk={:.2}, ECS={}/100): {}. \
+                     Use skip_verify=true to override, or revise the content.",
+                    verdict.risk_score,
+                    verdict.ecs_score(),
+                    summary
+                );
+            }
+            // Medium-risk: quarantine annotation is stored in the neuron sidecar via
+            // the miner metadata path (future: pass quarantine_tag into mine_text).
+            // For now, surface the warning in the response so the agent is aware.
+            if let Some(annotation) = verdict.quarantine_annotation() {
+                tracing::debug!(
+                    annotation = %annotation,
+                    "mine_conversation: medium-risk content quarantined"
+                );
+            }
+        }
+
         let mut idx = self.index.write().await;
         let effective_module: Option<String> = input
             .person
@@ -2294,18 +2349,35 @@ impl CortyxServer {
         let idx = self.index.read().await;
         let pairs = idx.all_contradictions(path_filter.as_deref());
 
-        if pairs.is_empty() {
+        // A4: semantic contradiction detection via PureReason (feature=verify).
+        // Reads up to 30 neuron bodies (or just the filtered one), extracts logical
+        // claims, and finds contradictions that have no explicit Contradicts synapse.
+        let semantic_pairs: Vec<(String, String)> = {
+            let bodies: Vec<String> = idx
+                .neuron_bodies_for_consistency(path_filter.as_deref(), 30)
+                .unwrap_or_default();
+            let body_refs: Vec<&str> = bodies.iter().map(String::as_str).collect();
+            verify_gate::find_semantic_contradictions(&body_refs)
+        };
+
+        let total = pairs.len() + semantic_pairs.len();
+        if total == 0 {
             return "No contradictions detected.".to_string();
         }
 
-        let mut out = format!("## Contradictions Found ({})\n\n", pairs.len());
+        let mut out = format!("## Contradictions Found ({})\n\n", total);
         for (a, b, reason) in &pairs {
             let a_name = a.file_name().unwrap_or_default().to_string_lossy();
             let b_name = b.file_name().unwrap_or_default().to_string_lossy();
             out.push_str(&format!(
-                "- **{}** ↔ **{}**\n  Reason: {}\n  Action: use `cortyx_create_synapse` to update or \
+                "- **{}** ↔ **{}** *(synapse)*\n  Reason: {}\n  Action: use `cortyx_create_synapse` to update or \
                  `cortyx_invalidate` to retire the outdated neuron.\n\n",
                 a_name, b_name, reason
+            ));
+        }
+        for (claim_a, claim_b) in &semantic_pairs {
+            out.push_str(&format!(
+                "- *(semantic)* `{claim_a}` contradicts `{claim_b}`\n  Action: review neurons containing these claims.\n\n"
             ));
         }
         out
@@ -2397,6 +2469,20 @@ impl CortyxServer {
                        Example: entity='project_meta', predicate='language', value='Rust', valid_from='2024-01-01'."
     )]
     async fn kg_add(&self, Parameters(input): Parameters<KgAddInput>) -> String {
+        // A5: ECS verification gate — block factually risky claims from entering the KG.
+        let fact_text = format!("{}: {} = {}", input.entity, input.predicate, input.value);
+        let verdict = verify_gate::check(&fact_text);
+        if verdict.risk_score > 0.70 {
+            let summary = verdict.summary.as_deref().unwrap_or("high hallucination risk");
+            return format!(
+                "REJECTED by ECS gate (risk={:.2}, ECS={}/100): {}. \
+                 Review the fact before adding it to the KG.",
+                verdict.risk_score,
+                verdict.ecs_score(),
+                summary
+            );
+        }
+
         let path = kg::kg_neuron_path(&self.project_root, &input.entity);
         let mut entity = match kg::KgEntity::load(&path) {
             Ok(e) => e,

@@ -7,6 +7,7 @@
 
 pub mod error;
 pub mod types;
+pub mod verify_gate;
 
 pub mod agent_memory;
 pub mod alias_gen;

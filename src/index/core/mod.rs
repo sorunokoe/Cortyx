@@ -6255,6 +6255,37 @@ impl NeuronIndex {
         pairs
     }
 
+    /// Load neuron body text for semantic consistency checks.
+    ///
+    /// When `path_filter` is given, returns only that neuron's body (for single-neuron
+    /// scans). Without a filter, returns up to `limit` neuron bodies ordered by hit-rate
+    /// descending so the most-used neurons are checked first.
+    ///
+    /// Used by `cortyx_check_consistency` to feed PureReason's semantic contradiction
+    /// detector with raw neuron text.
+    pub fn neuron_bodies_for_consistency(
+        &self,
+        path_filter: Option<&Path>,
+        limit: usize,
+    ) -> Option<Vec<String>> {
+        if let Some(pf) = path_filter {
+            let body = std::fs::read_to_string(pf).ok()?;
+            return Some(vec![body]);
+        }
+        let mut entries: Vec<&BM25Entry> = self.entries.iter().collect();
+        entries.sort_by(|a, b| {
+            b.hit_count
+                .partial_cmp(&a.hit_count)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        let bodies: Vec<String> = entries
+            .into_iter()
+            .take(limit)
+            .filter_map(|e| std::fs::read_to_string(&e.neuron_path).ok())
+            .collect();
+        Some(bodies)
+    }
+
     /// Propagate staleness to all neurons that import/call/implement the changed one.
     ///
     /// When a source file changes its neuron is marked stale. This method finds all
