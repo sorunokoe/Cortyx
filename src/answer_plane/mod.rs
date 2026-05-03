@@ -203,6 +203,8 @@ struct EvidenceItem {
 struct ReasoningEnhancement {
     supplemental_evidence: Vec<EvidenceItem>,
     summary_lines: Vec<String>,
+    /// Traversal chains rendered as "seed → hop1 → hop2 (score X.XX)".
+    chain_lines: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -706,6 +708,7 @@ fn build_reasoning_enhancement(
         return ReasoningEnhancement {
             supplemental_evidence,
             summary_lines: Vec::new(),
+            chain_lines: Vec::new(),
         };
     }
     let seed_paths: HashSet<PathBuf> = evidence.iter().map(|item| item.path.clone()).collect();
@@ -717,6 +720,7 @@ fn build_reasoning_enhancement(
     ReasoningEnhancement {
         supplemental_evidence,
         summary_lines: summary_report.summary_lines(2, 2),
+        chain_lines: summary_report.chain_lines(3),
     }
 }
 
@@ -1063,11 +1067,16 @@ fn append_reasoning_block(out: &mut String, reasoning: Option<&ReasoningEnhancem
     let Some(reasoning) = reasoning else {
         return;
     };
-    if reasoning.summary_lines.is_empty() {
+    if reasoning.summary_lines.is_empty() && reasoning.chain_lines.is_empty() {
         return;
     }
 
     out.push_str("<!-- CORTYX GRAPH REASONING -->\n");
+    for line in &reasoning.chain_lines {
+        out.push_str("- chain: ");
+        out.push_str(line);
+        out.push('\n');
+    }
     for line in &reasoning.summary_lines {
         out.push_str("- ");
         out.push_str(line);

@@ -17,6 +17,10 @@ pub struct StructuredDiaryEntry {
     pub entities: Vec<String>,
     pub depends_on: Vec<String>,
     pub action: Option<String>,
+    /// Heuristic-generated decomposition plan, populated by `refine_entry()`.
+    /// Not persisted if None.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub refined_plan: Option<String>,
 }
 
 pub fn has_structured_diary_fields(
@@ -128,6 +132,7 @@ pub fn parse_structured_diary_entry(content: &str) -> Option<StructuredDiaryEntr
         entities: Vec::new(),
         depends_on: Vec::new(),
         action: None,
+        refined_plan: None,
     };
     let mut current_section = None;
     let mut action_lines = Vec::new();
@@ -170,6 +175,7 @@ pub fn parse_structured_diary_entry(content: &str) -> Option<StructuredDiaryEntr
                 "goal" => entry.goal = normalize_inline(Some(value)),
                 "next_step" => entry.next_step = normalize_inline(Some(value)),
                 "blocker" => entry.blocker = normalize_inline(Some(value)),
+                "refined_plan" => entry.refined_plan = normalize_inline(Some(value)),
                 "entities" => {
                     entry.entities = value
                         .split(',')
@@ -251,6 +257,9 @@ pub fn summarize_structured_diary_entry(entry: &StructuredDiaryEntry) -> String 
     if !entry.entities.is_empty() {
         parts.push(format!("entities: {}", entry.entities.join(", ")));
     }
+    if let Some(refined_plan) = &entry.refined_plan {
+        parts.push(format!("refined_plan: {}", truncate_inline(refined_plan)));
+    }
     parts.join(" — ")
 }
 
@@ -305,6 +314,98 @@ fn truncate_inline(value: &str) -> String {
     let mut truncated = inline.chars().take(MAX_CHARS - 1).collect::<String>();
     truncated.push('…');
     truncated
+}
+
+/// Populate `entry.refined_plan` with a heuristic decomposition suggestion when
+/// the blocker (or goal/status) matches a vague or stuck pattern.
+///
+/// Pure heuristic — no LLM required. Returns `true` if a suggestion was generated.
+pub fn refine_entry(entry: &mut StructuredDiaryEntry) -> bool {
+    let blocker = entry.blocker.as_deref().unwrap_or("").to_lowercase();
+    let status = entry.status.as_deref().unwrap_or("").to_lowercase();
+    let goal = entry.goal.as_deref().unwrap_or("").to_lowercase();
+
+    let suggestion = if matches_vague_pattern(&blocker) || matches_vague_pattern(&goal) {
+        Some(
+            "Break this into smaller sub-tasks: (1) List what you know, \
+             (2) List what is unclear, (3) Identify the first concrete step \
+             that does not require the unknown information."
+                .to_string(),
+        )
+    } else if matches_too_large_pattern(&blocker) || matches_too_large_pattern(&goal) {
+        Some(
+            "Decompose into independent slices: (1) Identify the smallest \
+             deliverable that provides value on its own, (2) Do that first, \
+             (3) Reassess scope after each completed slice."
+                .to_string(),
+        )
+    } else if matches_waiting_pattern(&blocker) {
+        Some(
+            "Unblock parallel work: (1) Capture the exact dependency \
+             in depends_on, (2) Identify any parts of the task that can \
+             proceed without the blocked input, (3) Schedule a follow-up \
+             check-in."
+                .to_string(),
+        )
+    } else if status.contains("blocked") && entry.blocker.is_none() {
+        Some(
+            "Status is blocked but no blocker is recorded. \
+             Add a specific blocker description so the dependency can be tracked."
+                .to_string(),
+        )
+    } else {
+        None
+    };
+
+    if let Some(s) = suggestion {
+        entry.refined_plan = Some(s);
+        true
+    } else {
+        false
+    }
+}
+
+fn matches_vague_pattern(text: &str) -> bool {
+    const VAGUE: &[&str] = &[
+        "unclear",
+        "not sure",
+        "unsure",
+        "don't know",
+        "dont know",
+        "unknown",
+        "not clear",
+        "not certain",
+        "uncertain",
+    ];
+    VAGUE.iter().any(|p| text.contains(p))
+}
+
+fn matches_too_large_pattern(text: &str) -> bool {
+    const TOO_LARGE: &[&str] = &[
+        "too large",
+        "too big",
+        "too complex",
+        "too broad",
+        "overwhelming",
+        "scope creep",
+        "sprawling",
+        "hard to scope",
+    ];
+    TOO_LARGE.iter().any(|p| text.contains(p))
+}
+
+fn matches_waiting_pattern(text: &str) -> bool {
+    const WAITING: &[&str] = &[
+        "waiting on",
+        "waiting for",
+        "blocked by",
+        "blocked on",
+        "pending ",
+        "depends on",
+        "need approval",
+        "needs approval",
+    ];
+    WAITING.iter().any(|p| text.contains(p))
 }
 
 #[cfg(test)]
@@ -367,6 +468,7 @@ mod tests {
             entities: vec!["auth".to_string(), "router".to_string()],
             depends_on: vec!["platform-team".to_string()],
             action: Some("Reviewed auth routing".to_string()),
+            refined_plan: None,
         };
         let summary = summarize_structured_diary_entry(&entry);
         assert!(summary.contains("Design auth refactor"));
@@ -377,5 +479,87 @@ mod tests {
         assert!(summary.contains("Waiting on route ownership clarification."));
         assert!(summary.contains("depends on: platform-team"));
         assert!(summary.contains("entities: auth, router"));
+    }
+
+    fn make_entry_with_blocker(blocker: &str) -> StructuredDiaryEntry {
+        StructuredDiaryEntry {
+            agent: None,
+            title: None,
+            status: None,
+            goal: None,
+            next_step: None,
+            blocker: Some(blocker.to_string()),
+            outcome: None,
+            entities: Vec::new(),
+            depends_on: Vec::new(),
+            action: None,
+            refined_plan: None,
+        }
+    }
+
+    #[test]
+    fn refine_entry_generates_plan_for_vague_blocker() {
+        let mut entry = make_entry_with_blocker("unclear what to do next");
+        let refined = refine_entry(&mut entry);
+        assert!(refined, "Expected refine_entry to return true");
+        let plan = entry.refined_plan.as_deref().unwrap();
+        assert!(
+            plan.contains("sub-task") || plan.contains("unclear") || plan.contains("smaller"),
+            "Expected decomposition advice; got: {plan}"
+        );
+    }
+
+    #[test]
+    fn refine_entry_generates_plan_for_too_large_blocker() {
+        let mut entry = make_entry_with_blocker("the task is too large to start");
+        let refined = refine_entry(&mut entry);
+        assert!(refined);
+        let plan = entry.refined_plan.as_deref().unwrap();
+        assert!(
+            plan.contains("slice") || plan.contains("deliverable"),
+            "Expected slicing advice; got: {plan}"
+        );
+    }
+
+    #[test]
+    fn refine_entry_generates_plan_for_waiting_blocker() {
+        let mut entry = make_entry_with_blocker("waiting on approval from platform-team");
+        let refined = refine_entry(&mut entry);
+        assert!(refined);
+        let plan = entry.refined_plan.as_deref().unwrap();
+        assert!(
+            plan.contains("parallel") || plan.contains("depends_on"),
+            "Expected parallel-work advice; got: {plan}"
+        );
+    }
+
+    #[test]
+    fn refine_entry_generates_plan_for_blocked_status_no_blocker() {
+        let mut entry = StructuredDiaryEntry {
+            status: Some("blocked".to_string()),
+            blocker: None,
+            refined_plan: None,
+            agent: None,
+            title: None,
+            goal: None,
+            next_step: None,
+            outcome: None,
+            entities: Vec::new(),
+            depends_on: Vec::new(),
+            action: None,
+        };
+        assert!(refine_entry(&mut entry));
+        assert!(entry.refined_plan.is_some());
+    }
+
+    #[test]
+    fn refine_entry_leaves_clear_entries_unchanged() {
+        let mut entry = make_entry_with_blocker("implementing the new cache layer");
+        let refined = refine_entry(&mut entry);
+        assert!(
+            !refined,
+            "Should not generate a plan for a clear, actionable blocker"
+        );
+        assert!(entry.refined_plan.is_none());
     }
 }

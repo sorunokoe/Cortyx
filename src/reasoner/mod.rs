@@ -11,5 +11,5 @@ mod types;
 pub use traversal::GraphReasoner;
 pub use types::{
     ReasonedFact, ReasonedNode, ReasonedStep, ReasonerConflict, ReasonerNeuron, ReasonerSeed,
-    ReasoningReport, TraversalOptions,
+    ReasoningReport, TraversalOptions, TraversalStats,
 };

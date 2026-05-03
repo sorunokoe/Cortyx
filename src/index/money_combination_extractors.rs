@@ -1,7 +1,7 @@
 //! Money combination extractors (stub - TODO: restore from backup)
 
-use super::*;
 use super::money_support::*;
+use super::*;
 
 pub(super) fn extract_spend_focus_fact_from_line(
     _line: &str,

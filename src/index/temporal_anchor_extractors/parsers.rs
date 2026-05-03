@@ -1,9 +1,11 @@
 //! Query parsers for interval and elapsed gap queries.
 
-use super::types::*;
 use super::super::*;
+use super::types::*;
 
-pub(super) fn parse_elapsed_before_event_query(task_lower: &str) -> Option<ElapsedBeforeEventQuery> {
+pub(super) fn parse_elapsed_before_event_query(
+    task_lower: &str,
+) -> Option<ElapsedBeforeEventQuery> {
     let trimmed = task_lower.trim().trim_end_matches('?');
     let (subject_phrase, event_phrase) =
         if let Some(rest) = trimmed.strip_prefix("how long had i been ") {
@@ -28,7 +30,9 @@ pub(super) fn parse_temporal_interval_query(task_lower: &str) -> Option<Temporal
         .or_else(|| parse_days_before_query(task_lower))
 }
 
-pub(super) fn parse_temporal_elapsed_gap_query(task_lower: &str) -> Option<TemporalElapsedGapQuery> {
+pub(super) fn parse_temporal_elapsed_gap_query(
+    task_lower: &str,
+) -> Option<TemporalElapsedGapQuery> {
     parse_elapsed_since_when_query(task_lower)
         .or_else(|| parse_elapsed_after_query(task_lower))
         .or_else(|| parse_elapsed_have_i_been_query(task_lower))

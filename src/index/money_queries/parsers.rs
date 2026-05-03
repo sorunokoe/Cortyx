@@ -1,8 +1,8 @@
 //! Money query parsers for specific query types.
 
 use super::super::money_support::{
-    normalized_money_terms, CashbackQuery, RaisedTotalQuery, RecipientGiftTotalQuery,
-    RevenueQuery, SaleMinimumQuery, SavingsQuery, SpendFocus, SpendSumQuery,
+    normalized_money_terms, CashbackQuery, RaisedTotalQuery, RecipientGiftTotalQuery, RevenueQuery,
+    SaleMinimumQuery, SavingsQuery, SpendFocus, SpendSumQuery,
 };
 use super::super::*;
 use super::helpers::*;

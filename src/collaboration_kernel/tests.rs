@@ -22,6 +22,7 @@ fn diary_entry() -> StructuredDiaryEntry {
         entities: vec!["auth".to_string(), "engine".to_string()],
         depends_on: vec!["api-owner".to_string()],
         action: None,
+        refined_plan: None,
     }
 }
 
@@ -171,6 +172,7 @@ fn reasoning_report() -> ReasoningReport {
             String::new(),
         )],
         conflicts: Vec::new(),
+        ..Default::default()
     }
 }
 

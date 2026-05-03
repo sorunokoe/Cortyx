@@ -102,6 +102,8 @@ impl GraphReasoner {
         let mut expansions = 0usize;
         let mut conflicts = Vec::new();
         let mut seen_conflicts = HashSet::new();
+        let mut nodes_by_depth: HashMap<u8, usize> = HashMap::new();
+        let mut max_depth_reached = 0u8;
 
         while let Some(work) = queue.pop_front() {
             if work.depth >= options.max_hops || expansions >= options.max_expansions {
@@ -160,6 +162,8 @@ impl GraphReasoner {
                     strongest_step,
                 ) {
                     expansions += 1;
+                    *nodes_by_depth.entry(next_depth).or_insert(0) += 1;
+                    max_depth_reached = max_depth_reached.max(next_depth);
                     queue.push_back(WorkItem {
                         path: synapse.target.clone(),
                         origin: work.origin.clone(),
@@ -169,6 +173,26 @@ impl GraphReasoner {
                 }
             }
         }
+        // Converged = BFS queue was naturally exhausted (not cut short by max_expansions).
+        let converged = expansions < options.max_expansions;
+
+        let max_possible_depth = options.max_hops;
+        let mut nodes_by_depth_vec = vec![0usize; (max_possible_depth as usize) + 1];
+        // Seed nodes are at depth 0.
+        nodes_by_depth_vec[0] = ordered_seeds.len();
+        for (depth, count) in &nodes_by_depth {
+            let d = *depth as usize;
+            if d < nodes_by_depth_vec.len() {
+                nodes_by_depth_vec[d] = *count;
+            }
+        }
+
+        let traversal_stats = super::types::TraversalStats {
+            nodes_by_depth: nodes_by_depth_vec,
+            max_depth_reached,
+            converged,
+            total_expansions: expansions,
+        };
 
         let mut nodes =
             build_reasoned_nodes(&contributions, &self.neurons, &self.kg_entities, &seed_set);
@@ -189,6 +213,7 @@ impl GraphReasoner {
             nodes,
             facts,
             conflicts,
+            traversal_stats,
         }
     }
 }

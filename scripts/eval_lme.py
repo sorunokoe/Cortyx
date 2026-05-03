@@ -625,11 +625,13 @@ def prepare_lme_corpus(
 ) -> dict:
     staged_files, manifest, counts = lme_stage_files(entries)
     binary = binary_fingerprint()
+    # Cache key is content-only (manifest hash). Binary version is stored in
+    # corpus.json for reference but does NOT invalidate the cache — the mined
+    # index is a pure function of the conversation content, not the binary.
     cache_key = hashlib.sha256(
         json.dumps(
             {
                 "benchmark": "longmemeval-500",
-                "binary_sha256": binary["sha256"],
                 "manifest": manifest,
             },
             sort_keys=True,
@@ -673,8 +675,13 @@ def prepare_lme_corpus(
         stage_secs = time.perf_counter() - stage_start
 
         if counts["conversation_inputs"]:
+            # Mine can be much slower than individual queries (O(n·logn) for
+            # 500 conversations on a debug binary takes many minutes).  Give it
+            # at least 600 s regardless of the per-query timeout so a fresh
+            # corpus build doesn't spuriously time out.
+            mine_timeout = max(timeout_secs, 600)
             mine_start = time.perf_counter()
-            mine_run = run_cortyx(["mine", str(conversations_dir)], project_dir, timeout_secs)
+            mine_run = run_cortyx(["mine", str(conversations_dir)], project_dir, mine_timeout)
             mine_secs = time.perf_counter() - mine_start
             if not mine_run.ok:
                 shutil.rmtree(cache_dir, ignore_errors=True)

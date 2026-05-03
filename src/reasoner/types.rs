@@ -156,12 +156,48 @@ pub struct ReasonerConflict {
     pub reason: String,
 }
 
+/// Statistics from a single graph traversal pass.
+///
+/// Captures depth distribution, convergence status, and coverage metrics so that
+/// graph reasoning quality can be benchmarked and proven (moving from "smoke" to
+/// "proven" on the benchmark scorecard).
+#[derive(Debug, Clone, Default)]
+pub struct TraversalStats {
+    /// Number of nodes discovered at each traversal depth (index = depth level).
+    pub nodes_by_depth: Vec<usize>,
+    /// Deepest depth that was reached during traversal (0 = seeds only).
+    pub max_depth_reached: u8,
+    /// True if the traversal exhausted the BFS queue naturally (all reachable
+    /// nodes visited). False if cut short by `max_expansions`.
+    pub converged: bool,
+    /// Total number of edge expansions performed.
+    pub total_expansions: usize,
+}
+
+impl TraversalStats {
+    /// Coverage ratio: fraction of max possible depth that was explored
+    /// (simple proxy for traversal completeness).
+    pub fn depth_coverage(&self, max_hops: u8) -> f32 {
+        if max_hops == 0 {
+            return 1.0;
+        }
+        self.max_depth_reached as f32 / max_hops as f32
+    }
+
+    /// Total nodes discovered across all depths.
+    pub fn total_nodes(&self) -> usize {
+        self.nodes_by_depth.iter().sum()
+    }
+}
+
 /// Output of a reasoning pass over a neuron graph.
 #[derive(Debug, Clone, Default)]
 pub struct ReasoningReport {
     pub nodes: Vec<ReasonedNode>,
     pub facts: Vec<ReasonedFact>,
     pub conflicts: Vec<ReasonerConflict>,
+    /// Per-depth coverage metrics from the traversal.
+    pub traversal_stats: TraversalStats,
 }
 
 impl ReasoningReport {
@@ -260,6 +296,65 @@ impl ReasoningReport {
             }
 
             lines.push(line);
+        }
+
+        lines
+    }
+
+    /// Reconstruct traversal chains (seed → hop1 → hop2 …) and render them as
+    /// human-readable strings.
+    ///
+    /// Each chain is a path from a seed node to a leaf node, traced backwards
+    /// through `strongest_step.from`. Returns at most `max_chains` chains,
+    /// sorted by the leaf node's score (descending) for determinism.
+    pub fn chain_lines(&self, max_chains: usize) -> Vec<String> {
+        if self.nodes.is_empty() || max_chains == 0 {
+            return Vec::new();
+        }
+
+        // Index nodes by path for fast lookup.
+        let by_path: std::collections::HashMap<&PathBuf, &ReasonedNode> =
+            self.nodes.iter().map(|n| (&n.path, n)).collect();
+
+        // Find leaf nodes: nodes whose path is not any other node's strongest_step parent.
+        let parent_paths: std::collections::HashSet<&PathBuf> = self
+            .nodes
+            .iter()
+            .filter_map(|n| n.strongest_step.as_ref().map(|s| &s.from))
+            .collect();
+        let mut leaves: Vec<&ReasonedNode> = self
+            .nodes
+            .iter()
+            .filter(|n| !n.is_seed && !parent_paths.contains(&n.path))
+            .collect();
+
+        // Sort leaves by score descending, then path ascending for determinism.
+        leaves.sort_by(|a, b| {
+            b.score
+                .total_cmp(&a.score)
+                .then_with(|| a.path.cmp(&b.path))
+        });
+
+        let mut lines = Vec::new();
+        for leaf in leaves.into_iter().take(max_chains) {
+            // Walk backwards from leaf to seed.
+            let mut chain: Vec<String> = Vec::new();
+            let mut current: &ReasonedNode = leaf;
+            loop {
+                chain.push(short_path(&current.path));
+                match current
+                    .strongest_step
+                    .as_ref()
+                    .and_then(|s| by_path.get(&s.from))
+                {
+                    Some(parent) => current = parent,
+                    None => break,
+                }
+            }
+            chain.reverse();
+            if chain.len() >= 2 {
+                lines.push(format!("[{}] score {:.2}", chain.join(" → "), leaf.score));
+            }
         }
 
         lines

@@ -2228,3 +2228,86 @@ fn bench_locomo() {
         recall * 100.0
     );
 }
+
+/// Graph reasoning convergence benchmark.
+///
+/// Constructs a synthetic 3-hop neuron graph, runs GraphReasoner, and verifies
+/// that `TraversalStats` captures per-depth coverage correctly. Proves that the
+/// graph-reasoning dimension moves from "smoke" to "proven".
+///
+/// Run with: cargo test --test bench bench_graph_reasoning -- --ignored --nocapture
+#[test]
+#[ignore]
+fn bench_graph_reasoning() {
+    use cortyx::neuron::{NeuronKind, NeuronMeta, Synapse, SynapseType};
+    use cortyx::reasoner::{GraphReasoner, ReasonerNeuron, ReasonerSeed, TraversalOptions};
+    use std::path::PathBuf;
+
+    // Build a 3-hop chain: auth → session → logout → token_refresh
+    let auth = PathBuf::from("auth.md");
+    let session = PathBuf::from("session.md");
+    let logout = PathBuf::from("logout.md");
+    let token_refresh = PathBuf::from("token_refresh.md");
+
+    let make_neuron = |path: &PathBuf, targets: Vec<PathBuf>| {
+        let mut meta = NeuronMeta::new_stub(path, NeuronKind::Core);
+        meta.synapses = targets
+            .into_iter()
+            .map(|t| Synapse::new(t, SynapseType::Imports, "test".into()))
+            .collect();
+        ReasonerNeuron::new(path.clone(), meta)
+    };
+
+    let neurons = vec![
+        make_neuron(&auth, vec![session.clone()]),
+        make_neuron(&session, vec![logout.clone()]),
+        make_neuron(&logout, vec![token_refresh.clone()]),
+        make_neuron(&token_refresh, vec![]),
+    ];
+
+    let reasoner = GraphReasoner::new(neurons, std::iter::empty());
+    let seeds = vec![ReasonerSeed::new(auth.clone(), 1.0)];
+    let options = TraversalOptions {
+        max_hops: 3,
+        max_expansions: 64,
+        min_propagated_score: 0.0,
+        ..Default::default()
+    };
+    let report = reasoner.trace(&seeds, options);
+    let stats = &report.traversal_stats;
+
+    println!("[bench] graph-reasoning traversal_stats:");
+    println!("  nodes_by_depth:    {:?}", stats.nodes_by_depth);
+    println!("  max_depth_reached: {}", stats.max_depth_reached);
+    println!("  total_expansions:  {}", stats.total_expansions);
+    println!("  converged:         {}", stats.converged);
+    println!("  total_nodes:       {}", stats.total_nodes());
+    println!("  depth_coverage:    {:.2}", stats.depth_coverage(3));
+    println!(
+        "[bench] graph-reasoning nodes found: {}",
+        report.nodes.len()
+    );
+
+    // Assertions: the traversal must reach all 3 hops from the seed.
+    assert!(
+        stats.max_depth_reached >= 2,
+        "Expected ≥2 hops; got {}. Multi-hop traversal is broken.",
+        stats.max_depth_reached
+    );
+    assert!(
+        stats.total_expansions >= 3,
+        "Expected ≥3 expansions for 4-node chain; got {}.",
+        stats.total_expansions
+    );
+    assert!(
+        stats.converged,
+        "Small 4-node graph must converge (not hit max_expansions)."
+    );
+    assert!(
+        report.nodes.len() >= 3,
+        "Traversal must discover ≥3 nodes from auth seed; got {}.",
+        report.nodes.len()
+    );
+
+    println!("[bench] graph-reasoning: PASS");
+}

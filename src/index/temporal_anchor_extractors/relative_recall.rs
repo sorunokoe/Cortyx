@@ -1,9 +1,11 @@
 //! Relative temporal recall query parsing.
 
-use super::types::*;
 use super::super::*;
+use super::types::*;
 
-pub(super) fn parse_relative_temporal_recall_query(task_lower: &str) -> Option<RelativeTemporalRecallQuery> {
+pub(super) fn parse_relative_temporal_recall_query(
+    task_lower: &str,
+) -> Option<RelativeTemporalRecallQuery> {
     let trimmed = task_lower.trim().trim_end_matches('?');
     let captures = Regex::new(r"^as of\s+(.+?\d{4}),\s*(.+)$")
         .unwrap()

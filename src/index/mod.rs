@@ -89,10 +89,10 @@ mod instagram_delta_extractors;
 mod instagram_delta_families;
 #[cfg(test)]
 mod instagram_delta_family_tests;
-// mod money_combination_extractors; // TODO: file was removed, needs restoration
+mod money_combination_extractors;
 mod money_combination_families;
-// #[cfg(test)]
-// mod money_combination_family_tests; // TODO: depends on money_combination_extractors
+#[cfg(test)]
+mod money_combination_family_tests;
 mod money_extractors;
 mod money_families;
 #[cfg(test)]

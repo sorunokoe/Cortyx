@@ -1,0 +1,1068 @@
+{
+  "proof_status_legend": {
+    "proven": "Reproducible benchmark or measured sample we are willing to cite as live proof.",
+    "diagnostic": "Executable measurement that shows behavior or progress, but is not benchmark-complete.",
+    "contract": "Executable invariant / protocol / compatibility proof for a shipped surface.",
+    "smoke": "Fast executable capability check that proves a surface exists without claiming leaderboard-quality.",
+    "pending": "Declared gap; no executable proof surface yet."
+  },
+  "proof_matrix": [
+    {
+      "id": "retrieval",
+      "label": "Retrieval",
+      "status": "proven",
+      "live_claim": "96.8% R@5 on regenerated cleaned-oracle LME-500; 92.0% recall on the corrected LoCoMo sample",
+      "honest_read": "Current external headline is retrieval only. Frozen-fixture and CI-guard rows stay separate support surfaces.",
+      "missing": "Paper-comparable answer-quality remains separate.",
+      "evidence_ids": [
+        "lme-500-official",
+        "lme-500-frozen-fixture",
+        "lme-regression-guard",
+        "locomo-retrieval-sample",
+        "locomo-regression-guard"
+      ]
+    },
+    {
+      "id": "answer-quality",
+      "label": "Answer quality",
+      "status": "proven",
+      "live_claim": "Full LongMemEval answer proof bundle: macro F1 0.153 / EM 0.109 / AnsR 0.188 with 500/500 official-QA hypotheses exported; full LoCoMo answer proof bundle: macro F1 0.133 / EM 0.053 / Recall 0.154 over 1540/1540",
+      "honest_read": "Answer quality now has full public LME and LoCoMo proof bundles that are reproducible and comparator-ready. Proven here means proof-ready, not leaderboard-leading or recorded as a win.",
+      "missing": "Same-surface competitor outcomes and must-win answer-quality victories across the shared roster.",
+      "evidence_ids": [
+        "lme-answer-proof",
+        "locomo-answer-proof",
+        "lme-answer-diagnostic",
+        "locomo-answer-diagnostic",
+        "answer-trust-diagnostic"
+      ]
+    },
+    {
+      "id": "latency",
+      "label": "Latency",
+      "status": "proven",
+      "live_claim": "~22ms activation p95; ~40ms status cold start",
+      "honest_read": "Latency is benchmarked on shipped local/control paths.",
+      "missing": "No multi-user shared-memory latency claim.",
+      "evidence_ids": [
+        "activation-latency-p95",
+        "status-cold-start"
+      ]
+    },
+    {
+      "id": "token-economy",
+      "label": "Token economy",
+      "status": "proven",
+      "live_claim": "56.9% first-call savings; 98.4% capsule+delta repeat savings on a deterministic sample",
+      "honest_read": "Token economy is proven on the checked-in sample harness, not as a universal all-prompts guarantee.",
+      "missing": "Broader multi-workload sampling could widen coverage.",
+      "evidence_ids": [
+        "token-efficiency-sample"
+      ]
+    },
+    {
+      "id": "footprint",
+      "label": "Footprint",
+      "status": "proven",
+      "live_claim": "~6.9MB stripped release binary",
+      "honest_read": "Small local-first footprint remains a live measured surface.",
+      "missing": "None for the current claim scope.",
+      "evidence_ids": [
+        "binary-size-release"
+      ]
+    },
+    {
+      "id": "collaboration-shared-memory",
+      "label": "Collaboration / shared memory",
+      "status": "proven",
+      "live_claim": "Deterministic shared-memory proof harness shows verified handoff resolution clears conflicts, removes blockers, and improves workflow quality over a conflicted baseline",
+      "honest_read": "Public proof covers the shipped local shared-memory handoff path and its workflow/trust deltas; it is not a hosted multi-user scale benchmark.",
+      "missing": "Same-protocol competitor evidence / outcome ledger and broader team-scale benchmarks.",
+      "evidence_ids": [
+        "shared-memory-proof-harness",
+        "shared-sync-contract",
+        "collaboration-status-diagnostic"
+      ]
+    },
+    {
+      "id": "graph-reasoning",
+      "label": "Graph reasoning",
+      "status": "proven",
+      "live_claim": "Multi-hop graph traversal with per-depth coverage tracking: 4 nodes across 3 hops, converged naturally, depth_coverage 1.00 on synthetic 4-node chain; TraversalStats captured in every ReasoningReport",
+      "honest_read": "Proven on synthetic 3-hop chain benchmark. Real-world graph sizes are larger; convergence depends on max_expansions cap (default 64).",
+      "missing": "No paper-comparable graph-reasoning accuracy benchmark on a public dataset yet.",
+      "evidence_ids": [
+        "graph-reasoning-smoke",
+        "answer-trust-diagnostic",
+        "graph-reasoning-convergence"
+      ]
+    },
+    {
+      "id": "provenance-trust",
+      "label": "Provenance / trust",
+      "status": "proven",
+      "live_claim": "Deterministic trust proof harness shows verified lineage improves sync trust and tampered handoff resolutions are rejected",
+      "honest_read": "Public proof covers revision-chain integrity, fully verified lineage deltas, and tamper rejection on the shipped sync/provenance path; it is not a third-party audit score.",
+      "missing": "Same-rubric competitor evidence / outcome ledger and broader user-facing trust calibration studies.",
+      "evidence_ids": [
+        "provenance-trust-proof-harness",
+        "provenance-trust-contract",
+        "shared-sync-contract",
+        "answer-trust-diagnostic"
+      ]
+    },
+    {
+      "id": "ux",
+      "label": "UX / install / routing",
+      "status": "proven",
+      "live_claim": "Stable ux-proof JSON proves TTFC, one-entrypoint routing, watch bootstrap/recovery, and install/export onboarding flows",
+      "honest_read": "Public proof covers deterministic shipped CLI UX flows with machine-readable outputs; it is not a human-subject usability study.",
+      "missing": "Same-task comparator evidence / outcome ledger and broader usability studies.",
+      "evidence_ids": [
+        "ux-proof-harness",
+        "ux-install-route-smoke"
+      ]
+    }
+  ],
+  "overall_scorecard": {
+    "id": "best-overall",
+    "label": "Best overall public claim gate",
+    "summary": "Public weighted contract and competitive-proof scaffold for any future claim that Cortyx is best overall across retrieval, answer quality, speed, token economy, collaboration/shared memory, trust/provenance, and UX.",
+    "scoring_model": {
+      "id": "weighted-win-tie-loss",
+      "weights_total": 100,
+      "outcome_values": {
+        "win": 1.0,
+        "tie": 0.5,
+        "loss": 0.0
+      },
+      "formula": "Per named competitor, Cortyx score = sum(weight * outcome_value) across weighted dimensions. Unscored dimensions add zero points and block the claim until every weighted dimension is claim-eligible, every claim-eligible dimension has comparator scope metadata, and every named competitor has a recorded outcome.",
+      "claim_allowed_when": [
+        "Every weighted dimension is claim-eligible and scored against the same named competitor set.",
+        "Comparator scope metadata is filled for every weighted dimension.",
+        "Cortyx's weighted total is strictly higher than every named competitor.",
+        "Every must-win gate is recorded as a win against every named competitor.",
+        "Every must-not-regress gate remains green."
+      ]
+    },
+    "weighted_dimensions": [
+      {
+        "id": "retrieval",
+        "label": "Retrieval",
+        "weight": 20,
+        "proof_matrix_ids": [
+          "retrieval"
+        ],
+        "eligible_statuses": [
+          "proven"
+        ],
+        "required_benchmark_kinds": [
+          "accuracy"
+        ],
+        "must_win": true
+      },
+      {
+        "id": "answer-quality",
+        "label": "Answer quality",
+        "weight": 20,
+        "proof_matrix_ids": [
+          "answer-quality"
+        ],
+        "eligible_statuses": [
+          "proven"
+        ],
+        "required_benchmark_kinds": [
+          "answer-quality"
+        ],
+        "must_win": true
+      },
+      {
+        "id": "speed",
+        "label": "Speed",
+        "weight": 15,
+        "proof_matrix_ids": [
+          "latency"
+        ],
+        "eligible_statuses": [
+          "proven"
+        ],
+        "required_benchmark_kinds": [
+          "latency"
+        ],
+        "must_win": false
+      },
+      {
+        "id": "token-economy",
+        "label": "Token economy",
+        "weight": 10,
+        "proof_matrix_ids": [
+          "token-economy"
+        ],
+        "eligible_statuses": [
+          "proven"
+        ],
+        "required_benchmark_kinds": [
+          "token-economy"
+        ],
+        "must_win": false
+      },
+      {
+        "id": "collaboration-shared-memory",
+        "label": "Collaboration / shared memory",
+        "weight": 15,
+        "proof_matrix_ids": [
+          "collaboration-shared-memory"
+        ],
+        "eligible_statuses": [
+          "proven"
+        ],
+        "required_benchmark_kinds": [
+          "collaboration"
+        ],
+        "must_win": true
+      },
+      {
+        "id": "provenance-trust",
+        "label": "Trust / provenance",
+        "weight": 10,
+        "proof_matrix_ids": [
+          "provenance-trust"
+        ],
+        "eligible_statuses": [
+          "proven"
+        ],
+        "required_benchmark_kinds": [
+          "provenance"
+        ],
+        "must_win": false
+      },
+      {
+        "id": "ux",
+        "label": "UX",
+        "weight": 10,
+        "proof_matrix_ids": [
+          "ux"
+        ],
+        "eligible_statuses": [
+          "proven"
+        ],
+        "required_benchmark_kinds": [
+          "ux"
+        ],
+        "must_win": false
+      }
+    ],
+    "counting_rules": [
+      {
+        "id": "proven-only",
+        "rule": "Only proof-matrix rows at status=proven can contribute weighted score. Diagnostic, contract, smoke, and pending rows count as zero and block the claim."
+      },
+      {
+        "id": "same-dimension-only",
+        "rule": "Evidence only counts for its own weighted dimension. Retrieval wins do not transfer to answer quality, trust, collaboration, or UX."
+      },
+      {
+        "id": "public-reproducible",
+        "rule": "A counted surface must point to a public fixture or published rubric and expose a reproducible registry command or study artifact."
+      },
+      {
+        "id": "default-surface",
+        "rule": "The default shipped product path is the headline surface. Optional flags or add-ons can count only as a separately labeled surface."
+      },
+      {
+        "id": "same-metric-family",
+        "rule": "Competitor comparison must stay in the same task class and metric family for that dimension."
+      },
+      {
+        "id": "same-conditions",
+        "rule": "Build class, hardware class, and major runtime dependencies must be disclosed so the comparison stays apples-to-apples."
+      }
+    ],
+    "comparison_rules": [
+      {
+        "id": "same-fixture",
+        "rule": "Use the same public dataset / fixture slice or the same published study protocol for every product in the comparison set."
+      },
+      {
+        "id": "same-output-mode",
+        "rule": "Compare retrieval to retrieval, answer mode to answer mode, collaboration to collaboration, provenance to provenance, and UX to UX; no cross-surface substitutions."
+      },
+      {
+        "id": "same-default-path",
+        "rule": "Default shipped path is the public headline. Optional modes only count in a separately labeled optional comparison."
+      },
+      {
+        "id": "no-private-retuning",
+        "rule": "No per-benchmark manual prompt surgery, hidden hosted memory, or unpublished data-cleaning steps."
+      },
+      {
+        "id": "same-competitor-set",
+        "rule": "Every weighted dimension must be scored against the same named competitor set before any best-overall claim is allowed."
+      }
+    ],
+    "comparison_scaffold": {
+      "minimum_competitors": 1,
+      "require_same_competitor_set": true,
+      "competitors": [
+        {
+          "id": "mempalace",
+          "label": "MemPalace",
+          "dimension_evidence": {
+            "retrieval": "same-surface-baseline",
+            "answer-quality": "none",
+            "speed": "capability-note",
+            "token-economy": "capability-note",
+            "collaboration-shared-memory": "none",
+            "provenance-trust": "none",
+            "ux": "capability-note"
+          },
+          "source_refs": [
+            "README.md#cortyx-vs-mempalace",
+            "BENCHMARKS.md#competitive-comparison",
+            "BENCHMARKS.md#feature-comparison",
+            "scripts/eval_lme.py"
+          ],
+          "notes": "The cited LME-500 retrieval row now supports a recorded retrieval win. Speed/token/UX notes remain product-surface references and do not count as scorecard outcomes yet."
+        },
+        {
+          "id": "omega",
+          "label": "OMEGA",
+          "dimension_evidence": {
+            "retrieval": "published-baseline",
+            "answer-quality": "none",
+            "speed": "none",
+            "token-economy": "none",
+            "collaboration-shared-memory": "none",
+            "provenance-trust": "none",
+            "ux": "none"
+          },
+          "source_refs": [
+            "BENCHMARKS.md#competitive-comparison",
+            "scripts/eval_lme.py"
+          ],
+          "notes": "The cited public LME-500 retrieval baseline now supports a recorded retrieval win. No same-surface speed/token/trust/UX evidence is normalized here yet."
+        },
+        {
+          "id": "hindsight",
+          "label": "Hindsight",
+          "dimension_evidence": {
+            "retrieval": "none",
+            "answer-quality": "published-baseline",
+            "speed": "none",
+            "token-economy": "none",
+            "collaboration-shared-memory": "none",
+            "provenance-trust": "none",
+            "ux": "none"
+          },
+          "source_refs": [
+            "BENCHMARKS.md#competitive-comparison",
+            "scripts/eval_locomo.py"
+          ],
+          "notes": "The cited LoCoMo QA F1 baseline now supports a recorded answer-quality loss. No same-surface retrieval, collaboration, trust, or UX outcome is recorded yet."
+        },
+        {
+          "id": "zep",
+          "label": "Zep",
+          "dimension_evidence": {
+            "retrieval": "none",
+            "answer-quality": "published-baseline",
+            "speed": "none",
+            "token-economy": "none",
+            "collaboration-shared-memory": "none",
+            "provenance-trust": "none",
+            "ux": "none"
+          },
+          "source_refs": [
+            "BENCHMARKS.md#competitive-comparison",
+            "scripts/eval_locomo.py"
+          ],
+          "notes": "The cited LoCoMo QA F1 baseline now supports a recorded answer-quality loss. The LME-500 figure in BENCHMARKS remains a literature note only and is not yet a scorecard-ready retrieval citation."
+        },
+        {
+          "id": "letta-memgpt",
+          "label": "Letta / MemGPT",
+          "dimension_evidence": {
+            "retrieval": "none",
+            "answer-quality": "published-baseline",
+            "speed": "none",
+            "token-economy": "none",
+            "collaboration-shared-memory": "none",
+            "provenance-trust": "none",
+            "ux": "none"
+          },
+          "source_refs": [
+            "BENCHMARKS.md#competitive-comparison",
+            "scripts/eval_locomo.py"
+          ],
+          "notes": "The cited LoCoMo QA F1 baseline now supports a recorded answer-quality loss. The LME-500 figure in BENCHMARKS remains a literature note only and is not yet a scorecard-ready retrieval citation."
+        },
+        {
+          "id": "mem0",
+          "label": "Mem0",
+          "dimension_evidence": {
+            "retrieval": "none",
+            "answer-quality": "published-baseline",
+            "speed": "capability-note",
+            "token-economy": "capability-note",
+            "collaboration-shared-memory": "none",
+            "provenance-trust": "none",
+            "ux": "capability-note"
+          },
+          "source_refs": [
+            "BENCHMARKS.md#competitive-comparison",
+            "BENCHMARKS.md#feature-comparison",
+            "scripts/eval_locomo.py"
+          ],
+          "notes": "The cited LoCoMo QA F1 range now supports a recorded answer-quality loss. Speed/token/UX notes remain capability references rather than scorecard outcomes."
+        }
+      ],
+      "required_scope_fields": [
+        "public_fixture_or_protocol",
+        "metric_family",
+        "default_product_path",
+        "hardware_class",
+        "build_or_release_class",
+        "runtime_dependencies",
+        "tuning_or_prompt_notes"
+      ],
+      "outcome_ledger_fields": [
+        {
+          "id": "competitor_id",
+          "required": true,
+          "meaning": "Must match a named competitor in the shared comparison_scaffold roster."
+        },
+        {
+          "id": "outcome",
+          "required": true,
+          "meaning": "One of win, tie, or loss once a same-surface comparison is actually ratified."
+        },
+        {
+          "id": "summary",
+          "required": true,
+          "meaning": "Short explanation of the exact apples-to-apples comparison being recorded."
+        },
+        {
+          "id": "source_refs",
+          "required": true,
+          "meaning": "One or more repo docs, run artifacts, or published citations backing the recorded outcome."
+        }
+      ],
+      "dimension_records": [
+        {
+          "dimension_id": "retrieval",
+          "scope": {
+            "public_fixture_or_protocol": "Headline scorecard surface is the regenerated cleaned-oracle LongMemEval-500 retrieval run (R@5). Secondary support rows may mention the corrected 200-question LoCoMo retrieval sample, but recorded outcomes must cite the same public fixture or protocol for every competitor.",
+            "metric_family": "Retrieval recall only (headline: LME-500 R@5; optional secondary support: corrected LoCoMo retrieval recall). Do not mix retrieval recall with answer F1/EM/Recall.",
+            "default_product_path": "Default shipped retrieval path only: Cortyx local-core retrieval without answer mode and without optional dense reranker unless the comparison is explicitly labeled as optional.",
+            "hardware_class": "Use the same host class and disclose CPU, memory, OS, and hosted-vs-local setup for every product. Current repo evidence fixes Cortyx local runs only; competitor hardware normalization remains part of future outcome recording.",
+            "build_or_release_class": "Use the same build class per comparison. Current Cortyx headline retrieval runs are debug-build benchmark harness runs; release-only numbers belong to separate footprint reporting.",
+            "runtime_dependencies": "Disclose runtime stack (local binary, Python stack, vector DB, hosted service, background model downloads). Hosted memory or external stores cannot be hidden.",
+            "tuning_or_prompt_notes": "No private prompt surgery, unpublished oracle cleaning, or per-system retuning. Use the named default product path and cite optional flags separately.",
+            "current_repo_evidence": "lme-500-official, locomo-retrieval-sample",
+            "readiness_note": "Scope is defined from existing retrieval evidence, and the ledger now records LME-500 wins vs MemPalace and OMEGA. Hindsight, Zep, Letta/MemGPT, and Mem0 still lack scorecard-ready retrieval citations in this repo."
+          },
+          "recorded_outcomes": [
+            {
+              "competitor_id": "mempalace",
+              "outcome": "win",
+              "summary": "LongMemEval-500 cleaned-oracle retrieval R@5: Cortyx 96.8% (484/500) vs the cited MemPalace 96.6% baseline.",
+              "source_refs": [
+                "README.md#cortyx-vs-mempalace",
+                "BENCHMARKS.md#competitive-comparison",
+                "BENCHMARKS.md#longmemeval-500-lme-500--cleaned-oracle-external-benchmark",
+                "scripts/eval_lme.py"
+              ]
+            },
+            {
+              "competitor_id": "omega",
+              "outcome": "win",
+              "summary": "LongMemEval-500 retrieval R@5: Cortyx 96.8% (484/500) vs the cited OMEGA 95.4% leaderboard baseline.",
+              "source_refs": [
+                "BENCHMARKS.md#competitive-comparison",
+                "BENCHMARKS.md#longmemeval-500-lme-500--cleaned-oracle-external-benchmark",
+                "scripts/eval_lme.py"
+              ]
+            }
+          ]
+        },
+        {
+          "dimension_id": "answer-quality",
+          "scope": {
+            "public_fixture_or_protocol": "Scorecard-ready answer proof now uses the checked-in full LongMemEval answer bundle (`tests/fixtures/longmemeval_answer_full_report.json`, 500/500 rows plus official QA hypotheses export metadata) and the checked-in full LoCoMo answer bundle (`tests/fixtures/locomo_answer_full_report.json`, 1540/1540 official QA rows). Future recorded outcomes must use the same full public fixtures / protocol and answer-scoring surfaces for every competitor.",
+            "metric_family": "Answer-grade metrics only (F1/EM/AnsR/Recall or official QA accuracy on the same benchmark and scoring rubric). Do not substitute retrieval recall.",
+            "default_product_path": "Default shipped answer mode on top of retrieved evidence; compare only against each competitor's default answer-generation or memory-QA path.",
+            "hardware_class": "Disclose host, model, provider, and judge class. Current repo proof bundles fix the Cortyx local run shape, but competitor hardware/model normalization is still pending outcome recording.",
+            "build_or_release_class": "Use the same build, model, and judge class across competitors; current Cortyx evidence is a full checked-in proof bundle, not a recorded win ledger.",
+            "runtime_dependencies": "Disclose hosted models, vector stores, judges, and external services. Hidden judge layers or proprietary caches block scoring.",
+            "tuning_or_prompt_notes": "No per-benchmark manual prompt editing. Judge prompts, answer extraction rules, abstention thresholds, and any answer post-processing must be published.",
+            "current_repo_evidence": "lme-answer-proof, locomo-answer-proof, lme-answer-diagnostic, locomo-answer-diagnostic, answer-trust-diagnostic",
+            "readiness_note": "Cortyx now has proven answer-quality proof bundles, and the ledger records LoCoMo QA F1 losses vs Hindsight, Zep, Letta/MemGPT, and Mem0. MemPalace and OMEGA still lack same-surface answer-quality evidence here, so the must-win gate stays blocked."
+          },
+          "recorded_outcomes": [
+            {
+              "competitor_id": "hindsight",
+              "outcome": "loss",
+              "summary": "LoCoMo official QA macro F1: Cortyx 0.1333 from the checked-in 1540-row answer proof vs the cited Hindsight baseline of ~0.896.",
+              "source_refs": [
+                "BENCHMARKS.md#locomo--conversation-memory-benchmark",
+                "BENCHMARKS.md#competitive-comparison",
+                "tests/fixtures/locomo_answer_full_report.json",
+                "scripts/eval_locomo.py"
+              ]
+            },
+            {
+              "competitor_id": "zep",
+              "outcome": "loss",
+              "summary": "LoCoMo official QA macro F1: Cortyx 0.1333 from the checked-in 1540-row answer proof vs the cited Zep baseline of ~0.850.",
+              "source_refs": [
+                "BENCHMARKS.md#locomo--conversation-memory-benchmark",
+                "BENCHMARKS.md#competitive-comparison",
+                "tests/fixtures/locomo_answer_full_report.json",
+                "scripts/eval_locomo.py"
+              ]
+            },
+            {
+              "competitor_id": "letta-memgpt",
+              "outcome": "loss",
+              "summary": "LoCoMo official QA macro F1: Cortyx 0.1333 from the checked-in 1540-row answer proof vs the cited Letta / MemGPT baseline of ~0.832.",
+              "source_refs": [
+                "BENCHMARKS.md#locomo--conversation-memory-benchmark",
+                "BENCHMARKS.md#competitive-comparison",
+                "tests/fixtures/locomo_answer_full_report.json",
+                "scripts/eval_locomo.py"
+              ]
+            },
+            {
+              "competitor_id": "mem0",
+              "outcome": "loss",
+              "summary": "LoCoMo official QA macro F1: Cortyx 0.1333 from the checked-in 1540-row answer proof vs the cited Mem0 published range of 0.58\u20130.67.",
+              "source_refs": [
+                "BENCHMARKS.md#locomo--conversation-memory-benchmark",
+                "BENCHMARKS.md#competitive-comparison",
+                "tests/fixtures/locomo_answer_full_report.json",
+                "scripts/eval_locomo.py"
+              ]
+            }
+          ]
+        },
+        {
+          "dimension_id": "speed",
+          "scope": {
+            "public_fixture_or_protocol": "Use the checked-in activation-latency p95 and status cold-start harnesses on the same command path, warmup policy, and run counts for every product.",
+            "metric_family": "Latency only: activation p95 and control-path cold-start average. Do not substitute throughput, batch ingest speed, or hosted round-trip latency.",
+            "default_product_path": "Default shipped retrieval/status path only; optional dense rerankers or hosted acceleration must be labeled separately.",
+            "hardware_class": "Use the same developer-laptop or CI runner class and disclose CPU, RAM, storage, and OS. Current repo evidence measures only Cortyx locally; cross-product hardware normalization is still pending.",
+            "build_or_release_class": "Use the same build class and cache policy. Current Cortyx speed rows use the debug test harness with disclosed warmups; release-only numbers need separate labeling.",
+            "runtime_dependencies": "Include all required local daemons, vector DBs, background services, and network hops in the timed path.",
+            "tuning_or_prompt_notes": "No hidden warmed indices or caches beyond the disclosed harness. Warmup counts and cache state must be explicit.",
+            "current_repo_evidence": "activation-latency-p95, status-cold-start",
+            "readiness_note": "Scope is defined for the current proven speed rows, but the shared roster still needs scorecard-ready same-surface evidence before outcomes can be recorded."
+          },
+          "recorded_outcomes": []
+        },
+        {
+          "dimension_id": "token-economy",
+          "scope": {
+            "public_fixture_or_protocol": "Use the deterministic token_bench sample over the live MCP renderer, comparing full-history output against retrieval, capsule, and capsule+delta repeat outputs on the same sample.",
+            "metric_family": "Average token count and percent savings versus the same full-history baseline.",
+            "default_product_path": "Default retrieval, capsule, and delta paths as shipped. Optional answer-only or provider-specific compression must be labeled separately.",
+            "hardware_class": "Hardware only affects runtime, but the same provider tokenizer and prompt-rendering path must be used for every product.",
+            "build_or_release_class": "Use the same build and prompt-rendering path. Current Cortyx evidence is the checked-in CLI harness.",
+            "runtime_dependencies": "Disclose tokenizers, prompt caches, vector DBs, hosted memory services, or other dependencies that materially change emitted context size.",
+            "tuning_or_prompt_notes": "No hand-curated prompt shortening. Use the default system prompt, cache breakpoint, and capsule/delta policies.",
+            "current_repo_evidence": "token-efficiency-sample",
+            "readiness_note": "Scope is defined for the current proven token row, but the ledger stays empty until the shared roster has scorecard-ready same-surface token comparisons."
+          },
+          "recorded_outcomes": []
+        },
+        {
+          "dimension_id": "collaboration-shared-memory",
+          "scope": {
+            "public_fixture_or_protocol": "Current Cortyx public proof surface is the deterministic shared-trust handoff harness in tests/shared_trust_proof.rs: start from a conflicted shared-memory baseline, apply a verified resolution, require conflict/blocker reduction plus workflow improvement, and keep tamper rejection on the same shipped path. Future recorded outcomes must use this published protocol (or a directly comparable public shared-memory workflow protocol) for every competitor.",
+            "metric_family": "Compare shared-memory workflow quality on the same public protocol: conflict resolution success, blocker reduction, verified shared state, and equivalent teamwork outcomes. Do not substitute raw sync invariants or status-report availability.",
+            "default_product_path": "Default shipped shared-sync and collaboration-kernel path only, with no private hosted coordinator or unpublished operator workflow.",
+            "hardware_class": "Use the same deployment shape (local, self-hosted, or cloud) and disclose concurrency model. Current repo evidence does not yet normalize competitor environments.",
+            "build_or_release_class": "Use the same shipping path and shared-memory workload shape. Current Cortyx proof is a deterministic local harness, not a hosted scale benchmark.",
+            "runtime_dependencies": "Disclose sync backends, hosted coordination services, always-on stores, and any external orchestrators.",
+            "tuning_or_prompt_notes": "No private workflows or manual operator steps beyond the published protocol.",
+            "current_repo_evidence": "shared-memory-proof-harness, shared-sync-contract, collaboration-status-diagnostic",
+            "readiness_note": "Cortyx now has a public proven collaboration/shared-memory harness, but the shared roster still lacks same-surface comparator evidence and recorded outcomes."
+          },
+          "recorded_outcomes": []
+        },
+        {
+          "dimension_id": "provenance-trust",
+          "scope": {
+            "public_fixture_or_protocol": "Current Cortyx public proof surface is the deterministic shared-trust provenance harness in tests/shared_trust_proof.rs plus revision-chain contract tests: require trust/lineage improvement after a verified resolution and require tampered handoff rejection on the same shipped sync path. Future recorded outcomes must use this published integrity protocol (or a directly comparable public trust rubric) for every competitor.",
+            "metric_family": "Compare provenance/trust quality on the same public protocol: tamper rejection, verified lineage preservation, trust-delta reporting, and equivalent integrity outcomes. Do not substitute graph-summary availability or raw revision counts.",
+            "default_product_path": "Default shipped provenance sidecars, integrity scoring, and trust-summary path only.",
+            "hardware_class": "Disclose local, self-hosted, or cloud shape only if it affects the trust path. Current repo evidence does not yet normalize competitor environments.",
+            "build_or_release_class": "Use the same product mode and published integrity protocol; current Cortyx proof is deterministic harness coverage, not an external audit leaderboard.",
+            "runtime_dependencies": "Disclose hosted stores, audit services, external trust models, and any always-on backends involved in the path.",
+            "tuning_or_prompt_notes": "No manual audit adjudication beyond the published rubric.",
+            "current_repo_evidence": "provenance-trust-proof-harness, provenance-trust-contract, shared-sync-contract, answer-trust-diagnostic",
+            "readiness_note": "Cortyx now has a public proven provenance/trust harness, but the shared roster still lacks same-surface comparator evidence and recorded outcomes."
+          },
+          "recorded_outcomes": []
+        },
+        {
+          "dimension_id": "ux",
+          "scope": {
+            "public_fixture_or_protocol": "Current Cortyx public proof surface is the stable ux-proof JSON harness in tests/ux_cli.rs: TTFC/context route, capability summary, answer routing, watch bootstrap/recovery, install onboarding, export metadata, and incremental recovery all emit deterministic machine-readable proof. Future recorded outcomes must use this published task path (or an equivalent public UX rubric) for every competitor.",
+            "metric_family": "Compare UX on the same public protocol: time-to-first-context/onboarding proof, one-entrypoint routing coverage, recovery path visibility, and equivalent task-completion or machine-readable usability outcomes. Do not substitute feature checklists or anecdotal notes.",
+            "default_product_path": "Default install, route, status, and export path only.",
+            "hardware_class": "Use the same OS and client environment set, and disclose prerequisites. Current repo evidence covers local CLI proof harnesses only.",
+            "build_or_release_class": "Use the same shipping channel and setup flow. Current Cortyx proof is a deterministic shipped-CLI harness, not a human-study leaderboard.",
+            "runtime_dependencies": "Disclose toolchain prerequisites, downloads, daemons, MCP clients, and other integrations needed for the task path.",
+            "tuning_or_prompt_notes": "No private setup help or manual intervention beyond the published quickstart.",
+            "current_repo_evidence": "ux-proof-harness, ux-install-route-smoke",
+            "readiness_note": "Cortyx now has a public proven UX harness, but the shared roster still lacks same-surface comparator evidence and recorded outcomes."
+          },
+          "recorded_outcomes": []
+        }
+      ]
+    },
+    "must_win_gates": [
+      {
+        "id": "retrieval-win",
+        "label": "Retrieval must be a win",
+        "dimension_ids": [
+          "retrieval"
+        ],
+        "rule": "Cortyx must win at least one official apples-to-apples retrieval benchmark against the named competitor set; a tie is not enough."
+      },
+      {
+        "id": "answer-quality-win",
+        "label": "Answer quality must be a win",
+        "dimension_ids": [
+          "answer-quality"
+        ],
+        "rule": "Cortyx must win a benchmark-complete answer-quality benchmark on the same public task scope and metric family."
+      },
+      {
+        "id": "shared-memory-win",
+        "label": "Collaboration/shared memory must be a win",
+        "dimension_ids": [
+          "collaboration-shared-memory"
+        ],
+        "rule": "Cortyx must win a benchmark-complete multi-user/shared-memory benchmark rather than only shipping contracts or smoke tests."
+      }
+    ],
+    "must_not_regress_gates": [
+      {
+        "id": "retrieval-proof-floor",
+        "label": "Retrieval stays proven",
+        "proof_matrix_ids": [
+          "retrieval"
+        ],
+        "required_statuses": [
+          "proven"
+        ],
+        "rule": "If retrieval drops below proven, the overall claim is immediately disallowed."
+      },
+      {
+        "id": "speed-proof-floor",
+        "label": "Speed stays proven",
+        "proof_matrix_ids": [
+          "latency"
+        ],
+        "required_statuses": [
+          "proven"
+        ],
+        "rule": "If local/control-path latency loses proven status, the overall claim is disallowed."
+      },
+      {
+        "id": "token-proof-floor",
+        "label": "Token economy stays proven",
+        "proof_matrix_ids": [
+          "token-economy"
+        ],
+        "required_statuses": [
+          "proven"
+        ],
+        "rule": "If token economy loses proven status, the overall claim is disallowed."
+      },
+      {
+        "id": "footprint-proof-floor",
+        "label": "Footprint stays proven",
+        "proof_matrix_ids": [
+          "footprint"
+        ],
+        "required_statuses": [
+          "proven"
+        ],
+        "rule": "Footprint is not weighted, but the lightweight local-first footprint is part of the product contract and must not regress below proven."
+      }
+    ],
+    "non_weighted_surfaces": [
+      {
+        "id": "footprint",
+        "label": "Footprint",
+        "proof_matrix_ids": [
+          "footprint"
+        ],
+        "role": "must-not-regress",
+        "rule": "Footprint adds zero weighted points, but it must stay proven to keep any best-overall claim honest."
+      },
+      {
+        "id": "graph-reasoning",
+        "label": "Graph reasoning",
+        "proof_matrix_ids": [
+          "graph-reasoning"
+        ],
+        "role": "support-only",
+        "rule": "Graph reasoning may support trust or answer narratives, but it adds zero overall score until it has a standalone proven comparator-backed benchmark or is folded into a weighted proven dimension."
+      }
+    ]
+  },
+  "guardrail_suites": [
+    {
+      "id": "best-overall-local-core",
+      "label": "Best-overall local-core guardrails",
+      "summary": "CI-friendly non-regression suite for the strongest current local advantages: retrieval drift, latency, token economy, and footprint.",
+      "proof_matrix_ids": [
+        "retrieval",
+        "latency",
+        "token-economy",
+        "footprint"
+      ],
+      "benchmark_ids": [
+        "lme-regression-guard",
+        "locomo-regression-guard",
+        "activation-latency-p95",
+        "status-cold-start",
+        "token-efficiency-sample",
+        "binary-size-release"
+      ],
+      "ci_ready": true,
+      "notes": "Uses the fast retrieval drift guards plus the executable latency, token, and footprint budgets instead of rerunning every slow headline benchmark on each change."
+    }
+  ],
+  "benchmarks": [
+    {
+      "id": "lme-500-official",
+      "name": "LongMemEval-500 official retrieval",
+      "official": true,
+      "surface": "local-core",
+      "dimension": "retrieval",
+      "kind": "accuracy",
+      "proof_status": "proven",
+      "metric": "R@5",
+      "current_result": "484/500 = 96.8%",
+      "command": "mkdir -p benchmarks/generated && python3 scripts/gen_lme500.py --output benchmarks/generated/longmemeval_500.json && CORTYX_LME_FIXTURE=benchmarks/generated/longmemeval_500.json cargo test --test bench bench_retrieval_accuracy_500q -- --ignored --nocapture",
+      "notes": "Canonical apples-to-apples retrieval benchmark on the regenerated cleaned upstream LongMemEval oracle."
+    },
+    {
+      "id": "lme-500-frozen-fixture",
+      "name": "LongMemEval-500 frozen fixture",
+      "official": false,
+      "surface": "local-core",
+      "dimension": "retrieval",
+      "kind": "accuracy",
+      "proof_status": "proven",
+      "metric": "R@5",
+      "current_result": "481/500 = 96.2%",
+      "command": "cargo test --test bench bench_retrieval_accuracy_500q -- --ignored --nocapture",
+      "notes": "Checked-in frozen regression fixture. Useful for internal drift tracking, but not byte-identical to the current cleaned upstream oracle."
+    },
+    {
+      "id": "lme-regression-guard",
+      "name": "LongMemEval regression guard",
+      "official": false,
+      "surface": "local-core",
+      "dimension": "retrieval",
+      "kind": "ci-guard",
+      "proof_status": "smoke",
+      "metric": "per-category recall thresholds",
+      "current_result": "green",
+      "command": "cargo test --test bench bench_lme_regression_guard -- --nocapture",
+      "notes": "Fast CI guard over 20 representative LME rows. Budgets: single_session_user \u226580%, temporal-reasoning \u226580%, knowledge_update \u226560%, multi_session \u226580%."
+    },
+    {
+      "id": "locomo-retrieval-sample",
+      "name": "LoCoMo retrieval sample",
+      "official": true,
+      "surface": "local-core",
+      "dimension": "retrieval",
+      "kind": "accuracy",
+      "proof_status": "proven",
+      "metric": "answer-anchor recall",
+      "current_result": "184/200 = 92.0%",
+      "command": "cargo test --test bench bench_locomo -- --ignored --nocapture",
+      "notes": "Corrected 200-question retrieval benchmark that mines each conversation once."
+    },
+    {
+      "id": "locomo-regression-guard",
+      "name": "LoCoMo regression guard",
+      "official": false,
+      "surface": "local-core",
+      "dimension": "retrieval",
+      "kind": "ci-guard",
+      "proof_status": "smoke",
+      "metric": "per-type recall thresholds",
+      "current_result": "green",
+      "command": "cargo test --test bench bench_locomo_regression_guard -- --nocapture",
+      "notes": "Fast CI guard over 20 representative LoCoMo rows, mined once per unique conversation. Budgets: single_hop \u226580%, multi_hop \u226580%, temporal \u226560%, open_qa \u226540%."
+    },
+    {
+      "id": "activation-latency-p95",
+      "name": "Activation latency p95",
+      "official": false,
+      "surface": "local-core",
+      "dimension": "latency",
+      "kind": "latency",
+      "proof_status": "proven",
+      "metric": "p95 ms over 100-neuron retrieval hot-path",
+      "current_result": "~22ms p95",
+      "command": "cargo test get_contexts_latency_p95_100_neurons -- --nocapture",
+      "notes": "Library hot-path latency guard for BM25 activation on the checked-in benchmark harness. Budget: p95 <50ms over 20 trials on a 100-neuron index."
+    },
+    {
+      "id": "status-cold-start",
+      "name": "Status cold start",
+      "official": false,
+      "surface": "control-plane",
+      "dimension": "latency",
+      "kind": "latency",
+      "proof_status": "proven",
+      "metric": "average ms over 5 status runs on 100 neurons",
+      "current_result": "~40ms average",
+      "command": "cargo test --test bench bench_status_cold_start -- --nocapture",
+      "notes": "Control-plane cold-start measurement for the `cortyx status` path. Budget: average <500ms over 5 runs on a 100-neuron project."
+    },
+    {
+      "id": "binary-size-release",
+      "name": "Release binary size",
+      "official": false,
+      "surface": "local-core",
+      "dimension": "footprint",
+      "kind": "footprint",
+      "proof_status": "proven",
+      "metric": "release binary size (MB)",
+      "current_result": "~6.9MB stripped release binary",
+      "command": "cargo build --release && cargo test --test bench bench_binary_size -- --nocapture",
+      "notes": "Builds the release binary first so the footprint claim is executable from the registry. Cargo's release profile now strips symbols, enables thin LTO, and uses a single codegen unit so the shipped artifact stays under the 8.0MB budget. Budget: stripped release binary \u22648.0MB."
+    },
+    {
+      "id": "lme-answer-proof",
+      "name": "LongMemEval full answer proof bundle",
+      "official": false,
+      "surface": "answer-plane",
+      "dimension": "answer-quality",
+      "kind": "answer-quality",
+      "proof_status": "proven",
+      "metric": "macro F1 / EM / AnsR + official QA export coverage",
+      "current_result": "macro F1 0.153 / EM 0.109 / AnsR 0.188; exports 500/500 official QA hypotheses",
+      "command": "cargo test --test answer_proof checked_in_lme_full_answer_proof_is_comparator_ready -- --nocapture",
+      "notes": "Checked-in full LongMemEval answer proof artifact over all 500 rows. `tests/fixtures/longmemeval_answer_full_report.json` carries 500/500 question coverage, official QA hypothesis export metadata, and comparator-ready proof flags. Proven proof surface only; not a recorded leaderboard win."
+    },
+    {
+      "id": "locomo-answer-proof",
+      "name": "LoCoMo full answer proof bundle",
+      "official": false,
+      "surface": "answer-plane",
+      "dimension": "answer-quality",
+      "kind": "answer-quality",
+      "proof_status": "proven",
+      "metric": "macro F1 / EM / Recall",
+      "current_result": "macro F1 0.133 / EM 0.053 / Recall 0.154 over 1540/1540",
+      "command": "cargo test --test answer_proof checked_in_locomo_full_answer_proof_is_comparator_ready -- --nocapture",
+      "notes": "Checked-in full LoCoMo answer proof artifact over all 1540 official QA rows. `tests/fixtures/locomo_answer_full_report.json` is reproducible and comparator-ready, and it now anchors the recorded LoCoMo answer-quality ledger entries against the cited published baselines."
+    },
+    {
+      "id": "lme-answer-diagnostic",
+      "name": "LongMemEval answer-mode diagnostic",
+      "official": false,
+      "surface": "answer-plane",
+      "dimension": "answer-quality",
+      "kind": "answer-quality",
+      "proof_status": "diagnostic",
+      "metric": "F1 / EM / AnsR",
+      "current_result": "F1 0.329 / EM 0.250 / AnsR 0.346",
+      "command": "CORTYX_ANSWER_MODE=1 python3 scripts/eval_lme.py --max-entries 20",
+      "notes": "20-entry temporal-slice answer-plane diagnostic over the first checked-in LME-500 fixture entries; not the published retrieval headline."
+    },
+    {
+      "id": "locomo-answer-diagnostic",
+      "name": "LoCoMo answer-mode diagnostic",
+      "official": false,
+      "surface": "answer-plane",
+      "dimension": "answer-quality",
+      "kind": "answer-quality",
+      "proof_status": "diagnostic",
+      "metric": "F1 / EM / Recall",
+      "current_result": "F1 0.098 / EM 0.050 / Recall 0.097",
+      "command": "CORTYX_ANSWER_MODE=1 python3 scripts/eval_locomo.py --max-entries 20",
+      "notes": "20-entry single-hop answer-plane diagnostic over the checked-in LoCoMo sample fixture."
+    },
+    {
+      "id": "token-efficiency-sample",
+      "name": "Token efficiency sample",
+      "official": false,
+      "surface": "delivery-plane",
+      "dimension": "token-economy",
+      "kind": "token-economy",
+      "proof_status": "proven",
+      "metric": "avg tokens and savings vs full history",
+      "current_result": "56.9% first-call savings, 98.4% capsule+delta repeat savings",
+      "command": "cargo run --bin token_bench -- --sample-size 20 --min-retrieval-savings-pct 55 --max-retrieval-avg-tokens 3600 --min-delta-repeat-savings-pct 98 --max-delta-repeat-avg-tokens 160",
+      "notes": "Compares full history, retrieval, capsule, capsule+delta repeat, and answer-only outputs on a deterministic LME sample using the live MCP renderer. Budgets: retrieval savings \u226555.0%, retrieval avg tokens \u22643600, capsule+delta repeat savings \u226598.0%, capsule+delta repeat avg tokens \u2264160."
+    },
+    {
+      "id": "answer-trust-diagnostic",
+      "name": "Answer trust diagnostic",
+      "official": false,
+      "surface": "answer-plane",
+      "dimension": "answer-quality",
+      "kind": "answer-quality",
+      "proof_status": "diagnostic",
+      "metric": "speaker scope + conflict abstention + provenance summary",
+      "current_result": "diagnostic tests green",
+      "command": "cargo test --quiet select_answer_prefers_named_speaker_relation_turn && cargo test --quiet select_answer_prefers_current_kg_relation_value_over_conflicting_surface && cargo test --quiet select_answer_surface_abstains_on_conflicting_rows && cargo test --quiet render_answer_output_abstains_without_supported_answer_by_default && cargo test --quiet render_provenance_output_surfaces_graph_reasoning_summary",
+      "notes": "Shows speaker-scoped answer-surface use, current-KG preference, conflict abstention, unsupported-answer abstention, and graph-backed provenance summaries. This is behavior coverage, not a leaderboard score."
+    },
+    {
+      "id": "shared-memory-proof-harness",
+      "name": "Shared-memory proof harness",
+      "official": false,
+      "surface": "collaboration-kernel",
+      "dimension": "collaboration-shared-memory",
+      "kind": "collaboration",
+      "proof_status": "proven",
+      "metric": "deterministic handoff workflow improvement on a conflicted shared-memory protocol",
+      "current_result": "proof harness green",
+      "command": "cargo test --test shared_trust_proof --quiet shared_trust_proof_harness_proves_resolution_improves_workflow_and_integrity",
+      "notes": "Public proof harness: seed a conflicted shared-memory handoff, apply a verified resolution, and require reduced conflicts/blockers plus improved workflow quality on the shipped local path."
+    },
+    {
+      "id": "shared-sync-contract",
+      "name": "Shared sync foundation contract",
+      "official": false,
+      "surface": "shared-sync",
+      "dimension": "collaboration-shared-memory",
+      "kind": "collaboration",
+      "proof_status": "contract",
+      "metric": "boundary + transport lineage / fast-forward / divergence invariants",
+      "current_result": "contract tests green",
+      "command": "cargo test --quiet sync_boundary_captures_latest_provenance_revision && cargo test --quiet sync_boundary_detects_fast_forward_and_divergence && cargo test --quiet sync_transport_applies_remote_fast_forward && cargo test --quiet sync_transport_records_divergent_remote_conflicts_without_overwriting_snapshot && cargo test --quiet sync_transport_status_surfaces_snapshot_queue_and_conflict_state",
+      "notes": "Support-only foundational contract beneath the proven shared-memory/trust proof harnesses; validates boundary hash, lineage metadata, fast-forward apply, and queue/conflict capture without claiming team-scale quality."
+    },
+    {
+      "id": "collaboration-status-diagnostic",
+      "name": "Collaboration status diagnostic",
+      "official": false,
+      "surface": "collaboration-kernel",
+      "dimension": "collaboration-shared-memory",
+      "kind": "collaboration",
+      "proof_status": "diagnostic",
+      "metric": "projection + status/report synthesis + trust attention",
+      "current_result": "diagnostic tests green",
+      "command": "cargo test --quiet collaboration_projection_merges_diary_sync_and_reasoning_signals && cargo test --quiet render_collaboration_status_report_summarizes_team_sync_and_modules && cargo test --quiet render_collaboration_status_report_filters_to_module && cargo test --quiet render_agent_status_report_uses_temporal_kg_fallback",
+      "notes": "Support-only collaboration diagnostic beneath the proven shared-memory proof harness; shows diary/KG/reasoning/sync status reports working without claiming a separate teamwork benchmark."
+    },
+    {
+      "id": "graph-reasoning-smoke",
+      "name": "Graph reasoning smoke",
+      "official": false,
+      "surface": "graph-reasoner",
+      "dimension": "graph-reasoning",
+      "kind": "graph-reasoning",
+      "proof_status": "smoke",
+      "metric": "concept-cloud retrieval + provenance graph summary",
+      "current_result": "smoke tests green",
+      "command": "cargo test --quiet concept_cloud_enables_retrieval_via_graph && cargo test --quiet render_provenance_output_surfaces_graph_reasoning_summary",
+      "notes": "Confirms graph-aware retrieval/provenance support exists, but no standalone graph reasoning benchmark is claimed yet."
+    },
+    {
+      "id": "provenance-trust-proof-harness",
+      "name": "Provenance / trust proof harness",
+      "official": false,
+      "surface": "trust-plane",
+      "dimension": "provenance-trust",
+      "kind": "provenance",
+      "proof_status": "proven",
+      "metric": "deterministic trust delta + tamper rejection on the shipped sync/provenance path",
+      "current_result": "proof harness green",
+      "command": "cargo test --test shared_trust_proof --quiet shared_trust_proof_harness_proves_resolution_improves_workflow_and_integrity && cargo test --test shared_trust_proof --quiet shared_trust_proof_harness_rejects_tampered_resolution_integrity",
+      "notes": "Public trust harness proves verified lineage/trust improvement for a clean resolution and separately rejects tampered resolution envelopes on the same shipped path."
+    },
+    {
+      "id": "provenance-trust-contract",
+      "name": "Provenance trust contract",
+      "official": false,
+      "surface": "trust-plane",
+      "dimension": "provenance-trust",
+      "kind": "provenance",
+      "proof_status": "contract",
+      "metric": "revision chain + fingerprint/integrity/handoff verification",
+      "current_result": "contract tests green",
+      "command": "cargo test --quiet record_provenance_edit_persists_revision_chain && cargo test --quiet sync_boundary_captures_latest_provenance_revision && cargo test --quiet sync_transport_envelope_round_trips_json_with_provenance && cargo test --quiet sync_transport_flags_identical_content_with_diverged_provenance_handoff",
+      "notes": "Support-only contract beneath the proven provenance/trust proof harness; verifies revision chains, sync fingerprints, lineage counts, and handoff summaries without claiming a separate trust rubric."
+    },
+    {
+      "id": "ux-proof-harness",
+      "name": "UX proof harness",
+      "official": false,
+      "surface": "default-ux",
+      "dimension": "ux",
+      "kind": "ux",
+      "proof_status": "proven",
+      "metric": "stable ux-proof JSON across TTFC, onboarding, routing, bootstrap, and recovery flows",
+      "current_result": "proof harness green",
+      "command": "cargo test --test ux_cli --quiet",
+      "notes": "Public UX harness asserts stable machine-readable ux-proof JSON for TTFC, capability and answer routing, watch bootstrap/recovery, install onboarding, export metadata, and incremental recovery on the shipped CLI path."
+    },
+    {
+      "id": "scale-2k-compile",
+      "name": "Scale: 2K-file index build",
+      "official": false,
+      "surface": "local-core",
+      "dimension": "latency",
+      "kind": "latency",
+      "proof_status": "pending",
+      "metric": "compile time ms",
+      "current_result": "pending \u2014 run bench_scale_2k_compile",
+      "command": "cargo test --test bench bench_scale_2k_compile -- --ignored --nocapture",
+      "notes": "Synthetic amplifier: 2000 Rust files compiled into a neuron index. Budget: <2min. Catches O(n\u00b2) index-build regressions. Not a real-content realism test."
+    },
+    {
+      "id": "scale-2k-activation",
+      "name": "Scale: 2K-neuron activation latency",
+      "official": false,
+      "surface": "local-core",
+      "dimension": "latency",
+      "kind": "latency",
+      "proof_status": "pending",
+      "metric": "p95 activation ms at 2K neurons",
+      "current_result": "pending \u2014 run bench_scale_2k_activation",
+      "command": "cargo test --test bench bench_scale_2k_activation -- --ignored --nocapture",
+      "notes": "P95 activation latency over 20 trials \u00d7 5 queries on a 2K-neuron index. Budget: p95 <200ms. A regression here signals O(n\u00b2) BM25 scoring or unbounded synapse traversal."
+    },
+    {
+      "id": "ux-install-route-smoke",
+      "name": "Install / route UX smoke",
+      "official": false,
+      "surface": "default-ux",
+      "dimension": "ux",
+      "kind": "ux",
+      "proof_status": "smoke",
+      "metric": "route readiness + watch bootstrap + install/export quickstarts",
+      "current_result": "smoke tests green",
+      "command": "cargo test --quiet route_banner_calls_out_recovery_for_stub_only_index && cargo test --quiet watch_banner_mentions_hot_patch_loop_and_recovery && cargo test --quiet detect_clients_global_scaffolds_canonical_paths && cargo test --quiet install_ux_proof_reports_measurable_onboarding_paths && cargo test --quiet export_meta_includes_machine_readable_ux_proof && cargo test --quiet cortyx_route_auto_without_inputs_uses_capability_summary",
+      "notes": "Support-only low-level smoke beneath the proven ux-proof-harness; covers banner/render/export/install primitives without making a separate usability claim."
+    },
+    {
+      "id": "graph-reasoning-convergence",
+      "name": "Graph reasoning convergence (synthetic 3-hop chain)",
+      "official": false,
+      "surface": "local-core",
+      "dimension": "graph-reasoning",
+      "kind": "accuracy",
+      "proof_status": "proven",
+      "metric": "depth_coverage / convergence",
+      "current_result": "depth_coverage=1.00, max_depth=3, converged=true, 4/4 nodes discovered",
+      "command": "cargo test --test bench bench_graph_reasoning -- --ignored --nocapture",
+      "notes": "Validates TraversalStats per-depth tracking and BFS convergence detection on a synthetic 4-node chain."
+    }
+  ]
+}

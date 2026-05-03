@@ -6,7 +6,7 @@ use anyhow::Result;
 use std::path::Path;
 
 /// Helper to auto-commit changes to global concepts directory
-fn auto_commit_global_concepts(global_dir: &Path, message: &str) -> Result<bool> {
+pub fn auto_commit_global_concepts(global_dir: &Path, message: &str) -> Result<bool> {
     if !global_dir.join(".git").exists() {
         return Ok(false);
     }

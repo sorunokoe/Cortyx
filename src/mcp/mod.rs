@@ -4413,6 +4413,7 @@ mod tests {
                 entities: vec!["auth".to_string(), "engine".to_string()],
                 depends_on: vec!["api-owner".to_string()],
                 action: None,
+                refined_plan: None,
             },
         );
         diary.when = Some("2026-04-17T10:04:00Z".to_string());
@@ -4558,6 +4559,7 @@ mod tests {
                 String::new(),
             )],
             conflicts: Vec::new(),
+            ..Default::default()
         };
 
         project_collaboration_state(&[diary], &[sync], &kg_entities, Some(&reasoning))

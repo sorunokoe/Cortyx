@@ -427,11 +427,13 @@ def prepare_locomo_corpus(
 ) -> dict:
     staged_files, manifest, counts = build_locomo_manifest(entries)
     binary = binary_fingerprint()
+    # Cache key is content-only (manifest hash). Binary version is stored in
+    # corpus.json for reference but does NOT invalidate the cache — the mined
+    # index is a pure function of the conversation content, not the binary.
     cache_key = hashlib.sha256(
         json.dumps(
             {
                 "benchmark": "locomo",
-                "binary_sha256": binary["sha256"],
                 "manifest": manifest,
             },
             sort_keys=True,
@@ -473,7 +475,8 @@ def prepare_locomo_corpus(
         stage_secs = time.perf_counter() - stage_start
 
         mine_start = time.perf_counter()
-        mine_run = run_cortyx(["mine", str(conversations_dir)], project_dir, timeout_secs)
+        mine_timeout = max(timeout_secs, 600)
+        mine_run = run_cortyx(["mine", str(conversations_dir)], project_dir, mine_timeout)
         mine_secs = time.perf_counter() - mine_start
         if not mine_run.ok:
             shutil.rmtree(cache_dir, ignore_errors=True)

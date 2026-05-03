@@ -1,6 +1,8 @@
 //! Helper functions for money query parsing.
 
-use super::super::money_support::{normalized_money_terms, SpendFocus, SpendFocusKind, SpendSumQuery};
+use super::super::money_support::{
+    normalized_money_terms, SpendFocus, SpendFocusKind, SpendSumQuery,
+};
 use super::super::*;
 
 const DAY_NAMES: &[&str] = &[

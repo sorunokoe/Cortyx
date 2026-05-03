@@ -659,7 +659,7 @@ async fn main() -> Result<()> {
                         .file_name()
                         .and_then(|name| name.to_str())
                         .unwrap_or("concept");
-                    match auto_commit_global_concepts(
+                    match commands::concepts::auto_commit_global_concepts(
                         &global_dir,
                         &format!("cortyx: publish concept {concept_name}"),
                     ) {
