@@ -57,7 +57,11 @@ mod inner {
 
         /// Embed a batch of texts. Returns a list of 384-dim f32 vectors.
         pub fn embed_batch(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>> {
-            Ok(self.model.lock().unwrap().embed(texts.to_vec(), None)?)
+            let mut guard = self
+                .model
+                .lock()
+                .map_err(|_| anyhow::anyhow!("embedding model mutex was poisoned"))?;
+            Ok(guard.embed(texts.to_vec(), None)?)
         }
 
         /// Embed a single query string.

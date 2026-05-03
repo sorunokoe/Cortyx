@@ -46,9 +46,13 @@ thiserror = "2.0.18"
 tempfile = "3.27.0"
 
 [profile.release]
-opt-level = "s"
+opt-level = 3
 strip = "symbols"
-panic = "abort"
+# panic = "abort" removed: cortyx exposes src/lib.rs for in-process use by tests
+# and benchmarks; abort-on-panic prevents catch_unwind in integration tests and
+# would silently override the caller's panic strategy when cortyx is used as a
+# library dependency.  The binary size impact is negligible with strip = "symbols"
+# and lto = true already applied.
 lto = true
 codegen-units = 1
 

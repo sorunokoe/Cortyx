@@ -352,7 +352,7 @@ fn normalize_cortyx_route_intent(intent: &str) -> Option<CortyxRouteKind> {
             Some(CortyxRouteKind::Consistency)
         },
         "capability" | "capabilities" | "describe" | "help" => Some(CortyxRouteKind::Capabilities),
-        _ => Some(CortyxRouteKind::Context).filter(|_| false),
+        _ => None,
     }
 }
 
@@ -673,6 +673,16 @@ impl CortyxServer {
     #[allow(dead_code)]
     pub async fn benchmark_collaboration_status(&self, input: CollaborationStatusInput) -> String {
         self.collaboration_status(Parameters(input)).await
+    }
+
+    /// Return a project-relative display string for `path`.
+    ///
+    /// Strips the project root prefix so absolute internal filesystem paths
+    /// (including usernames) are never exposed to MCP clients.
+    fn rel_display<'a>(&self, path: &'a Path) -> std::borrow::Cow<'a, str> {
+        path.strip_prefix(&self.project_root)
+            .unwrap_or(path)
+            .to_string_lossy()
     }
 
     async fn render_cortyx_capability_summary(&self) -> String {
@@ -1241,7 +1251,7 @@ impl CortyxServer {
         if let Err(e) = save_meta(&meta_file, &meta) {
             return format!(
                 "ERROR: Failed to save meta for {}: {e}",
-                neuron_path.display()
+                self.rel_display(&neuron_path)
             );
         }
         let provenance_result = record_mutation_provenance(
@@ -1269,7 +1279,7 @@ impl CortyxServer {
         finalize_mutation_message(
             format!(
                 "Neuron evolved: {} ({} tokens, {} synapses)",
-                neuron_path.display(),
+                self.rel_display(&neuron_path),
                 meta.tokens,
                 meta.synapses.len()
             ),
@@ -1363,7 +1373,7 @@ impl CortyxServer {
             format!(
                 "Section '{}' updated in {} ({} tokens, {} sections)",
                 input.section,
-                neuron_path.display(),
+                self.rel_display(&neuron_path),
                 meta.tokens,
                 sections.len()
             ),
@@ -1448,7 +1458,7 @@ impl CortyxServer {
         finalize_mutation_message(
             format!(
                 "Use-case neuron created: {} for pattern \"{}\"",
-                neuron_path.display(),
+                self.rel_display(&neuron_path),
                 input.task_pattern
             ),
             provenance_result,
@@ -1617,7 +1627,7 @@ impl CortyxServer {
             .iter()
             .map(|n| {
                 serde_json::json!({
-                    "path": n.path.display().to_string(),
+                    "path": self.rel_display(&n.path).as_ref().to_string(),
                     "kind": format!("{:?}", n.kind),
                     "staleness": format!("{:.1}", n.staleness_multiplier),
                     "hit_rate": format!("{:.2}", n.hit_rate),
@@ -1718,7 +1728,7 @@ impl CortyxServer {
             finalize_mutation_message(
                 format!(
                     "✓ Restored full neuron {} from shadow.",
-                    neuron_path.display()
+                    self.rel_display(&neuron_path)
                 ),
                 provenance_result,
             )
@@ -1754,7 +1764,7 @@ impl CortyxServer {
                 format!(
                     "✓ Restored section '{}' in {} from shadow.",
                     input.section,
-                    neuron_path.display()
+                    self.rel_display(&neuron_path)
                 ),
                 provenance_result,
             )
@@ -2033,7 +2043,10 @@ impl CortyxServer {
         let neuron_path = core_neuron_path(&source, &self.project_root);
 
         if !neuron_path.exists() {
-            return format!("ERROR: Neuron not found: {}", neuron_path.display());
+            return format!(
+                "ERROR: Neuron not found: {}",
+                self.rel_display(&neuron_path)
+            );
         }
 
         let mut idx = self.index.write().await;
@@ -2043,7 +2056,7 @@ impl CortyxServer {
         format!(
             "Recorded {} for {} — hit_rate now {:.0}% ({} uses)",
             if input.was_cited { "hit" } else { "miss" },
-            neuron_path.display(),
+            self.rel_display(&neuron_path),
             hit_rate * 100.0,
             use_count
         )

@@ -255,22 +255,18 @@ from `python3 scripts/eval_lme.py --answer-mode` now reaches **macro
 F1 0.733 / EM 0.608 / AnsR 0.703** with `single_session_preference`
 holding at **0.812 / 0.300 / 0.844**, `multi_session` still at
 **0.983 / 0.967 / 0.983**, and `temporal_reasoning` lifted to
-**0.386 / 0.236 / 0.401**. The latest full proof artifact is
-`/tmp/cortyx_lme_full_patch76_v1.json`.
+**0.386 / 0.236 / 0.401**.
 
-The patch66 structured assistant pack
-`/tmp/cortyx_lme_patch66_assistant_structured_pack_v6.json` still stays at
-**1.000 / 1.000 / 1.000** across 23 assistant recalls covering:
+The patch66 structured assistant pack still achieves **1.000 / 1.000 / 1.000**
+across 23 assistant recalls covering:
 
 - example-list recall such as biometric authentication or one-time passwords
 - descriptor-matched entity recall such as Veja, Nu, pogodi!, and The GR-90 trail
 - domain-over-heading website recall such as MusicTheory.net
 - nearby-context ordinal disambiguation such as Absinthe vs earlier duplicate ordinals
 
-The new patch67 assistant fact pack
-`/tmp/cortyx_lme_patch67_assistant_fact_pack_v2.json` lifts the full
-post-patch66 28-row assistant miss set from **0.106 / 0.000 / 0.124** to
-**0.352 / 0.214 / 0.368**, driven by:
+The patch67 assistant fact pack lifted the full post-patch66 28-row assistant
+miss set from **0.106 / 0.000 / 0.124** to **0.352 / 0.214 / 0.368**, driven by:
 
 - phone/contact recall such as the Speyer tourism board number
 - labeled budget/value recall such as influencer-marketing allocation
@@ -278,25 +274,20 @@ post-patch66 28-row assistant miss set from **0.106 / 0.000 / 0.124** to
 - quote/script-detail recall such as the Borges line and Andy's shirt
 - recommendation-detail recall such as the Pilsner-or-Lager beer answer
 
-The new patch68 temporal between-days pack
-`/tmp/cortyx_lme_patch68_between_days_pack_v1.json` lifts the 14-row
-between-event day-interval miss cluster from the patch67 baseline
-**0.133 / 0.000 / 0.162** to **0.372 / 0.214 / 0.390**, driven by reusable
-`between ... and ...` interval parsing in the extracted temporal anchor plane
-rather than benchmark-row hardcoding.
+The patch68 temporal between-days pack lifted the 14-row between-event
+day-interval miss cluster from the patch67 baseline **0.133 / 0.000 / 0.162**
+to **0.372 / 0.214 / 0.390**, driven by reusable `between ... and ...` interval
+parsing in the extracted temporal anchor plane rather than benchmark-row hardcoding.
 
-The new patch69 temporal ordering/routing lift is now proven on the full
-500-row frozen-fixture answer surface:
-`/tmp/cortyx_lme_full_release_after_patch69_v1.json`. It moves overall
+The patch69 temporal ordering/routing lift moved overall
 **0.669 / 0.578 / 0.626** → **0.670 / 0.578 / 0.627** and
 `temporal_reasoning` **0.372 / 0.228 / 0.386** → **0.380 / 0.228 / 0.393**
 by fixing temporal sequence precomputed-answer hijack and preserving longer
 temporal candidate clauses so booking-style lead times and chronology cues are
 scored as one grounded event instead of being split across truncated snippets.
 
-The new patch72 typed preference family lift is now proven on the full 500-row
-frozen-fixture answer surface: `/tmp/cortyx_lme_full_patch72_v1.json`. It moves
-overall **0.670 / 0.578 / 0.627** → **0.684 / 0.578 / 0.644** and lifts
+The patch72 typed preference family lift moved overall
+**0.670 / 0.578 / 0.627** → **0.684 / 0.578 / 0.644** and lifted
 `single_session_preference` **0.376 / 0.100 / 0.403** → **0.471 / 0.100 /
 0.499** by extracting typed preference families for:
 
@@ -309,10 +300,9 @@ The patch also removes the weak generic preference fallback that was producing
 unsupported benchmark-shaped answers, replacing it with explicit typed routes
 that stay inspectable, testable, and file-budget compliant.
 
-The new patch75 contextual preference advice lift is now proven on the full
-500-row frozen-fixture answer surface: `/tmp/cortyx_lme_full_patch75_v2.json`.
-It moves overall **0.684 / 0.578 / 0.644** → **0.732 / 0.607 / 0.702** and
-lifts `single_session_preference` **0.471 / 0.100 / 0.499** → **0.812 / 0.300
+The patch75 contextual preference advice lift moved overall
+**0.684 / 0.578 / 0.644** → **0.732 / 0.607 / 0.702** and lifted
+`single_session_preference` **0.471 / 0.100 / 0.499** → **0.812 / 0.300
 / 0.844** by extending the typed preference plane with reusable advice families
 for:
 
@@ -326,10 +316,8 @@ The patch also adds explicit open-ended-advice gating so preference synthesis
 does not hijack factual recall, temporal, or absent rows that merely share
 surface words like `bake`, `creamer`, `living room`, or `nas` / `Nasi`.
 
-The new patch76 temporal acquisition-aware comparison lift is now proven on the
-full 500-row frozen-fixture answer surface:
-`/tmp/cortyx_lme_full_patch76_v1.json`. It moves overall
-**0.732 / 0.607 / 0.702** → **0.733 / 0.608 / 0.703** and lifts
+The patch76 temporal acquisition-aware comparison lift moved overall
+**0.732 / 0.607 / 0.702** → **0.733 / 0.608 / 0.703** and lifted
 `temporal_reasoning` **0.380 / 0.228 / 0.393** → **0.386 / 0.236 / 0.401** by:
 
 - grounding elapsed `... ago` answers against a real current anchor instead of a
@@ -339,19 +327,13 @@ full 500-row frozen-fixture answer surface:
   arrival dates over earlier pre-order dates when both appear in the same evidence
   turn
 
-The same-surface targeted proofs behind the patch include:
+The same-surface targeted proofs behind the patch include full-corpus device-order
+and workshop/webinar order row scores both at **1.000 / 1.000 / 1.000**.
 
-- `/tmp/cortyx_lme_patch76_device_order_fullcorpus_v1.json` — full-corpus
-  `gpt4_2312f94c` device-order row repaired to **1.000 / 1.000 / 1.000**
-- `/tmp/cortyx_lme_patch76_order_probe_event_v1.json` — full-corpus
-  `gpt4_2487a7cb` workshop/webinar order row remains green at
-  **1.000 / 1.000 / 1.000**
-
-The patch65 routing-regression guard pack
-`/tmp/cortyx_lme_assistant_regression_pack_v1.json` still stays at
-**1.000 / 1.000 / 1.000** across 17 assistant recalls spanning the patch64
-assistant pack, the patch65 resource pack, and the seven full-run rows that
-briefly regressed when the generic assistant-followup route was moved too early.
+The patch65 routing-regression guard pack stays at **1.000 / 1.000 / 1.000**
+across 17 assistant recalls spanning the patch64 assistant pack, the patch65
+resource pack, and the seven full-run rows that briefly regressed when the generic
+assistant-followup route was moved too early.
 
 This makes answer quality a reproducible proof surface and a real internal
 progress line; it does **not** claim Cortyx is leading LongMemEval QA or that

@@ -8,6 +8,7 @@ use std::path::PathBuf;
 use thiserror::Error;
 
 /// Errors related to the neuron index.
+#[non_exhaustive]
 #[derive(Error, Debug)]
 pub enum IndexError {
     /// Index file not found or inaccessible.
@@ -40,6 +41,7 @@ pub enum IndexError {
 }
 
 /// Errors related to individual neurons.
+#[non_exhaustive]
 #[derive(Error, Debug)]
 pub enum NeuronError {
     /// Neuron file not found.
@@ -68,6 +70,7 @@ pub enum NeuronError {
 }
 
 /// Errors related to sync operations.
+#[non_exhaustive]
 #[derive(Error, Debug)]
 pub enum SyncError {
     /// Git repository not found.
@@ -96,6 +99,7 @@ pub enum SyncError {
 }
 
 /// Errors related to query processing.
+#[non_exhaustive]
 #[derive(Error, Debug)]
 pub enum QueryError {
     /// Query text is empty or invalid.
@@ -121,6 +125,7 @@ pub enum QueryError {
 
 /// Errors related to embeddings (optional feature).
 #[cfg(feature = "embed")]
+#[non_exhaustive]
 #[derive(Error, Debug)]
 pub enum EmbedError {
     /// Embedding model not loaded.
@@ -144,6 +149,7 @@ pub enum EmbedError {
 pub type Result<T, E = CortyxError> = std::result::Result<T, E>;
 
 /// Unified error type for Cortyx operations.
+#[non_exhaustive]
 #[derive(Error, Debug)]
 pub enum CortyxError {
     /// Index-related error.
@@ -183,17 +189,18 @@ impl CortyxError {
     }
 }
 
-/// Extension trait for converting anyhow errors during migration.
-pub trait AnyhowCompat {
-    fn context_cortyx(self, msg: &str) -> CortyxError;
+/// Extension trait for converting `Result<T, E>` into `Result<T, CortyxError>` during
+/// the migration away from `anyhow`.
+///
+/// This is a transitional helper. Prefer typed `From` implementations for new code.
+pub trait AnyhowCompat<T> {
+    /// Wrap any error with additional context and convert to `CortyxError::Other`.
+    fn context_cortyx(self, msg: &str) -> std::result::Result<T, CortyxError>;
 }
 
-impl<T, E: std::fmt::Display> AnyhowCompat for std::result::Result<T, E> {
-    fn context_cortyx(self, msg: &str) -> CortyxError {
-        match self {
-            Ok(_) => unreachable!("context_cortyx called on Ok"),
-            Err(e) => CortyxError::other(format!("{}: {}", msg, e)),
-        }
+impl<T, E: std::fmt::Display> AnyhowCompat<T> for std::result::Result<T, E> {
+    fn context_cortyx(self, msg: &str) -> std::result::Result<T, CortyxError> {
+        self.map_err(|e| CortyxError::other(format!("{msg}: {e}")))
     }
 }
 

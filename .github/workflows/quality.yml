@@ -1,0 +1,142 @@
+name: Quality
+
+on:
+  push:
+    branches: [ main, refactor/* ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  format:
+    name: Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+  lint:
+    name: Clippy Lints
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+      
+      - name: Cache cargo index
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+      
+      - name: Cache target directory
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-target-${{ hashFiles('**/Cargo.lock') }}
+      
+      - name: Run clippy
+        # -D warnings enforces all deny/warn lints declared in Cargo.toml,
+        # including unwrap_used = "deny" and clippy::pedantic = "deny".
+        # This is the authoritative lint gate — PRs must pass before merge.
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      
+      - name: Run tests
+        run: cargo test --all-features --verbose
+      
+      - name: Run doc tests
+        run: cargo test --doc --all-features
+
+  coverage:
+    name: Code Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+      
+      - name: Generate coverage
+        run: cargo llvm-cov --all-features --lcov --output-path lcov.info
+      
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: lcov.info
+          fail_ci_if_error: false
+
+  build:
+    name: Build Check
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Build
+        run: cargo build --release --all-features
+      
+      - name: Check binary size (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          SIZE=$(stat -c%s target/release/cortyx)
+          echo "Binary size: $SIZE bytes"
+          # opt-level=3 + lto=true + strip="symbols" produces ~15-20MB on Linux.
+          # 25MB limit gives headroom for new features without silently bloating.
+          if [ $SIZE -gt 26214400 ]; then
+            echo "Binary size exceeds 25MB limit!"
+            exit 1
+          fi
+      
+      - name: Check binary size (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          SIZE=$(stat -f%z target/release/cortyx)
+          echo "Binary size: $SIZE bytes"
+          if [ $SIZE -gt 26214400 ]; then
+            echo "Binary size exceeds 25MB limit!"
+            exit 1
+          fi
