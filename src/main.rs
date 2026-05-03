@@ -390,6 +390,24 @@ async fn main() -> Result<()> {
                 let n = idx.compile()?;
                 println!("✓ Compiled {n} neurons in {}", root.display());
             }
+            // B2: auto-trigger embedding pass when embed feature is present.
+            // Falls back silently if CORTYX_NO_DOWNLOAD is set or model isn't available.
+            #[cfg(feature = "embed")]
+            {
+                let paths: Vec<_> = idx
+                    .neuron_paths_and_use_counts()
+                    .into_iter()
+                    .map(|(p, _)| p)
+                    .collect();
+                if !paths.is_empty() {
+                    println!(
+                        "  Embedding {} neurons (all-MiniLM-L6-v2; ~80MB one-time model download)…",
+                        paths.len()
+                    );
+                    miner::embed_all(&paths, &root);
+                    println!("  ✓ Embeddings saved — hybrid BM25 + dense retrieval active.");
+                }
+            }
             println!("  Next: call cortyx_evolve_context to fill stubs, or `cortyx serve` to start the MCP server.");
         },
         Commands::Status {

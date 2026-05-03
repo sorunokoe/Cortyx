@@ -24,6 +24,12 @@ rerank = ["dep:ort", "dep:tokenizers"]
 # the answer plane. Zero overhead when disabled: all gate functions are no-op stubs.
 # Requires PureReason to be checked out at ../../AI/PureReason (sibling directory).
 verify = ["dep:pure-reason-verifier", "dep:pure-reason-core"]
+# Local LLM answer synthesis via Ollama.
+# Requires Ollama running locally (default: http://localhost:11434).
+# Set CORTYX_OLLAMA_URL and CORTYX_ANSWER_MODEL to customise.
+# Falls back to rule-based answer plane if Ollama is unreachable.
+# Expected impact: LoCoMo F1 0.133 → ~0.55 (closing gap with Zep/Letta/Mem0).
+answer-llm = ["dep:ureq"]
 
 [dependencies]
 anyhow = "1.0.102"
@@ -37,6 +43,7 @@ ort = { version = "=2.0.0-rc.10", optional = true }
 tokenizers = { version = "0.19", optional = true }
 pure-reason-verifier = { path = "../../AI/PureReason/crates/pure-reason-verifier", optional = true }
 pure-reason-core = { path = "../../AI/PureReason/crates/pure-reason-core", optional = true }
+ureq = { version = "2", optional = true }
 notify = "8.2.0"
 rmcp = { version = "1.4.0", features = ["server", "transport-io"] }
 schemars = "1.2.1"

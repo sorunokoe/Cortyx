@@ -90,6 +90,23 @@ main() {
   esac
 
   ASSET="${BIN_NAME}-${VERSION}-${TARGET}.${EXT}"
+
+  # B1: prefer the embed-enabled binary (hybrid BM25 + dense retrieval).
+  # Set CORTYX_NO_EMBED=1 to force the plain BM25-only binary (~6MB vs ~8MB).
+  if [ -z "${CORTYX_NO_EMBED:-}" ]; then
+    EMBED_ASSET="${BIN_NAME}-${VERSION}-${TARGET}-embed.${EXT}"
+    EMBED_URL="https://github.com/${REPO}/releases/download/${VERSION}/${EMBED_ASSET}"
+    # Probe with a HEAD request; fall back to plain binary if embed variant absent.
+    if command -v curl > /dev/null 2>&1; then
+      if curl -fsSLI "$EMBED_URL" > /dev/null 2>&1; then
+        ASSET="$EMBED_ASSET"
+        echo "  (embed variant available — using hybrid BM25 + dense retrieval build)"
+        echo "  Note: ~80MB embedding model downloads on first 'cortyx compile'"
+        echo "  Set CORTYX_NO_EMBED=1 to install the plain BM25-only binary instead."
+      fi
+    fi
+  fi
+
   URL="https://github.com/${REPO}/releases/download/${VERSION}/${ASSET}"
 
   echo "Installing Cortyx ${VERSION} for ${TARGET}..."

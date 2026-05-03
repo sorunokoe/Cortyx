@@ -3995,6 +3995,7 @@ fn explicit_read_error_snippet(path: &Path) -> String {
 }
 
 mod dialogue;
+pub mod llm_backend;
 use self::dialogue::{
     looks_like_question_turn, parse_dialogue_turns, select_structured_diary_answer,
     select_subject_turn_answer, select_turn_pair_answer, should_skip_generated_answer_line,

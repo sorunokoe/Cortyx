@@ -37,7 +37,6 @@ use crate::miner;
 use crate::neuron::provenance::{
     record_content_provenance_edit, ProvenanceEdit, ProvenanceOperation, ProvenanceSource,
 };
-use crate::verify_gate;
 use crate::neuron::{
     atomic_write, atomic_write_json, core_neuron_path, estimate_context_tokens, hash_file,
     latest_shadow, meta_path, neuron_dir, now_iso8601, parse_sections, parse_synapses_from_content,
@@ -46,6 +45,7 @@ use crate::neuron::{
 };
 use crate::reasoner::{ReasoningReport, TraversalOptions};
 use crate::sync_transport::{sync_transport_dir, SyncTransportRepository, SyncTransportStatus};
+use crate::verify_gate;
 use crate::watcher;
 
 // ─── Tool input types ─────────────────────────────────────────────────────────
@@ -1042,6 +1042,41 @@ impl CortyxServer {
 
         if answer_mode {
             let idx_read = self.index.read().await;
+
+            // B3: Try local LLM answer first when answer-llm feature is active.
+            // ureq is blocking — run on the threadpool to avoid blocking the async runtime.
+            #[cfg(feature = "answer-llm")]
+            {
+                let task_owned = input.task.clone();
+                let bodies: Vec<String> = paths
+                    .iter()
+                    .filter_map(|p| std::fs::read_to_string(p).ok())
+                    .collect();
+                let llm_answer = tokio::task::spawn_blocking(move || {
+                    let refs: Vec<&str> = bodies.iter().map(String::as_str).collect();
+                    answer_plane::llm_backend::try_llm_answer(&task_owned, &refs)
+                })
+                .await
+                .ok()
+                .flatten();
+                if let Some(answer) = llm_answer {
+                    let verdict = verify_gate::check(&answer);
+                    if verdict.risk_score <= 0.50 {
+                        return if provenance_mode {
+                            format!(
+                                "{answer}\n\n<!-- source: ollama/{} | ECS: {}/100 -->",
+                                std::env::var("CORTYX_ANSWER_MODEL")
+                                    .unwrap_or_else(|_| "qwen2.5:1.5b".to_string()),
+                                verdict.ecs_score()
+                            )
+                        } else {
+                            answer
+                        };
+                    }
+                    // High-risk LLM answer: fall through to rule-based plane.
+                }
+            }
+
             return match answer_plane::render_answer_output_decision(
                 &idx_read,
                 &input.task,
@@ -1910,10 +1945,14 @@ impl CortyxServer {
         // it enters long-term memory. No-op when `--features verify` is absent.
         if !input.skip_verify.unwrap_or(false) {
             let verdict = verify_gate::check(&input.content);
-            let block_threshold =
-                input.min_ecs_threshold.unwrap_or(verify_gate::DEFAULT_BLOCK_THRESHOLD);
+            let block_threshold = input
+                .min_ecs_threshold
+                .unwrap_or(verify_gate::DEFAULT_BLOCK_THRESHOLD);
             if verdict.risk_score > block_threshold {
-                let summary = verdict.summary.as_deref().unwrap_or("high hallucination risk");
+                let summary = verdict
+                    .summary
+                    .as_deref()
+                    .unwrap_or("high hallucination risk");
                 return format!(
                     "REJECTED by ECS gate (risk={:.2}, ECS={}/100): {}. \
                      Use skip_verify=true to override, or revise the content.",
@@ -2473,7 +2512,10 @@ impl CortyxServer {
         let fact_text = format!("{}: {} = {}", input.entity, input.predicate, input.value);
         let verdict = verify_gate::check(&fact_text);
         if verdict.risk_score > 0.70 {
-            let summary = verdict.summary.as_deref().unwrap_or("high hallucination risk");
+            let summary = verdict
+                .summary
+                .as_deref()
+                .unwrap_or("high hallucination risk");
             return format!(
                 "REJECTED by ECS gate (risk={:.2}, ECS={}/100): {}. \
                  Review the fact before adding it to the KG.",
