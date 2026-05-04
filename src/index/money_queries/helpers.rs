@@ -120,15 +120,15 @@ pub(super) fn build_gift_recipient_focus(recipient: &str) -> Option<SpendFocus> 
     Some(SpendFocus {
         kind: SpendFocusKind::GiftRecipient,
         key: normalized_synthetic_phrase_key(recipient_surface),
-        display: recipient_surface.to_string(),
+        display: format!("gift for {recipient_surface}"),
         required_terms,
         optional_terms: vec![],
     })
 }
 
 pub(super) fn build_item_focus(segment: &str) -> Option<SpendFocus> {
-    let item_surface = segment.trim();
-    let terms = normalized_money_terms(item_surface);
+    let item_surface = strip_item_focus_trailing_context(segment.trim());
+    let terms = normalized_money_terms(&item_surface);
     if terms.is_empty() {
         return None;
     }
@@ -139,11 +139,21 @@ pub(super) fn build_item_focus(segment: &str) -> Option<SpendFocus> {
         .collect::<Vec<_>>();
     Some(SpendFocus {
         kind: SpendFocusKind::GenericItem,
-        key: normalized_synthetic_phrase_key(item_surface),
-        display: item_surface.to_string(),
+        key: normalized_synthetic_phrase_key(&item_surface),
+        display: item_surface,
         required_terms,
         optional_terms,
     })
+}
+
+fn strip_item_focus_trailing_context(surface: &str) -> String {
+    Regex::new(
+        r"(?i)\s+i\s+(?:got|purchased|bought|ordered|received|found|snagged|picked\s+up)\b.*",
+    )
+    .unwrap()
+    .replace(surface, "")
+    .trim()
+    .to_string()
 }
 
 pub(super) fn focus_core_terms(terms: &[String]) -> Vec<String> {

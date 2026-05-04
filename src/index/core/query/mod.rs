@@ -4,14 +4,12 @@
 //! patterns, extracting query ordinals, and scoring answer candidates.
 //! These functions have no dependency on NeuronIndex and operate on `&str` / `&[String]` inputs.
 
+use crate::kg;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use crate::kg;
 
 // Functions defined in the parent module (core/mod.rs) that these helpers depend on.
 use super::{detect_counting_query, is_money_query, tokenize};
-
-
 
 pub(crate) fn task_contains_all(lower: &str, needles: &[&str]) -> bool {
     needles.iter().all(|needle| lower.contains(needle))

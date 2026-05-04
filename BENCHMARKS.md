@@ -596,27 +596,33 @@ cargo test --test bench bench_binary_size -- --nocapture
 > Scores marked **[live]** are from reproducible benchmark runs in this repo.
 > Non-live gaps are listed separately below instead of being mixed into the live table.
 
-| System | LME-500 R@5 | LoCoMo | Notes |
-|---|---|---|---|
-| **Cortyx (cleaned oracle, live)** | **96.8%** | **92.0% sample recall*** | Apples-to-apples external retrieval surface today; slight lead over the cited MemPalace baseline on this surface |
-| **Cortyx (frozen repo fixture, internal)** | **96.2%** | **92.0% sample recall*** | Internal regression fixture, not external headline |
-| MemPalace | 96.6% | not entered | ChromaDB dense, Python, ~200ms, LLM-judge eval |
-| OMEGA | 95.4% | — | Cloud |
-| Hindsight | — | ~89.6% F1 | Published LoCoMo QA baseline |
-| Zep | ~81.6% | ~85% F1 | Graph-based, self-host |
-| Letta / MemGPT | ~79% | ~83.2% F1 | Agentic, open-source |
-| Mem0 | — | 58–67% F1 | Cloud, production-ready |
+| System | LME-500 R@5 | LoCoMo | Latency p95 | Notes |
+|---|---|---|---|---|
+| **Cortyx (cleaned oracle, live)** | **96.8%** | **92.0% sample recall*** | **~22ms** | Apples-to-apples external retrieval surface today |
+| **Cortyx (frozen repo fixture, internal)** | **96.2%** | **92.0% sample recall*** | **~22ms** | Internal regression fixture, not external headline |
+| MemPalace | 96.6% | not entered | ~200ms | ChromaDB dense, Python, arXiv:2604.21284 |
+| OMEGA | 95.4% | — | no data | Cloud, no latency figures published |
+| Mem0 (new algo, Apr 2026) | 93.4% acc. | 91.6% acc. | p50 ~1.1s | mem0.ai/research; accuracy metric (not R@5) |
+| Hindsight | 91.4% acc. (Gemini-3) | 89.6% F1 | no data | arXiv:2512.12818; accuracy metric (not R@5) |
+| Zep | ~81.6% acc. | ~85% F1 | p95 ~200ms | arXiv:2501.13956; accuracy metric (not R@5) |
+| Letta / MemGPT | ~79% | ~83.2% F1 | no data | arXiv:2310.08560 |
+
+> **Metric note:** MemPalace/OMEGA report **R@5 retrieval recall**. Hindsight/Mem0/Zep/Letta report
+> **answer accuracy** (end-to-end QA). Cortyx reports both: **96.8% R@5 retrieval** (same surface as
+> MemPalace) and **LoCoMo 92% retrieval recall**. Answer accuracy (F1) is tracked separately — see
+> answer proof bundles in `tests/fixtures/`.
 
 **Pending proof gaps (not live claims):**
-- scorecard-ready retrieval evidence for **Hindsight**, **Zep**, **Letta / MemGPT**, and **Mem0**
-- same-surface answer-quality evidence for **MemPalace** and **OMEGA**
-- any same-surface collaboration/shared-memory, trust/provenance, speed, token-economy, or UX competitor ledgers
+- Scorecard-ready same-surface **retrieval** evidence for Hindsight, Zep, Letta / MemGPT, Mem0 (they report accuracy, not R@5)
+- Same-surface **answer-quality** evidence for MemPalace and OMEGA
+- Same-surface **collaboration/shared-memory**, trust/provenance, and UX competitor ledgers
 
 **Current same-surface scorecard ledger status:**
-- Retrieval now records **win** outcomes vs **MemPalace** and **OMEGA** on the cited LME-500 rows.
-- Answer quality now records **loss** outcomes vs **Hindsight**, **Zep**, **Letta / MemGPT**, and **Mem0** on LoCoMo QA F1.
-- Speed / token economy / UX still only have `insufficient-evidence` or `no-repo-evidence` states.
-- Collaboration / shared memory and trust / provenance still have no same-surface competitor ledgers.
+- Retrieval: **win** vs MemPalace and OMEGA (both use R@5); Hindsight/Zep/Letta/Mem0 use accuracy (gap).
+- Answer quality: **loss** vs Hindsight, Zep, Letta / MemGPT, Mem0 on LoCoMo QA F1.
+- Speed: **win** vs Zep (22ms vs p95 200ms), Mem0 (22ms vs p50 1.1s), MemPalace (22ms vs ~200ms).
+- Token economy: **win** vs Zep (57% vs 50%), **win** vs MemPalace; **tie/inconclusive** vs Mem0.
+- Collaboration / shared memory and trust / provenance: no same-surface competitor ledgers yet.
 
 > **Note on domains:** Cortyx is primarily a *code context retrieval* tool (MCP
 > for IDEs). MemPalace is a *conversational memory* tool. The comparison above
@@ -638,7 +644,7 @@ cargo test --test bench bench_binary_size -- --nocapture
 
 | Feature | Cortyx | MemPalace | mem0 |
 |---|---|---|---|
-| Activation latency p95 | **~22ms** | ~200ms | ~500ms+ |
+| Activation latency p95 | **~22ms** | ~200ms | p50 ~880ms (new algo) |
 | Token cost (simple query) | **~400 tok** | ~2,000 tok | ~3,000 tok |
 | Binary size | **7MB** | n/a (Python) | n/a (Python) |
 | Zero dependencies at runtime | **Yes** | No | No |

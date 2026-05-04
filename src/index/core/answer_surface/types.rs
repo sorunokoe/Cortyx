@@ -3,7 +3,6 @@
 //! These types support the answer_mode feature which generates answers
 //! from indexed neuron content without changing the core retrieval path.
 
-use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::path::PathBuf;
 
