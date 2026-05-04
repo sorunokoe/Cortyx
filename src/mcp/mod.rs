@@ -549,41 +549,6 @@ impl CortyxServer {
 
         if answer_mode {
             let idx_read = self.index.read().await;
-
-            // B3: Try local LLM answer first when answer-llm feature is active.
-            // ureq is blocking — run on the threadpool to avoid blocking the async runtime.
-            #[cfg(feature = "answer-llm")]
-            {
-                let task_owned = input.task.clone();
-                let bodies: Vec<String> = paths
-                    .iter()
-                    .filter_map(|p| std::fs::read_to_string(p).ok())
-                    .collect();
-                let llm_answer = tokio::task::spawn_blocking(move || {
-                    let refs: Vec<&str> = bodies.iter().map(String::as_str).collect();
-                    answer_plane::llm_backend::try_llm_answer(&task_owned, &refs)
-                })
-                .await
-                .ok()
-                .flatten();
-                if let Some(answer) = llm_answer {
-                    let verdict = verify_gate::check(&answer);
-                    if verdict.risk_score <= 0.50 {
-                        return if provenance_mode {
-                            format!(
-                                "{answer}\n\n<!-- source: ollama/{} | ECS: {}/100 -->",
-                                std::env::var("CORTYX_ANSWER_MODEL")
-                                    .unwrap_or_else(|_| "qwen2.5:1.5b".to_string()),
-                                verdict.ecs_score()
-                            )
-                        } else {
-                            answer
-                        };
-                    }
-                    // High-risk LLM answer: fall through to rule-based plane.
-                }
-            }
-
             return match answer_plane::render_answer_output_decision(
                 &idx_read,
                 &input.task,

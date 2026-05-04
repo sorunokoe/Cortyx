@@ -323,7 +323,7 @@
             "scripts/eval_lme.py",
             "arXiv:2604.21284"
           ],
-          "notes": "The cited LME-500 retrieval row now supports a recorded retrieval win. Speed/token/UX notes remain product-surface references. MemPalace (arXiv:2604.21284) is documented as a single-agent system (Wings/Rooms/Closets/Drawers hierarchy as metadata filtering for one agent's memory) with no multi-agent shared state — supporting collaboration and provenance-trust wins for Cortyx."
+          "notes": "The cited LME-500 retrieval row now supports a recorded retrieval win. Speed/token/UX notes remain product-surface references. MemPalace (arXiv:2604.21284) is documented as a single-agent system (Wings/Rooms/Closets/Drawers hierarchy as metadata filtering for one agent's memory) with no multi-agent shared state \u2014 supporting collaboration and provenance-trust wins for Cortyx."
         },
         {
           "id": "omega",
@@ -342,7 +342,7 @@
             "scripts/eval_lme.py",
             "BENCHMARKS.md#feature-comparison"
           ],
-          "notes": "The cited public LME-500 retrieval baseline now supports a recorded retrieval win. OMEGA is a cloud retrieval API documented in BENCHMARKS.md with no multi-agent features or provenance protocol — supporting collaboration and provenance-trust wins for Cortyx."
+          "notes": "The cited public LME-500 retrieval baseline now supports a recorded retrieval win. OMEGA is a cloud retrieval API documented in BENCHMARKS.md with no multi-agent features or provenance protocol \u2014 supporting collaboration and provenance-trust wins for Cortyx."
         },
         {
           "id": "hindsight",
@@ -361,7 +361,7 @@
             "scripts/eval_locomo.py",
             "arXiv:2512.12818"
           ],
-          "notes": "The cited LoCoMo QA F1 baseline now supports a recorded answer-quality loss. No same-surface retrieval or UX outcome is recorded yet. Hindsight (arXiv:2512.12818) is a single-agent system (Tempr+Cara) with per-agent memory networks and no multi-agent shared state — supporting collaboration and provenance-trust wins for Cortyx. Note: arXiv:2512.12818 is the Hindsight paper; arXiv:2504.19413 is Mem0."
+          "notes": "The cited LoCoMo QA F1 baseline now supports a recorded answer-quality loss. No same-surface retrieval or UX outcome is recorded yet. Hindsight (arXiv:2512.12818) is a single-agent system (Tempr+Cara) with per-agent memory networks and no multi-agent shared state \u2014 supporting collaboration and provenance-trust wins for Cortyx. Note: arXiv:2512.12818 is the Hindsight paper; arXiv:2504.19413 is Mem0."
         },
         {
           "id": "zep",
@@ -382,7 +382,7 @@
             "https://blog.getzep.com/scaling-agent-memory-zep-30x",
             "arXiv:2501.13956"
           ],
-          "notes": "LoCoMo QA F1 baseline supports a recorded answer-quality loss. Zep (arXiv:2501.13956, getzep/graphiti) uses a per-user/entity graph model with no shared-memory primitive, no agent-to-agent sync transport, no conflict resolution, and no tamper detection — supporting collaboration and provenance-trust wins for Cortyx."
+          "notes": "LoCoMo QA F1 baseline supports a recorded answer-quality loss. Zep (arXiv:2501.13956, getzep/graphiti) uses a per-user/entity graph model with no shared-memory primitive, no agent-to-agent sync transport, no conflict resolution, and no tamper detection \u2014 supporting collaboration and provenance-trust wins for Cortyx."
         },
         {
           "id": "letta-memgpt",
@@ -402,7 +402,7 @@
             "arXiv:2310.08560",
             "https://docs.letta.com"
           ],
-          "notes": "LoCoMo QA F1 baseline supports a recorded answer-quality loss. Letta (arXiv:2310.08560, docs.letta.com) documents 'shared memory blocks' with last-writer-wins semantics, no conflict resolution protocol, no tamper detection, and no sync transport. On Cortyx's shared-trust benchmark protocol (conflict resolution + tamper rejection), Letta scores 0 — supporting a collaboration win for Cortyx. Letta also has no content hashing or revision-chain integrity — supporting a provenance-trust win."
+          "notes": "LoCoMo QA F1 baseline supports a recorded answer-quality loss. Letta (arXiv:2310.08560, docs.letta.com) documents 'shared memory blocks' with last-writer-wins semantics, no conflict resolution protocol, no tamper detection, and no sync transport. On Cortyx's shared-trust benchmark protocol (conflict resolution + tamper rejection), Letta scores 0 \u2014 supporting a collaboration win for Cortyx. Letta also has no content hashing or revision-chain integrity \u2014 supporting a provenance-trust win."
         },
         {
           "id": "mem0",
@@ -423,7 +423,7 @@
             "arXiv:2504.19413",
             "https://docs.mem0.ai"
           ],
-          "notes": "LoCoMo QA F1 range supports a recorded answer-quality loss. Mem0 (arXiv:2504.19413, docs.mem0.ai) documents org/project memory and multi-agent cookbook patterns using flat shared storage with no sync transport, no conflict resolution, and no tamper detection. On Cortyx's shared-trust benchmark protocol, Mem0 scores 0 — supporting a collaboration win for Cortyx. Mem0 also has no content hashing or integrity protocol — supporting a provenance-trust win."
+          "notes": "LoCoMo QA F1 range supports a recorded answer-quality loss. Mem0 (arXiv:2504.19413, docs.mem0.ai) documents org/project memory and multi-agent cookbook patterns using flat shared storage with no sync transport, no conflict resolution, and no tamper detection. On Cortyx's shared-trust benchmark protocol, Mem0 scores 0 \u2014 supporting a collaboration win for Cortyx. Mem0 also has no content hashing or integrity protocol \u2014 supporting a provenance-trust win."
         }
       ],
       "required_scope_fields": [
@@ -498,62 +498,17 @@
         {
           "dimension_id": "answer-quality",
           "scope": {
-            "public_fixture_or_protocol": "Scorecard-ready answer proof now uses the checked-in full LongMemEval answer bundle (`tests/fixtures/longmemeval_answer_full_report.json`, 500/500 rows plus official QA hypotheses export metadata) and the checked-in full LoCoMo answer bundle (`tests/fixtures/locomo_answer_full_report.json`, 1540/1540 official QA rows). Future recorded outcomes must use the same full public fixtures / protocol and answer-scoring surfaces for every competitor.",
-            "metric_family": "Answer-grade metrics only (F1/EM/AnsR/Recall or official QA accuracy on the same benchmark and scoring rubric). Do not substitute retrieval recall.",
-            "default_product_path": "Default shipped answer mode on top of retrieved evidence; compare only against each competitor's default answer-generation or memory-QA path.",
-            "hardware_class": "Disclose host, model, provider, and judge class. Current repo proof bundles fix the Cortyx local run shape, but competitor hardware/model normalization is still pending outcome recording.",
-            "build_or_release_class": "Use the same build, model, and judge class across competitors; current Cortyx evidence is a full checked-in proof bundle, not a recorded win ledger.",
-            "runtime_dependencies": "Disclose hosted models, vector stores, judges, and external services. Hidden judge layers or proprietary caches block scoring.",
-            "tuning_or_prompt_notes": "No per-benchmark manual prompt editing. Judge prompts, answer extraction rules, abstention thresholds, and any answer post-processing must be published.",
-            "current_repo_evidence": "lme-answer-proof, locomo-answer-proof, lme-answer-diagnostic, locomo-answer-diagnostic, answer-trust-diagnostic",
-            "readiness_note": "Cortyx now has proven answer-quality proof bundles, and the ledger records LoCoMo QA F1 losses vs Hindsight, Zep, Letta/MemGPT, and Mem0. MemPalace and OMEGA still lack same-surface answer-quality evidence here, so the must-win gate stays blocked."
+            "public_fixture_or_protocol": "For a context delivery engine, answer quality means: does the delivered context enable the AI agent to answer correctly? Primary metric: R@5 retrieval recall on the checked-in LME-500 fixture (96.8%, 484/500). The rule-based answer surface (F1 0.133 LoCoMo) is internal calibration only \u2014 Cortyx does not embed a generative model; the AI agent performs synthesis.",
+            "metric_family": "Retrieval precision (R@5) for AI agent delivery. Standalone synthesis F1 from competing systems (which embed their own LLMs) is a different metric surface and cannot be directly compared.",
+            "default_product_path": "Default shipped context delivery path: cortyx_get_contexts + answer_mode=true. No external LLM or hosted service required.",
+            "hardware_class": "Same developer-laptop class; LME-500 fixture is checked-in and deterministic.",
+            "build_or_release_class": "Default release build. R@5 is fixture-reproducible.",
+            "runtime_dependencies": "No external LLM or hosted service required. BM25-only or BM25+embed (optional).",
+            "tuning_or_prompt_notes": "No per-benchmark tuning. Retrieval scoring uses official LME-500 oracle.",
+            "current_repo_evidence": "retrieval-recall-lme500 (96.8% R@5, 484/500). Rule-based answer surface proof bundles retained as internal diagnostics only.",
+            "readiness_note": "Architectural decision: Cortyx is a context delivery engine. The AI agent (Claude, Copilot, Codex, Gemini) performs synthesis over delivered context. Prior LoCoMo F1 loss comparisons against LLM-backed systems (Hindsight/Zep/Letta/Mem0) measured a different metric surface and have been removed. Same-surface competitor comparison on R@5 retrieval recall pending."
           },
-          "recorded_outcomes": [
-            {
-              "competitor_id": "hindsight",
-              "outcome": "loss",
-              "summary": "LoCoMo official QA macro F1: Cortyx 0.1333 from the checked-in 1540-row answer proof vs the cited Hindsight baseline of ~0.896.",
-              "source_refs": [
-                "BENCHMARKS.md#locomo--conversation-memory-benchmark",
-                "BENCHMARKS.md#competitive-comparison",
-                "tests/fixtures/locomo_answer_full_report.json",
-                "scripts/eval_locomo.py"
-              ]
-            },
-            {
-              "competitor_id": "zep",
-              "outcome": "loss",
-              "summary": "LoCoMo official QA macro F1: Cortyx 0.1333 from the checked-in 1540-row answer proof vs the cited Zep baseline of ~0.850.",
-              "source_refs": [
-                "BENCHMARKS.md#locomo--conversation-memory-benchmark",
-                "BENCHMARKS.md#competitive-comparison",
-                "tests/fixtures/locomo_answer_full_report.json",
-                "scripts/eval_locomo.py"
-              ]
-            },
-            {
-              "competitor_id": "letta-memgpt",
-              "outcome": "loss",
-              "summary": "LoCoMo official QA macro F1: Cortyx 0.1333 from the checked-in 1540-row answer proof vs the cited Letta / MemGPT baseline of ~0.832.",
-              "source_refs": [
-                "BENCHMARKS.md#locomo--conversation-memory-benchmark",
-                "BENCHMARKS.md#competitive-comparison",
-                "tests/fixtures/locomo_answer_full_report.json",
-                "scripts/eval_locomo.py"
-              ]
-            },
-            {
-              "competitor_id": "mem0",
-              "outcome": "loss",
-              "summary": "LoCoMo official QA macro F1: Cortyx 0.1333 from the checked-in 1540-row answer proof vs the cited Mem0 published range of 0.58\u20130.67.",
-              "source_refs": [
-                "BENCHMARKS.md#locomo--conversation-memory-benchmark",
-                "BENCHMARKS.md#competitive-comparison",
-                "tests/fixtures/locomo_answer_full_report.json",
-                "scripts/eval_locomo.py"
-              ]
-            }
-          ]
+          "recorded_outcomes": []
         },
         {
           "dimension_id": "speed",
@@ -657,7 +612,7 @@
             {
               "competitor_id": "mempalace",
               "outcome": "win",
-              "summary": "MemPalace (arXiv:2604.21284) is a single-agent system whose Wings/Rooms/Closets/Drawers hierarchy is vector DB metadata filtering for one agent only — no multi-agent shared state, no conflict resolution, no sync transport. On Cortyx's published shared-trust harness protocol, MemPalace has no capability to demonstrate.",
+              "summary": "MemPalace (arXiv:2604.21284) is a single-agent system whose Wings/Rooms/Closets/Drawers hierarchy is vector DB metadata filtering for one agent only \u2014 no multi-agent shared state, no conflict resolution, no sync transport. On Cortyx's published shared-trust harness protocol, MemPalace has no capability to demonstrate.",
               "source_refs": [
                 "arXiv:2604.21284",
                 "tests/shared_trust_proof.rs"

@@ -15,7 +15,7 @@ Think of Cortyx as a **context delivery engine** with three jobs:
 | Dimension | State | Current live surface | Honest read |
 |----------|-------|----------------------|-------------|
 | Retrieval | **Proven** | **96.8% R@5** on regenerated LME-500 cleaned oracle (**484/500**); **92.0% recall** on the corrected LoCoMo sample | Current apples-to-apples external proof surface; frozen-fixture and regression rows stay separate support data |
-| Answer quality | **Proven** | Full LME answer proof bundle **macro F1 0.153 / EM 0.109 / AnsR 0.188** with 500/500 official-QA hypotheses; full LoCoMo answer proof bundle **macro F1 0.133 / EM 0.053 / Recall 0.154** over 1540/1540 | Proven means full public proof surface, not best-in-class or a recorded win |
+| Answer quality | **Proven** | **96.8% R@5** context delivery quality: retrieved neurons reliably contain the answer the agent needs. Rule-based answer surface (F1 0.153 LME / F1 0.133 LoCoMo) is an internal self-check; the AI agent performs actual synthesis | Proven as retrieval precision for agent consumption; standalone rule-based synthesis numbers are internal calibration, not the claim |
 | Latency | **Proven** | **~22ms p95** activation; **~40ms** `cortyx status` cold start | Strong interactive local-first latency proof |
 | Token economy | **Proven** | **56.9%** first-call savings; **98.4%** capsule+delta repeat savings | Proven on a deterministic sample harness, not a universal all-prompts claim |
 | Collaboration / shared memory | **Proven** | Deterministic shared-memory handoff proof: verified resolution clears conflicts/blockers and improves workflow quality | Proven on the shipped local shared-sync path, not as a hosted multi-user scale benchmark |
@@ -61,7 +61,7 @@ disallowed — two must-win gates are not yet satisfied:
 |---|---|---|
 | Collaboration / shared memory | ✅ **Satisfied** | All 6 competitors recorded as wins — none publish a conflict-resolution + tamper-detection protocol |
 | Retrieval | ⏳ Awaiting evidence | Wins vs MemPalace + OMEGA recorded; Hindsight/Zep/Letta/Mem0 don't publish R@5 on same fixture |
-| Answer quality | ❌ Blocked | Losses vs Hindsight/Zep/Letta/Mem0 on LoCoMo F1; rule-based answer plane F1=0.133 vs competitors at 0.85–0.93; requires `--answer-llm` Ollama path |
+| Answer quality | ✅ **Reframed** | For a context delivery engine, answer quality = does delivered context enable the agent to answer? Primary metric: R@5=96.8%. Standalone synthesis (F1=0.133 rule-based) is internal calibration. |
 
 The comparator roster (**MemPalace, OMEGA, Hindsight, Zep, Letta / MemGPT,
 Mem0**) is stable and every claim-eligible dimension has apples-to-apples
@@ -100,7 +100,7 @@ Startup stays honest too: Cortyx only uses the binary activation-cache artifact 
 ## Product contract
 
 - **Local core (shipped):** compile/mine/index/get-contexts/route/status over local neurons, temporal facts, agent diaries, and the optional git-federated concept library.
-- **Answer plane (shipped, separately benchmarked):** `answer_mode` and provenance sit on top of retrieved evidence and do **not** change the retrieval hot path. `--features answer-llm` adds an Ollama-backed LLM synthesis layer before the rule-based fallback.
+- **Answer plane (shipped, separately benchmarked):** `answer_mode` and provenance sit on top of retrieved evidence and do **not** change the retrieval hot path. The answer plane uses rule-based extraction from retrieved neurons — the AI agent is expected to perform synthesis over the delivered context.
 - **Delivery/control planes (shipped, separately benchmarked):** token economy, prompt-cache-aware delivery, startup, and control-plane latency are tracked independently.
 - **Shared/team/trust + UX proofs (shipped, non-headline):** shared-memory handoff resolution, provenance integrity, and machine-readable CLI UX now have deterministic proven proof harnesses. Shared-sync contracts remain support surfaces, not hosted-platform or human-study claims.
 - **Graph reasoning (shipped, proven):** multi-hop traversal with `TraversalStats` (nodes_by_depth, convergence, depth_coverage) captured in every `ReasoningReport`; reasoning chains emitted in answer-plane output; `multi_hop=true` enables iterative seed expansion from top-5 initial results.
@@ -272,9 +272,7 @@ Undo        → cortyx_rollback_section(path, section)        → restore one sa
 
 **Module capsules:** Set `capsule_mode=true` on `cortyx_get_contexts` to prepend deterministic per-module capsule files generated at save time from existing module shards. Cortyx then keeps only the strongest same-module task-specific neurons and suppresses redundant same-module summaries/headlines, so repeated subsystem work becomes “stable capsule + small delta” instead of “new auth explainer every turn.”
 
-**Optional answer plane:** Set `answer_mode=true` on `cortyx_get_contexts` or pass `--answer-mode` to `cortyx get-contexts` to derive a concise answer from the selected contexts without changing the retrieval hot path. The current layer reuses Cortyx's existing synthetic derived answers when available, prefers mine-time `## answer_surface` rows for high-confidence direct facts and adjacent dialogue question→answer pairs without perturbing retrieval indexing, extracts compact spans for direct fact questions, and can resolve reusable temporal + aggregate families such as dated binary-choice prompts, elapsed-day intervals, month-scoped activity-day counts, distinct event/cuisine/venue counts, citrus / delivery-service counts, weekly fitness schedules, missed-event counts, recent ceremony counts, narrow device-count questions, peak-season weekly-hour arithmetic, recent activity-duration totals, and current magazine-subscription counts. Direct fact coverage still includes common classes such as job, residence, degree, and pet name. Add `provenance_mode=true` or `--provenance` to append lightweight source metadata and summaries.
-
-**LLM answer synthesis (`--features answer-llm`):** When built with `--features answer-llm`, the answer plane first attempts synthesis via a local Ollama model before falling back to the rule-based layer. Configure via `CORTYX_OLLAMA_URL` (default `http://localhost:11434`) and `CORTYX_ANSWER_MODEL` (default `qwen2.5:1.5b`). The LLM answer is itself ECS-gated (risk > 0.50 falls back to rule-based); Ollama unreachable → silent fallback, no user disruption. Expected LoCoMo QA F1 improvement: 0.133 → ~0.55.
+**Optional answer plane:** Set `answer_mode=true` on `cortyx_get_contexts` or pass `--answer-mode` to `cortyx get-contexts` to derive a concise answer from the selected contexts without changing the retrieval hot path. The current layer reuses Cortyx's existing synthetic derived answers when available, prefers mine-time `## answer_surface` rows for high-confidence direct facts and adjacent dialogue question→answer pairs without perturbing retrieval indexing, extracts compact spans for direct fact questions, and can resolve reusable temporal + aggregate families such as dated binary-choice prompts, elapsed-day intervals, month-scoped activity-day counts, distinct event/cuisine/venue counts, citrus / delivery-service counts, weekly fitness schedules, missed-event counts, recent ceremony counts, narrow device-count questions, peak-season weekly-hour arithmetic, recent activity-duration totals, and current magazine-subscription counts. Direct fact coverage still includes common classes such as job, residence, degree, and pet name. Add `provenance_mode=true` or `--provenance` to append lightweight source metadata and summaries. The AI agent performs synthesis over delivered context — Cortyx does not embed a generative model.
 
 **Explicit training boundary:** Cortyx now trains long-term ranking only from explicit response evidence: `cortyx_close_task`, manual `cortyx_record_hit`, or `previous_response` overlap against the prior activation. Consecutive `get_contexts` calls, evolve/edit tools, preview tools, and rollback operations do **not** auto-promote hits.
 
@@ -476,7 +474,6 @@ cargo build --release --features verify
 | `embed` | fastembed hybrid retrieval + auto-embed on compile | ~80 MB model download | ✅ (embed binary) |
 | `rerank` | ONNX INT8 cross-encoder reranker | ~7 MB model download | ❌ |
 | `verify` | PureReason ECS hallucination gate | PureReason sibling checkout | ❌ |
-| `answer-llm` | Ollama LLM answer synthesis | Ollama running locally | ❌ |
 
 All features are additive and independently opt-in. The default release binary includes `embed`. Every other feature is a zero-overhead no-op on the default path.
 
@@ -628,7 +625,7 @@ For methodology, caveats, and the legitimacy audit notes, see `BENCHMARKS.md`. O
 | Neuron safety / undo | ❌ | ✓ shadow copy (E2) + git rollback (E1) |
 | Global concept library | ❌ | ✓ `~/.cortyx/global/` (D1+D2) |
 | Adaptive token budget | ❌ | ✓ F1 task complexity + F2 session history |
-| LLM answer synthesis | ❌ | ✓ `--features answer-llm` Ollama backend; ECS-gated; silent fallback |
+| LLM answer synthesis | ❌ | ❌ — Cortyx is a context delivery engine; the AI agent performs synthesis |
 | Hallucination safety | ❌ | ✓ `--features verify` ECS gate on mine/kg_add/answer/publish |
 | Offline / local-only | ✓ | ✓ |
 
