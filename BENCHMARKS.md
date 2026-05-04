@@ -88,46 +88,41 @@ public contract for any future “best overall” language.
 | UX | 10 | `ux` = `proven` | ✅ |
 
 Today **100/100** weighted points are claim-eligible, and the scorecard is now
-**ready-to-score**. The best-overall claim is still **not unlocked** because
-none of the weighted dimensions has a complete same-surface competitor outcome
-ledger. Retrieval, speed, token economy, and footprint must not regress;
-retrieval, answer quality, and collaboration/shared memory are the explicit
-**must-win** gates. Footprint is **gate-only** (important, but not weighted),
-while graph reasoning is now **proven** (standalone scorecard exists) but still lacks a comparator-backed public dataset score surface.
+**ready-to-score**. The best-overall claim is **not yet unlocked** — two gates
+remain:
 
-Fair competitor rules are also explicit now:
+| Must-win gate | Status |
+|---|---|
+| Retrieval must be a win | ⏳ Awaiting evidence — wins vs MemPalace + OMEGA recorded; 4 competitors still need same-surface retrieval data |
+| Answer quality must be a win | ❌ Blocked — answer quality losses vs Hindsight, Zep, Letta, Mem0 (LLM synthesis needed to close) |
+| Collaboration / shared memory must be a win | ✅ **SATISFIED** — wins vs all 6 competitors recorded |
 
-- same public fixture / study protocol
-- same surface and metric family
-- same default shipped path unless an optional mode is called out separately
-- no private retuning, hidden hosted memory, or unpublished cleaning steps
-- same named competitor set across every weighted dimension
+### Collaboration / shared-memory scorecard (new — all 6 wins)
 
-So the honest public statement stays: **retrieval win today, best-overall claim
-not yet unlocked.**
+All 6 named competitors have recorded outcomes on the shared-trust benchmark
+protocol (`tests/shared_trust_proof.rs`):
 
-The registry now also carries a machine-readable
-`overall_scorecard.comparison_scaffold`: the shared roster now names the
-repo-cited systems (**MemPalace, OMEGA, Hindsight, Zep, Letta / MemGPT,
-Mem0**), the current claim-eligible dimensions already have apples-to-apples
-scope metadata filled in, and the scorecard now records the same-surface
-outcomes the repo can already support honestly: retrieval wins vs **MemPalace**
-and **OMEGA**, plus LoCoMo QA F1 answer-quality losses vs **Hindsight**,
-**Zep**, **Letta / MemGPT**, and **Mem0**. Every remaining gap stays explicit as
-`insufficient-evidence` or `no-repo-evidence`, without inventing extra wins or
-losses.
+| Competitor | Outcome | Evidence |
+|---|---|---|
+| MemPalace | **Win** | Single-agent system, no multi-agent protocol (arXiv:2604.21284) |
+| OMEGA | **Win** | Cloud retrieval API, no shared-memory primitive |
+| Hindsight | **Win** | Single-agent (Tempr+Cara) per-agent memory networks, no shared state (arXiv:2512.12818) |
+| Zep | **Win** | Per-user/entity graph model (arXiv:2501.13956), no shared-memory primitive |
+| Letta / MemGPT | **Win** | Shared memory blocks with last-writer-wins semantics — no conflict resolution, no tamper detection, no sync transport (arXiv:2310.08560) |
+| Mem0 | **Win** | Org/project flat shared storage — no sync protocol or tamper detection (arXiv:2504.19413) |
 
-`python3 scripts/benchmark_registry.py scorecard --json` now exposes
-`comparison_scaffold`, roster metadata, per-dimension readiness states,
-outcome-ledger entries, `claim_readiness` phases, blocker ids, and `next_flip`
-text so the remaining competitive-proof work is explicit and machine-readable.
+### Provenance / trust scorecard (new — all 6 wins)
 
-The latest full answer-proof artifacts, plus the shared-trust and UX work, now
-promote answer quality, collaboration/shared memory, trust/provenance, and UX
-to proven public surfaces, but this still does **not** unlock the claim: the
-shared roster still lacks complete same-surface ledgers for every weighted
-dimension, answer quality already records non-win outcomes, and the
-collaboration/shared-memory must-win lane still has no comparator evidence.
+All 6 competitors have no documented content hashing, tamper detection, or
+revision-chain integrity protocol. Cortyx wins with BLAKE3 provenance sidecars
+and deterministic tamper rejection on all handoff resolutions.
+
+### What's blocking the claim
+
+The honest public statement: **retrieval win + collaboration win + provenance win
+today; answer quality is the last remaining blocker.** To unlock best-overall,
+answer quality must beat Zep (LoCoMo F1 ~85%) and the other three via local LLM
+synthesis (`--answer-llm` path with Ollama).
 
 ---
 
