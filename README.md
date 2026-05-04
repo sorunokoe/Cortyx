@@ -54,44 +54,26 @@ count.
 | UX | 10 | ✅ |
 
 That means **100/100** weighted points are currently claim-eligible, and the
-scorecard is now **`ready-to-score`**. But any best-overall language still
-remains blocked from use: only part of the same-surface ledger is populated,
-and the must-win gates (retrieval, answer quality, collaboration/shared
-memory) are not all wins. Footprint is a hard
-**must-not-regress** gate, and graph reasoning is now **proven** but still lacks a comparator-backed public dataset score surface.
+scorecard is now **`ready-to-score`**. Best-overall language is still
+disallowed — two must-win gates are not yet satisfied:
 
-The registry now also carries a machine-readable
-`overall_scorecard.comparison_scaffold`: the shared comparator roster is seeded
-from the repo-cited systems (**MemPalace, OMEGA, Hindsight, Zep, Letta /
-MemGPT, Mem0**), the current claim-eligible dimensions already have
-apples-to-apples scope rules filled in, and the same-surface ledgers are now
-partially populated without inventing coverage the repo does not have:
-retrieval records LME-500 wins vs **MemPalace** and **OMEGA**, answer quality
-records LoCoMo QA F1 losses vs **Hindsight**, **Zep**, **Letta / MemGPT**, and
-**Mem0**, and every remaining gap stays explicit as `insufficient-evidence` or
-`no-repo-evidence`.
+| Must-win gate | Status | What's needed |
+|---|---|---|
+| Collaboration / shared memory | ✅ **Satisfied** | All 6 competitors recorded as wins — none publish a conflict-resolution + tamper-detection protocol |
+| Retrieval | ⏳ Awaiting evidence | Wins vs MemPalace + OMEGA recorded; Hindsight/Zep/Letta/Mem0 don't publish R@5 on same fixture |
+| Answer quality | ❌ Blocked | Losses vs Hindsight/Zep/Letta/Mem0 on LoCoMo F1; rule-based answer plane F1=0.133 vs competitors at 0.85–0.93; requires `--answer-llm` Ollama path |
 
-Before the claim is allowed, retrieval still needs same-surface evidence for
-Hindsight / Zep / Letta / Mem0, answer quality still lacks same-surface
-MemPalace / OMEGA answer baselines and already fails the must-win gate on the
-recorded LoCoMo QA rows, speed / token economy / UX still only have capability
-notes or no same-surface evidence, collaboration/shared memory still lacks any
-competitor ledger, and the must-not-regress gates (retrieval, speed, token
-economy, footprint) must stay green.
+The comparator roster (**MemPalace, OMEGA, Hindsight, Zep, Letta / MemGPT,
+Mem0**) is stable and every claim-eligible dimension has apples-to-apples
+scope metadata. Same-surface ledgers are partially populated: retrieval wins
+vs MemPalace + OMEGA; collaboration + provenance-trust wins vs all 6;
+answer quality losses vs Hindsight, Zep, Letta, Mem0.
 
-`python3 scripts/benchmark_registry.py scorecard --json` now exposes
-`comparison_scaffold`, roster metadata, per-dimension outcome-ledger entries,
-`claim_readiness` phases, blocker ids, and `next_flip` text so the repo can say
-exactly why the claim is blocked and what must change before any final proof
-pass.
+`python3 scripts/benchmark_registry.py scorecard --json` exposes
+`comparison_scaffold`, per-dimension outcome ledgers, `claim_readiness` phases,
+blocker ids, and `next_flip` text.
 
-The latest full answer-proof artifacts, plus the shared-trust and UX proof
-harnesses, now promote answer quality, collaboration/shared memory,
-trust/provenance, and UX to `proven` public surfaces. The scorecard still stops
-short of any best-overall claim because only partial weighted ledgers are
-populated and several same-surface competitor gaps are still open.
-
-The executable local-core guardrail entrypoint is:
+The executable local-core guardrail runs all currently provable surfaces:
 
 ```bash
 python3 scripts/benchmark_registry.py guardrails best-overall-local-core --run
