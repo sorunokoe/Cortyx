@@ -43,7 +43,7 @@ ort = { version = "=2.0.0-rc.10", optional = true }
 tokenizers = { version = "0.19", optional = true }
 pure-reason-verifier = { path = "../../AI/PureReason/crates/pure-reason-verifier", optional = true }
 pure-reason-core = { path = "../../AI/PureReason/crates/pure-reason-core", optional = true }
-ureq = { version = "2", optional = true }
+ureq = { version = "2", optional = true, features = ["json"] }
 notify = "8.2.0"
 rmcp = { version = "1.4.0", features = ["server", "transport-io"] }
 schemars = "1.2.1"

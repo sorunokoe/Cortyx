@@ -82,13 +82,10 @@ mod inner {
             .timeout(Duration::from_secs(TIMEOUT_SECS))
             .build();
 
-        let response = client
-            .post(&url)
-            .set("Content-Type", "application/json")
-            .send_string(&body.to_string())
-            .ok()?;
+        let response = client.post(&url).send_json(body).ok()?;
 
-        let json: serde_json::Value = serde_json::from_str(&response.into_string().ok()?).ok()?;
+        let body_text = response.into_string().ok()?;
+        let json: serde_json::Value = serde_json::from_str(&body_text).ok()?;
         let answer = json["response"].as_str()?.trim().to_string();
         if answer.is_empty() {
             return None;
