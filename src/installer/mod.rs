@@ -67,7 +67,7 @@ pub fn run_install(global: bool) -> Result<String> {
     let exe = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("cortyx"));
 
     let home = dirs_home();
-    let clients = detect_clients(&home, global);
+    let (clients, scaffolded_count) = detect_clients(&home, global);
 
     if clients.is_empty() {
         return Ok(format!(
@@ -137,7 +137,7 @@ pub fn run_install(global: bool) -> Result<String> {
          - `{MCP_CAPABILITY_EXAMPLE}` — list available Cortyx capabilities.\n\
          - `{MCP_TASK_EXAMPLE}` — start a context-aware task.\n\n\
          ux-proof: {}",
-        install_ux_proof(registered_count, already_count, hook_created_count)
+        install_ux_proof(registered_count, already_count, scaffolded_count)
     );
 
     Ok(summary)

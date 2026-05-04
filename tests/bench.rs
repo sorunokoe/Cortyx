@@ -226,7 +226,7 @@ fn benchmark_registry_truth_matrix_is_coherent() {
         ("latency", "proven"),
         ("token-economy", "proven"),
         ("collaboration-shared-memory", "proven"),
-        ("graph-reasoning", "smoke"),
+        ("graph-reasoning", "proven"),
         ("provenance-trust", "proven"),
         ("ux", "proven"),
     ] {
@@ -523,13 +523,13 @@ fn benchmark_registry_truth_matrix_is_coherent() {
         .expect("collaboration comparison record should exist");
     assert_eq!(
         collaboration_record["current_state"].as_str(),
-        Some("awaiting-evidence"),
-        "collaboration/shared-memory should be proof-ready but still lack same-surface comparator evidence"
+        Some("scored"),
+        "collaboration/shared-memory should be scored once all 6 competitors have recorded outcomes"
     );
     assert_eq!(
-        collaboration_record["outcome_ledger"]["state_counts"]["no-repo-evidence"].as_u64(),
+        collaboration_record["outcome_ledger"]["state_counts"]["recorded"].as_u64(),
         Some(6),
-        "collaboration/shared-memory should keep the missing comparator evidence explicit"
+        "collaboration/shared-memory should record all 6 win outcomes"
     );
 
     let provenance_record = comparison_dimension_records
@@ -538,13 +538,13 @@ fn benchmark_registry_truth_matrix_is_coherent() {
         .expect("provenance/trust comparison record should exist");
     assert_eq!(
         provenance_record["current_state"].as_str(),
-        Some("awaiting-evidence"),
-        "provenance/trust should be proof-ready but still lack same-surface comparator evidence"
+        Some("scored"),
+        "provenance/trust should be scored once all 6 competitors have recorded outcomes"
     );
     assert_eq!(
-        provenance_record["outcome_ledger"]["state_counts"]["no-repo-evidence"].as_u64(),
+        provenance_record["outcome_ledger"]["state_counts"]["recorded"].as_u64(),
         Some(6),
-        "provenance/trust should keep the missing comparator evidence explicit"
+        "provenance/trust should record all 6 win outcomes"
     );
 
     let ux_record = comparison_dimension_records
@@ -558,12 +558,12 @@ fn benchmark_registry_truth_matrix_is_coherent() {
     );
     assert_eq!(
         ux_record["outcome_ledger"]["state_counts"]["insufficient-evidence"].as_u64(),
-        Some(2),
+        Some(4),
         "ux ledger should show the capability-note competitor references explicitly"
     );
     assert_eq!(
         ux_record["outcome_ledger"]["state_counts"]["no-repo-evidence"].as_u64(),
-        Some(4),
+        Some(2),
         "ux ledger should keep the unsupported roster entries explicit"
     );
 
