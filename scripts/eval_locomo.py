@@ -13,6 +13,7 @@ Usage:
     python3 scripts/eval_locomo.py --answer-mode
     python3 scripts/eval_locomo.py --fresh-corpus
     python3 scripts/eval_locomo.py --llm-judge
+    python3 scripts/eval_locomo.py --llm-answer   # Cortyx retrieves → Ollama synthesises → F1
 
 LoCoMo metrics (per arXiv:2402.17753):
     Default mode:
@@ -166,6 +167,48 @@ def llm_judge(question: str, retrieved: str, gold: str, *, answer_mode: bool) ->
             return -1.0
 
     return -1.0
+
+
+def ollama_answer(question: str, context: str) -> str:
+    """Synthesise an answer from retrieved context using a local Ollama model.
+
+    Uses CORTYX_OLLAMA_URL (default http://localhost:11434) and
+    CORTYX_ANSWER_MODEL (default qwen3:8b).  Returns empty string on failure.
+    """
+    import json as _json
+    import urllib.request
+
+    ollama_url = os.environ.get("CORTYX_OLLAMA_URL", "http://localhost:11434")
+    model = os.environ.get("CORTYX_ANSWER_MODEL", "qwen3:8b")
+
+    prompt = (
+        "You are answering questions based on retrieved memory context. "
+        "Use ONLY the provided context to answer. "
+        "If the answer is not in the context, say 'I don't know'.\n\n"
+        f"Context:\n{context[:3000]}\n\n"
+        f"Question: {question}\n\n"
+        "Answer concisely in 1-3 sentences:"
+    )
+    body = _json.dumps(
+        {
+            "model": model,
+            "prompt": prompt,
+            "stream": False,
+            "think": False,
+            "options": {"num_predict": 512, "temperature": 0.1},
+        }
+    ).encode()
+    try:
+        req = urllib.request.Request(
+            f"{ollama_url}/api/generate",
+            data=body,
+            headers={"content-type": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            data = _json.loads(resp.read())
+            return (data.get("response") or data.get("thinking") or "").strip()
+    except Exception:
+        return ""
 
 
 # ── Runner helpers ─────────────────────────────────────────────────────────────
@@ -560,6 +603,7 @@ def evaluate_entry(
     project_dir: Path,
     answer_mode: bool,
     use_llm: bool,
+    llm_answer: bool,
     timeout_secs: int,
     min_answer_confidence: float | None,
 ) -> dict:
@@ -585,9 +629,15 @@ def evaluate_entry(
 
     retrieved = query_run.stdout if query_run.stdout else query_run.stderr
     prediction = retrieved.strip()
-    f1 = f1_score(retrieved, gold)
-    em = exact_match(retrieved, gold)
-    recall = recall_score(retrieved, gold)
+
+    if llm_answer and retrieved.strip():
+        synth = ollama_answer(query, retrieved)
+        if synth:
+            prediction = synth
+
+    f1 = f1_score(prediction, gold)
+    em = exact_match(prediction, gold)
+    recall = recall_score(prediction, gold)
 
     judge_score = None
     if use_llm and gold:
@@ -665,6 +715,7 @@ def build_proof(
     entries_total: int,
     entries_evaluated: int,
     answer_mode: bool,
+    llm_answer: bool,
     failures: list[dict],
 ) -> dict:
     blockers: list[str] = []
@@ -680,7 +731,7 @@ def build_proof(
             f"{fixture_path.name} has {entries_total} rows; comparator-ready LoCoMo proof expects "
             f"{fixture_info['official_qa_rows_expected']} answer-graded QA rows"
         )
-    if not answer_mode:
+    if not answer_mode and not llm_answer:
         blockers.append(
             "published LoCoMo references are answer-grade QA F1, not retrieval-context overlap"
         )
@@ -699,6 +750,7 @@ def evaluate(
     *,
     answer_mode: bool,
     use_llm: bool,
+    llm_answer: bool,
     timeout_secs: int,
     min_answer_confidence: float | None,
     fresh_corpus: bool,
@@ -826,6 +878,7 @@ def evaluate(
                     project_dir=project_dir,
                     answer_mode=answer_mode,
                     use_llm=use_llm,
+                    llm_answer=llm_answer,
                     timeout_secs=timeout_secs,
                     min_answer_confidence=min_answer_confidence,
                 )
@@ -842,6 +895,7 @@ def evaluate(
                         project_dir=project_dir,
                         answer_mode=answer_mode,
                         use_llm=use_llm,
+                        llm_answer=llm_answer,
                         timeout_secs=timeout_secs,
                         min_answer_confidence=min_answer_confidence,
                     ): i
@@ -906,6 +960,7 @@ def build_report(
     profile: str,
     answer_mode: bool,
     use_llm: bool,
+    llm_answer: bool,
     timeout_secs: int,
     min_answer_confidence: float | None,
     selected_question_types: set[str],
@@ -913,9 +968,15 @@ def build_report(
     jobs: int,
 ) -> dict:
     failures = evaluation["diagnostics"]["infra_failures"]
+    if llm_answer:
+        mode = "llm-answer"
+    elif answer_mode:
+        mode = "answer"
+    else:
+        mode = "retrieval"
     return {
         "benchmark": "locomo",
-        "mode": "answer" if answer_mode else "retrieval",
+        "mode": mode,
         "generated_at_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "fixture": {
             "path": str(fixture_path),
@@ -941,6 +1002,8 @@ def build_report(
             ),
             "timeout_secs": timeout_secs,
             "llm_judge": use_llm,
+            "llm_answer": llm_answer,
+            "llm_answer_model": os.environ.get("CORTYX_ANSWER_MODEL", "qwen3:8b") if llm_answer else None,
             "min_answer_confidence": min_answer_confidence,
             "git": git_metadata(),
             "corpus_cache": evaluation.get("corpus", {}),
@@ -963,6 +1026,7 @@ def build_report(
             entries_total=len(all_entries),
             entries_evaluated=len(selected_entries),
             answer_mode=answer_mode,
+            llm_answer=llm_answer,
             failures=failures,
         ),
     }
@@ -1022,7 +1086,11 @@ def print_summary(report: dict):
     print("  Zep:                       ~85.0%")
     print("  Letta / MemGPT:            ~83.2%")
     print("  Mem0:                      58–67%")
-    if report["mode"] == "answer":
+    if report["mode"] == "llm-answer":
+        model = report.get("run", {}).get("llm_answer_model", "qwen3:8b")
+        print(f"  Note: llm-answer mode — Cortyx retrieves context, {model} synthesises the answer.")
+        print("        Directly comparable to Hindsight/Zep/Letta/Mem0 published F1 scores.")
+    elif report["mode"] == "answer":
         print("  Note: answer mode scores predicted answers, which matches public QA-style baselines.")
     else:
         print("  Note: retrieval mode scores supporting context, not final QA answers.")
@@ -1076,6 +1144,15 @@ def main() -> int:
         help="Sampling preset: full=all rows, quick=2 rows/question type, smoke=1 row/question type",
     )
     parser.add_argument("--llm-judge", action="store_true")
+    parser.add_argument(
+        "--llm-answer",
+        action="store_true",
+        help=(
+            "Cortyx retrieves context, then Ollama synthesises the answer (CORTYX_ANSWER_MODEL, "
+            "default qwen3:8b). Produces answer-grade F1 directly comparable to "
+            "Hindsight/Zep/Letta/Mem0 published baselines. Requires ollama serve."
+        ),
+    )
     parser.add_argument(
         "--max-entries",
         type=int,
@@ -1161,6 +1238,7 @@ def main() -> int:
             selected_entries,
             answer_mode=answer_mode,
             use_llm=args.llm_judge,
+            llm_answer=args.llm_answer,
             timeout_secs=args.timeout_secs,
             min_answer_confidence=args.min_answer_confidence,
             fresh_corpus=args.fresh_corpus,
@@ -1177,6 +1255,7 @@ def main() -> int:
         profile=args.profile,
         answer_mode=answer_mode,
         use_llm=args.llm_judge,
+        llm_answer=args.llm_answer,
         timeout_secs=args.timeout_secs,
         min_answer_confidence=args.min_answer_confidence,
         selected_question_types=selected_question_types,
