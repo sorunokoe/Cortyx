@@ -100,7 +100,8 @@ python3 scripts/benchmark_registry.py guardrails best-overall-local-core --run
 For day-to-day iteration, keep the fast/default loop on:
 
 ```bash
-cargo test -- --nocapture
+cargo nextest run          # 766 tests in ~5s parallel execution (install: cargo install cargo-nextest --locked)
+cargo nextest run --lib    # library tests only
 ```
 
 Run the slow proof lanes explicitly when you need the full benchmark/proof path:
