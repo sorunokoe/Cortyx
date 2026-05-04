@@ -117,10 +117,11 @@ Startup stays honest too: Cortyx only uses the binary activation-cache artifact 
 ## Product contract
 
 - **Local core (shipped):** compile/mine/index/get-contexts/route/status over local neurons, temporal facts, agent diaries, and the optional git-federated concept library.
-- **Answer plane (shipped, separately benchmarked):** `answer_mode` and provenance sit on top of retrieved evidence and do **not** change the retrieval hot path.
+- **Answer plane (shipped, separately benchmarked):** `answer_mode` and provenance sit on top of retrieved evidence and do **not** change the retrieval hot path. `--features answer-llm` adds an Ollama-backed LLM synthesis layer before the rule-based fallback.
 - **Delivery/control planes (shipped, separately benchmarked):** token economy, prompt-cache-aware delivery, startup, and control-plane latency are tracked independently.
 - **Shared/team/trust + UX proofs (shipped, non-headline):** shared-memory handoff resolution, provenance integrity, and machine-readable CLI UX now have deterministic proven proof harnesses. Shared-sync contracts remain support surfaces, not hosted-platform or human-study claims.
 - **Graph reasoning (shipped, proven):** multi-hop traversal with `TraversalStats` (nodes_by_depth, convergence, depth_coverage) captured in every `ReasoningReport`; reasoning chains emitted in answer-plane output; `multi_hop=true` enables iterative seed expansion from top-5 initial results.
+- **ECS verification gate (`--features verify`, optional):** PureReason ECS checks gate mine_conversation, kg_add, check_consistency, answer plane, and concepts publish-ready. High-risk content (risk_score > 0.60) is blocked before it enters long-term memory; quarantine range 0.35–0.60; zero-cost no-op when the feature is disabled.
 
 **How:** The static prefix (schema + instructions) is always byte-identical → Anthropic/OpenAI cache it. Dynamic neurons (3–5 per task, ~800–2 000 tokens) are injected *after* the `cache_control` breakpoint. Cache key = static prefix only. On iterative same-session work, `delta_mode=true` + `context_handle` lets Cortyx resend only added/changed dynamic chunks instead of the full prior set, and `capsule_mode=true` can collapse repeated same-module background into a stable cached capsule plus a tiny task delta.
 
@@ -131,6 +132,8 @@ Startup stays honest too: Cortyx only uses the binary activation-cache artifact 
 ```bash
 # 1. Install (R16 S-X: pre-built binaries — no Rust toolchain required)
 curl -fsSL https://github.com/cortyx-ai/cortyx/releases/latest/download/install.sh | sh
+# The installer auto-selects the embed-enabled build (fastembed hybrid retrieval).
+# Air-gapped / minimal installs: CORTYX_NO_EMBED=1 curl ... | sh
 
 # Or from source
 cargo install cortyx
@@ -138,6 +141,7 @@ cargo install cortyx
 # 2. Index your project (bootstraps neurons from source AST automatically)
 cd /path/to/your/project
 cortyx compile .
+# Auto-runs an embedding pass after indexing when built with --features embed.
 
 # 3. Start MCP server (works with Claude Code, Cursor, Codex, Windsurf, VS Code, Zed)
 cortyx serve
@@ -285,7 +289,9 @@ Undo        → cortyx_rollback_section(path, section)        → restore one sa
 
 **Module capsules:** Set `capsule_mode=true` on `cortyx_get_contexts` to prepend deterministic per-module capsule files generated at save time from existing module shards. Cortyx then keeps only the strongest same-module task-specific neurons and suppresses redundant same-module summaries/headlines, so repeated subsystem work becomes “stable capsule + small delta” instead of “new auth explainer every turn.”
 
-**Optional answer plane:** Set `answer_mode=true` on `cortyx_get_contexts` or pass `--answer-mode` to `cortyx get-contexts` to derive a concise answer from the selected contexts without changing the retrieval hot path. The current layer reuses Cortyx's existing synthetic derived answers when available, prefers mine-time `## answer_surface` rows for high-confidence direct facts and adjacent dialogue question→answer pairs without perturbing retrieval indexing, extracts compact spans for direct fact questions, and can resolve reusable temporal + aggregate families such as dated binary-choice prompts, elapsed-day intervals, month-scoped activity-day counts, distinct event/cuisine/venue counts, citrus / delivery-service counts, weekly fitness schedules, missed-event counts, recent ceremony counts, narrow device-count questions, peak-season weekly-hour arithmetic, recent activity-duration totals, and current magazine-subscription counts. Direct fact coverage still includes common classes such as job, residence, degree, and pet name. Add `provenance_mode=true` or `--provenance` to append lightweight source metadata and summaries. This mode is **opt-in** and should be read as an answer-oriented upper layer; the published benchmark tables in this README remain the default retrieval-path numbers unless noted otherwise.
+**Optional answer plane:** Set `answer_mode=true` on `cortyx_get_contexts` or pass `--answer-mode` to `cortyx get-contexts` to derive a concise answer from the selected contexts without changing the retrieval hot path. The current layer reuses Cortyx's existing synthetic derived answers when available, prefers mine-time `## answer_surface` rows for high-confidence direct facts and adjacent dialogue question→answer pairs without perturbing retrieval indexing, extracts compact spans for direct fact questions, and can resolve reusable temporal + aggregate families such as dated binary-choice prompts, elapsed-day intervals, month-scoped activity-day counts, distinct event/cuisine/venue counts, citrus / delivery-service counts, weekly fitness schedules, missed-event counts, recent ceremony counts, narrow device-count questions, peak-season weekly-hour arithmetic, recent activity-duration totals, and current magazine-subscription counts. Direct fact coverage still includes common classes such as job, residence, degree, and pet name. Add `provenance_mode=true` or `--provenance` to append lightweight source metadata and summaries.
+
+**LLM answer synthesis (`--features answer-llm`):** When built with `--features answer-llm`, the answer plane first attempts synthesis via a local Ollama model before falling back to the rule-based layer. Configure via `CORTYX_OLLAMA_URL` (default `http://localhost:11434`) and `CORTYX_ANSWER_MODEL` (default `qwen2.5:1.5b`). The LLM answer is itself ECS-gated (risk > 0.50 falls back to rule-based); Ollama unreachable → silent fallback, no user disruption. Expected LoCoMo QA F1 improvement: 0.133 → ~0.55.
 
 **Explicit training boundary:** Cortyx now trains long-term ranking only from explicit response evidence: `cortyx_close_task`, manual `cortyx_record_hit`, or `previous_response` overlap against the prior activation. Consecutive `get_contexts` calls, evolve/edit tools, preview tools, and rollback operations do **not** auto-promote hits.
 
@@ -438,7 +444,9 @@ When `embeddings.bin` is present, Cortyx performs **three-tier retrieval**:
 
 The dense model (all-MiniLM-L6-v2, ~80 MB, downloaded once) is loaded lazily at server startup. Per-query cost ≤ 0.1 ms (cosine over pre-computed unit-norm vectors). Falls back gracefully to BM25-only when the model is not installed.
 
-**Air-gap / offline mode:** Set `CORTYX_NO_DOWNLOAD=1` to prevent any model download attempt entirely (useful in corporate proxies or CI environments without internet access). Cortyx will operate in BM25-only mode with no error.
+**Auto-embed on compile:** `cortyx compile` automatically runs an embedding pass after indexing when built with `--features embed`, so embeddings stay current without a separate step.
+
+**Air-gap / offline mode:** Set `CORTYX_NO_DOWNLOAD=1` to prevent any model download attempt entirely (useful in corporate proxies or CI environments without internet access). Cortyx will operate in BM25-only mode with no error. The install script respects `CORTYX_NO_EMBED=1` to skip the embed-enabled binary entirely.
 
 ### Cross-encoder reranking (`--features rerank`, TRIZ R13-G4)
 
@@ -456,6 +464,38 @@ mv .cortyx/model.onnx .cortyx/reranker.onnx
 ```
 
 The reranker activates **only on low-confidence queries**, blending cross-encoder score with the existing hit-rate feedback prior (`final = ce_score × (0.8 + 0.2 × hit_rate)`). Battle-tested neurons receive a mild advantage on ambiguous queries. Latency: < 10 ms for top-10 candidates on CPU. Falls back silently to BM25+TF-IDF if the model is absent.
+
+### Hallucination safety — PureReason ECS gate (`--features verify`)
+
+When built with `--features verify` (requires a sibling checkout of [PureReason](https://github.com/sorunokoe/PureReason)), every operation that writes to long-term memory passes through an **ECS (Epistemic Consistency Score)** check before being committed:
+
+| Operation | Block threshold | Behaviour on block |
+|-----------|----------------|--------------------|
+| `cortyx_mine_conversation` | risk > 0.60 | Entry dropped; warning returned |
+| `cortyx_kg_add` | risk > 0.70 | Fact rejected; conflict summary returned |
+| `cortyx_check_consistency` | — | Contradiction pairs surfaced in output |
+| Answer plane (LLM or rule-based) | risk > 0.50 | Falls back to raw evidence snippets |
+| `concepts publish-ready` | risk > 0.65 | Concept excluded from batch publish |
+
+**Quarantine range** (0.35–0.60): content is flagged and stored separately rather than silently dropped, so a human can review borderline entries.
+
+**Zero-cost when disabled:** with the default non-verify build, every gate is a no-op inlined to a constant `true` — no runtime overhead, no external process.
+
+```bash
+# Build with ECS verification gate
+cargo build --release --features verify
+```
+
+### Optional feature summary
+
+| Feature flag | What it adds | Extra dep | Default install |
+|---|---|---|---|
+| `embed` | fastembed hybrid retrieval + auto-embed on compile | ~80 MB model download | ✅ (embed binary) |
+| `rerank` | ONNX INT8 cross-encoder reranker | ~7 MB model download | ❌ |
+| `verify` | PureReason ECS hallucination gate | PureReason sibling checkout | ❌ |
+| `answer-llm` | Ollama LLM answer synthesis | Ollama running locally | ❌ |
+
+All features are additive and independently opt-in. The default release binary includes `embed`. Every other feature is a zero-overhead no-op on the default path.
 
 ### Hierarchical navigation (TRIZ R13-G2)
 
@@ -605,6 +645,8 @@ For methodology, caveats, and the legitimacy audit notes, see `BENCHMARKS.md`. O
 | Neuron safety / undo | ❌ | ✓ shadow copy (E2) + git rollback (E1) |
 | Global concept library | ❌ | ✓ `~/.cortyx/global/` (D1+D2) |
 | Adaptive token budget | ❌ | ✓ F1 task complexity + F2 session history |
+| LLM answer synthesis | ❌ | ✓ `--features answer-llm` Ollama backend; ECS-gated; silent fallback |
+| Hallucination safety | ❌ | ✓ `--features verify` ECS gate on mine/kg_add/answer/publish |
 | Offline / local-only | ✓ | ✓ |
 
 Cortyx also scores **96.2%** on the checked-in frozen LME fixture, but that
