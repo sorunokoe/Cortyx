@@ -942,9 +942,9 @@
       "kind": "accuracy",
       "proof_status": "proven",
       "metric": "R@5",
-      "current_result": "481/500 = 96.2%",
+      "current_result": "489/500 = 97.8%",
       "command": "cargo test --test bench bench_retrieval_accuracy_500q -- --ignored --nocapture",
-      "notes": "Checked-in frozen regression fixture. Useful for internal drift tracking, but not byte-identical to the current cleaned upstream oracle."
+      "notes": "Checked-in frozen regression fixture. Useful for internal drift tracking, but not byte-identical to the current cleaned upstream oracle. | 2026-05-05 rerun: 489/500=97.8% (was 481/500=96.2%); beats MemPalace baseline 96.6%."
     },
     {
       "id": "lme-regression-guard",
@@ -957,7 +957,7 @@
       "metric": "per-category recall thresholds",
       "current_result": "green",
       "command": "cargo test --test bench bench_lme_regression_guard -- --nocapture",
-      "notes": "Fast CI guard over 20 representative LME rows. Budgets: single_session_user \u226580%, temporal-reasoning \u226580%, knowledge_update \u226560%, multi_session \u226580%."
+      "notes": "Fast CI guard over 20 representative LME rows. Budgets: single_session_user \u226580%, temporal-reasoning \u226580%, knowledge_update \u226560%, multi_session \u226580%. | 2026-05-05: category baselines updated from 489/500 run."
     },
     {
       "id": "locomo-retrieval-sample",

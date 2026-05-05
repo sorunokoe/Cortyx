@@ -611,7 +611,7 @@ pub(super) fn process_source_file(
                     meta.sig_hash = Some(sig_hash);
                     meta.last_updated = now.clone();
                     meta.status = NeuronStatus::Stale;
-                    meta.tokens = estimate_context_tokens(&updated);
+                    meta.tokens = estimate_context_tokens(&updated).get();
                     if meta.module.is_none() {
                         meta.module = infer_module(rel);
                     }
@@ -656,7 +656,7 @@ pub(super) fn process_source_file(
                             let mut sub_meta = NeuronMeta::new_stub(abs, NeuronKind::UseCase);
                             sub_meta.task_pattern = Some(fn_name.clone());
                             sub_meta.parent = Some(neuron_path.clone());
-                            sub_meta.tokens = estimate_context_tokens(&sub_content);
+                            sub_meta.tokens = estimate_context_tokens(&sub_content).get();
                             sub_meta.last_updated = now.clone();
                             sub_meta.module = results[0].meta.module.clone();
                             sub_meta.confidence_score = results[0].meta.confidence_score;
@@ -712,7 +712,7 @@ pub(super) fn process_source_file(
     let mut meta = NeuronMeta::new_stub(abs, NeuronKind::Core);
     meta.source_hash = current_hash;
     meta.sig_hash = Some(sig_hash);
-    meta.tokens = estimate_context_tokens(&content);
+    meta.tokens = estimate_context_tokens(&content).get();
     meta.last_updated = now.clone();
     meta.status = if is_new {
         NeuronStatus::Stub
@@ -783,7 +783,7 @@ pub(super) fn process_source_file(
             let mut sub_meta = NeuronMeta::new_stub(abs, NeuronKind::UseCase);
             sub_meta.task_pattern = Some(fn_name.clone());
             sub_meta.parent = Some(neuron_path.clone());
-            sub_meta.tokens = estimate_context_tokens(&sub_content);
+            sub_meta.tokens = estimate_context_tokens(&sub_content).get();
             sub_meta.last_updated = now.clone();
             sub_meta.module = results[0].meta.module.clone();
             sub_meta.confidence_score = results[0].meta.confidence_score;
@@ -4073,7 +4073,7 @@ impl NeuronIndex {
             tokens: if meta.tokens > 0 {
                 meta.tokens
             } else {
-                estimate_tokens(content).max(10)
+                estimate_tokens(content).get().max(10)
             },
             task_pattern_terms,
             parent: meta.parent.clone(),
@@ -5386,7 +5386,7 @@ impl NeuronIndex {
             // Build meta for Aggregate neuron
             let mut meta = NeuronMeta::new_stub(project_root, NeuronKind::Aggregate);
             meta.status = NeuronStatus::Fresh;
-            meta.tokens = estimate_context_tokens(&content);
+            meta.tokens = estimate_context_tokens(&content).get();
 
             self.stage(&neuron_path, &content, &meta);
             staged += 1;
@@ -6368,7 +6368,7 @@ impl NeuronIndex {
             let content = stub_project_neuron(&project_name, &now);
             atomic_write(&project_neuron, content.as_bytes())?;
             let mut meta = NeuronMeta::new_stub(root, NeuronKind::Project);
-            meta.tokens = estimate_context_tokens(&content);
+            meta.tokens = estimate_context_tokens(&content).get();
             meta.last_updated = now;
             atomic_write_json(&meta_path(&project_neuron), &meta)?;
             self.index_neuron(&project_neuron, &content, &meta);
@@ -6436,7 +6436,7 @@ impl NeuronIndex {
             );
             atomic_write(&identity_path, content.as_bytes())?;
             let mut meta = NeuronMeta::new_stub(root, NeuronKind::Concept);
-            meta.tokens = estimate_context_tokens(&content);
+            meta.tokens = estimate_context_tokens(&content).get();
             meta.module = Some("@wake_up".to_string());
             meta.last_updated = now_iso8601();
             atomic_write_json(&meta_path(&identity_path), &meta)?;
@@ -6476,7 +6476,7 @@ impl NeuronIndex {
             );
             atomic_write(&critical_path, content.as_bytes())?;
             let mut meta = NeuronMeta::new_stub(root, NeuronKind::Concept);
-            meta.tokens = estimate_context_tokens(&content);
+            meta.tokens = estimate_context_tokens(&content).get();
             meta.module = Some("@wake_up".to_string());
             meta.last_updated = now_iso8601();
             atomic_write_json(&meta_path(&critical_path), &meta)?;

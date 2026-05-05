@@ -1,3 +1,4 @@
+use crate::types::TokenCount;
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -17,7 +18,7 @@ pub(super) static NEURON_UUID_COUNTER: AtomicU64 = AtomicU64::new(0);
 ///
 /// Budgets derived from this estimate should include a conservative headroom
 /// (e.g., multiply by 1.3) before comparing against a hard token limit.
-pub fn estimate_tokens(text: &str) -> usize {
+pub fn estimate_tokens(text: &str) -> TokenCount {
     let mut ascii_chars = 0usize;
     let mut cjk_chars = 0usize;
     let mut other_unicode_chars = 0usize;
@@ -34,10 +35,10 @@ pub fn estimate_tokens(text: &str) -> usize {
 
     let ascii_tokens = ascii_chars.div_ceil(4);
     let other_unicode_tokens = other_unicode_chars.div_ceil(2);
-    (ascii_tokens + cjk_chars + other_unicode_tokens).max(1)
+    TokenCount::new((ascii_tokens + cjk_chars + other_unicode_tokens).max(1))
 }
 
-pub fn estimate_context_tokens(text: &str) -> usize {
+pub fn estimate_context_tokens(text: &str) -> TokenCount {
     estimate_tokens(&strip_context_only_sections(text))
 }
 
@@ -156,8 +157,8 @@ mod tests {
 
     #[test]
     fn estimate_tokens_counts_cjk_by_character() {
-        assert_eq!(estimate_tokens("你好世界"), 4);
-        assert_eq!(estimate_tokens("abcd"), 1);
+        assert_eq!(estimate_tokens("你好世界").get(), 4);
+        assert_eq!(estimate_tokens("abcd").get(), 1);
     }
 
     #[test]

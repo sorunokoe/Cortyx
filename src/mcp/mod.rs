@@ -959,7 +959,7 @@ impl CortyxServer {
         let mut meta = NeuronMeta::new_stub(&source, NeuronKind::UseCase);
         meta.task_pattern = Some(input.task_pattern.clone());
         meta.parent = Some(parent_neuron);
-        meta.tokens = estimate_context_tokens(&content);
+        meta.tokens = estimate_context_tokens(&content).get();
         meta.last_updated = now;
         meta.source_hash = hash_file(&source).unwrap_or_default();
         meta.status = NeuronStatus::Fresh;
@@ -1052,7 +1052,7 @@ impl CortyxServer {
         if let Some(source_hash) = hash_file(&meta.source_path) {
             meta.source_hash = source_hash;
         }
-        meta.tokens = estimate_context_tokens(&content);
+        meta.tokens = estimate_context_tokens(&content).get();
         meta.last_updated = now_iso8601();
         meta.status = NeuronStatus::Fresh;
         let edge_type = input.edge_type.unwrap_or(SynapseType::SemanticRelated);
@@ -2716,7 +2716,8 @@ mod tests {
         let mut meta = NeuronMeta::new_stub(&source, NeuronKind::Core);
         meta.tokens = crate::neuron::estimate_context_tokens(
             "token validation middleware refresh auth session",
-        );
+        )
+        .get();
         index.index_neuron(
             &neuron_path,
             "token validation middleware refresh auth session",

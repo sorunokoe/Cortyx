@@ -209,7 +209,7 @@ pub(super) fn refresh_meta_after_content_write(meta: &mut NeuronMeta, content: &
     if let Some(source_hash) = hash_file(&meta.source_path) {
         meta.source_hash = source_hash;
     }
-    meta.tokens = estimate_context_tokens(content);
+    meta.tokens = estimate_context_tokens(content).get();
     meta.last_updated = now_iso8601();
     meta.status = NeuronStatus::Fresh;
     meta.synapses = parse_synapses_from_content(content);
@@ -316,7 +316,7 @@ pub(super) fn index_kg_entity_path(index: &mut NeuronIndex, path: &Path) -> Resu
         .map_err(|err| anyhow::anyhow!("reload KG entity {}: {err}", path.display()))?;
     let mut meta = NeuronMeta::new_stub(path, NeuronKind::Concept);
     meta.module = Some("@kg".to_string());
-    meta.tokens = estimate_context_tokens(&content);
+    meta.tokens = estimate_context_tokens(&content).get();
     index.index_neuron(path, &content, &meta);
     Ok(())
 }
@@ -1150,7 +1150,7 @@ pub(super) fn render_context_item(
 }
 
 pub(super) fn select_emission_tier(score: f32, content: &str) -> EmissionTier {
-    let tokens = estimate_context_tokens(content);
+    let tokens = estimate_context_tokens(content).get();
     if score < 5.0 {
         EmissionTier::Summary
     } else if score >= 9.0 || tokens <= 160 {

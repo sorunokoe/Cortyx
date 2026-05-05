@@ -172,7 +172,7 @@ impl NeuronMeta {
             status: NeuronStatus::Fresh,
             source_hash: String::new(),
             sig_hash: None,
-            tokens: estimate_context_tokens(text),
+            tokens: estimate_context_tokens(text).get(),
             last_updated: timestamp.clone().unwrap_or_default(),
             use_count: 0,
             hit_count: 0,
