@@ -254,6 +254,14 @@ pub struct DiaryReadInput {
 }
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
+pub struct DiaryRefineInput {
+    /// Agent identifier matching the one used with diary_write.
+    pub agent: String,
+    /// Optional explicit diary entry path to refine instead of the latest entry.
+    pub entry_path: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize, JsonSchema)]
 pub struct CheckConsistencyInput {
     /// Optional neuron path to scope the check. If omitted, scans all neurons.
     pub path: Option<String>,

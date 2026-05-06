@@ -1,4 +1,5 @@
 use super::super::*;
+use crate::agent_memory::{refine_entry, render_structured_diary_entry_from_entry};
 use rmcp::{handler::server::wrapper::Parameters, tool, tool_router};
 
 #[tool_router(router = memory_tool_router, vis = "pub(super)")]
@@ -443,6 +444,62 @@ impl CortyxServer {
             }
         }
         out
+    }
+
+    /// Analyse a diary entry and populate refined_plan with a structured blocker decomposition.
+    #[tool(
+        name = "cortyx_diary_refine",
+        description = "Analyse a recent diary entry for an agent and populate refined_plan with a heuristic decomposition suggestion. Returns the refined entry or a message if no refinement was needed. Pure heuristic — no LLM required."
+    )]
+    pub(in crate::mcp) async fn diary_refine(
+        &self,
+        Parameters(input): Parameters<DiaryRefineInput>,
+    ) -> String {
+        if input.agent.is_empty() {
+            return "ERROR: agent name must not be empty".to_string();
+        }
+
+        let path = if let Some(entry_path) = input.entry_path.as_deref() {
+            PathBuf::from(entry_path)
+        } else {
+            let module = format!("@agent/{}", input.agent.trim());
+            let idx = self.index.read().await;
+            let mut results = recent_module_paths(&idx, &module, 1, Some(NeuronKind::Verbatim));
+            drop(idx);
+            let Some(path) = results.pop() else {
+                return format!("No diary entries found for agent '{}'.", input.agent);
+            };
+            path
+        };
+
+        let content = match std::fs::read_to_string(&path) {
+            Ok(content) => content,
+            Err(err) => {
+                return format!(
+                    "ERROR reading {}: {}",
+                    path.display(),
+                    sanitize_comment(&err.to_string())
+                );
+            },
+        };
+        let Some(mut entry) = parse_structured_diary_entry(&content) else {
+            return format!("ERROR: {} is not a structured diary entry", path.display());
+        };
+
+        if !refine_entry(&mut entry) {
+            return "No refinement needed".to_string();
+        }
+
+        let rendered = render_structured_diary_entry_from_entry(&entry);
+        if let Err(err) = atomic_write(&path, rendered.as_bytes()) {
+            return format!(
+                "ERROR writing {}: {}",
+                path.display(),
+                sanitize_comment(&err.to_string())
+            );
+        }
+
+        rendered
     }
     /// Session priming — load identity and critical-facts wake-up neurons (S5 — NE4).
     ///

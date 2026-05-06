@@ -11169,65 +11169,71 @@ impl NeuronIndex {
         // via counting_augment only when detect_counting_query() fires, preventing
         // pollution of non-counting R@5 results.
         let kind_lower = kind.map(|k| k.to_lowercase());
-        let mut bm25_scored: Vec<(f32, usize)> = candidate_set
-            .iter()
-            .filter(|&&i| {
-                let k = &self.entries[i].kind;
-                let kind_ok = match kind_lower.as_deref() {
-                    Some("conversation") => matches!(k, NeuronKind::Verbatim),
-                    Some("code") => matches!(k, NeuronKind::Core | NeuronKind::Project),
-                    _ => matches!(
-                        k,
-                        NeuronKind::Core | NeuronKind::Project | NeuronKind::Verbatim
-                    ),
-                };
-                kind_ok && module_set.as_ref().map_or(true, |ms| ms.contains(&i))
-            })
-            .filter_map(|&i| {
-                let mut s = self.bm25_score(ranking_terms, &self.entries[i]);
-                if is_session_summary_path(&self.entries[i].neuron_path) {
-                    if is_counting {
-                        s *= 1.35;
-                    } else if matches!(kind_lower.as_deref(), Some("conversation") | None) {
-                        s *= 1.15;
+        let score_bm25_candidates = |candidate_ids: &HashSet<usize>, query_terms: &[String]| {
+            let mut scored: Vec<(f32, usize)> = candidate_ids
+                .iter()
+                .filter(|&&i| {
+                    let k = &self.entries[i].kind;
+                    let kind_ok = match kind_lower.as_deref() {
+                        Some("conversation") => matches!(k, NeuronKind::Verbatim),
+                        Some("code") => matches!(k, NeuronKind::Core | NeuronKind::Project),
+                        _ => matches!(
+                            k,
+                            NeuronKind::Core | NeuronKind::Project | NeuronKind::Verbatim
+                        ),
+                    };
+                    kind_ok && module_set.as_ref().map_or(true, |ms| ms.contains(&i))
+                })
+                .filter_map(|&i| {
+                    let mut s = self.bm25_score(query_terms, &self.entries[i]);
+                    if is_session_summary_path(&self.entries[i].neuron_path) {
+                        if is_counting {
+                            s *= 1.35;
+                        } else if matches!(kind_lower.as_deref(), Some("conversation") | None) {
+                            s *= 1.15;
+                        }
+                    }
+                    // R18 P2 Sol B: knowledge-update routing — demote stale Verbatim neurons
+                    // so updated KG/Concept facts rank above old verbatim assertions.
+                    // R21 T4: ×0.8 → ×0.5 — old fact now needs 2× BM25 score to beat new fact.
+                    if is_knowledge_update && matches!(self.entries[i].kind, NeuronKind::Verbatim) {
+                        s *= 0.5;
+                    }
+                    (s > 0.0).then_some((s, i))
+                })
+                .collect();
+
+            // Merge counting-query expanded candidates into bm25_scored.
+            // Aggregate neurons are intentionally excluded here — Sol-A+ injects the best one
+            // into `selected` after top_cores are determined, preventing Aggregates from
+            // displacing Verbatim chunks in the BM25 top-5 ranking.
+            if !counting_augment.is_empty() {
+                let already_scored: std::collections::HashSet<usize> =
+                    scored.iter().map(|(_, i)| *i).collect();
+                for &i in &counting_augment {
+                    if already_scored.contains(&i) {
+                        continue;
+                    }
+                    // Aggregates handled exclusively by Sol-A+ block below
+                    if matches!(self.entries[i].kind, NeuronKind::Aggregate) {
+                        continue;
+                    }
+                    let s = self.bm25_score(query_terms, &self.entries[i]);
+                    if s > 0.0 {
+                        scored.push((s, i));
                     }
                 }
-                // R18 P2 Sol B: knowledge-update routing — demote stale Verbatim neurons
-                // so updated KG/Concept facts rank above old verbatim assertions.
-                // R21 T4: ×0.8 → ×0.5 — old fact now needs 2× BM25 score to beat new fact.
-                if is_knowledge_update && matches!(self.entries[i].kind, NeuronKind::Verbatim) {
-                    s *= 0.5;
-                }
-                (s > 0.0).then_some((s, i))
-            })
-            .collect();
-
-        // Merge counting-query expanded candidates into bm25_scored.
-        // Aggregate neurons are intentionally excluded here — Sol-A+ injects the best one
-        // into `selected` after top_cores are determined, preventing Aggregates from
-        // displacing Verbatim chunks in the BM25 top-5 ranking.
-        if !counting_augment.is_empty() {
-            let already_scored: std::collections::HashSet<usize> =
-                bm25_scored.iter().map(|(_, i)| *i).collect();
-            for i in counting_augment {
-                if already_scored.contains(&i) {
-                    continue;
-                }
-                // Aggregates handled exclusively by Sol-A+ block below
-                if matches!(self.entries[i].kind, NeuronKind::Aggregate) {
-                    continue;
-                }
-                let s = self.bm25_score(ranking_terms, &self.entries[i]);
-                if s > 0.0 {
-                    bm25_scored.push((s, i));
-                }
+                tracing::debug!(
+                    task,
+                    total = scored.len(),
+                    "R21 T5: counting-query candidate expansion applied"
+                );
             }
-            tracing::debug!(
-                task,
-                total = bm25_scored.len(),
-                "R21 T5: counting-query candidate expansion applied"
-            );
-        }
+
+            scored
+        };
+        let mut bm25_scored: Vec<(f32, usize)> =
+            score_bm25_candidates(&candidate_set, ranking_terms);
 
         //
         // "What was the first X?" needs the OLDEST neuron to surface; "What is the latest X?"
@@ -11482,7 +11488,7 @@ impl NeuronIndex {
         // The HIGH_CONFIDENCE gate is preserved to protect single-session direct recall
         // (fast, verbatim exact-match queries where BM25 is authoritative).
         {
-            let top = bm25_scored.first().map(|(s, _)| *s).unwrap_or(0.0);
+            let mut top = bm25_scored.first().map(|(s, _)| *s).unwrap_or(0.0);
             tracing::debug!(
                 top,
                 force_tfidf,
@@ -11490,6 +11496,76 @@ impl NeuronIndex {
             );
             if top < LOW_CONFIDENCE_THRESHOLD {
                 tracing::debug!("BM25 top score {top:.3} < {LOW_CONFIDENCE_THRESHOLD} — low vocabulary coverage for this query");
+
+                // Feature: iterative query expansion
+                const ITERATIVE_RRF_K: f32 = 60.0;
+                let mut expansion_seed_terms = ranking_terms.to_vec();
+                for (_, idx) in bm25_scored.iter().take(5) {
+                    expansion_seed_terms.extend(self.entries[*idx].concept_cloud.iter().cloned());
+                }
+                expansion_seed_terms.sort();
+                expansion_seed_terms.dedup();
+                let expanded_terms = self.expand_query_terms(&expansion_seed_terms);
+                if expanded_terms.len() > ranking_terms.len() {
+                    let expanded_candidate_set: HashSet<usize> = expanded_terms
+                        .iter()
+                        .filter_map(|term| self.posting_list.get(term))
+                        .flat_map(|idxs| idxs.iter().copied())
+                        .collect();
+                    let expanded_scored =
+                        score_bm25_candidates(&expanded_candidate_set, &expanded_terms);
+                    if !expanded_scored.is_empty() {
+                        let original_top = top;
+                        let mut merged_rrf: HashMap<usize, f32> = HashMap::new();
+                        let mut merged_scores: HashMap<usize, f32> = HashMap::new();
+                        for (rank, (score, idx)) in bm25_scored.iter().enumerate() {
+                            *merged_rrf.entry(*idx).or_insert(0.0) +=
+                                1.0 / (ITERATIVE_RRF_K + rank as f32);
+                            merged_scores
+                                .entry(*idx)
+                                .and_modify(|existing| *existing = existing.max(*score))
+                                .or_insert(*score);
+                        }
+                        for (rank, (score, idx)) in expanded_scored.iter().enumerate() {
+                            *merged_rrf.entry(*idx).or_insert(0.0) +=
+                                1.0 / (ITERATIVE_RRF_K + rank as f32);
+                            merged_scores
+                                .entry(*idx)
+                                .and_modify(|existing| *existing = existing.max(*score))
+                                .or_insert(*score);
+                        }
+                        let mut merged_ranked: Vec<(usize, f32, f32)> = merged_scores
+                            .into_iter()
+                            .map(|(idx, score)| {
+                                let rrf = merged_rrf.get(&idx).copied().unwrap_or(0.0);
+                                (idx, score, rrf)
+                            })
+                            .collect();
+                        merged_ranked.sort_unstable_by(|a, b| {
+                            b.2.total_cmp(&a.2)
+                                .then_with(|| b.1.total_cmp(&a.1))
+                                .then_with(|| a.0.cmp(&b.0))
+                        });
+                        let merged_top = merged_ranked
+                            .first()
+                            .map(|(_, score, _)| *score)
+                            .unwrap_or(0.0);
+                        if merged_top >= original_top {
+                            tracing::debug!(
+                                original_top,
+                                merged_top,
+                                expanded_terms = expanded_terms.len(),
+                                candidates = merged_ranked.len(),
+                                "BM25 iterative query expansion accepted"
+                            );
+                            bm25_scored = merged_ranked
+                                .into_iter()
+                                .map(|(idx, score, _)| (score, idx))
+                                .collect();
+                            top = merged_top;
+                        }
+                    }
+                }
             }
             // Run TF-IDF unless BM25 is decisively high-confidence (AND not forced).
             let run_tfidf =
