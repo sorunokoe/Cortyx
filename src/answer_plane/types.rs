@@ -185,19 +185,19 @@ pub(super) const MULTIHOP_BUNDLE_FIELDS: &[&str] = &[
 ];
 
 #[derive(Debug, Clone)]
-pub(super) struct EvidenceItem {
-    pub(super) path: PathBuf,
-    pub(super) score: f32,
-    pub(super) metadata: Option<ContextMetadata>,
-    pub(super) snippet: String,
+pub(crate) struct EvidenceItem {
+    pub(crate) path: PathBuf,
+    pub(crate) score: f32,
+    pub(crate) metadata: Option<ContextMetadata>,
+    pub(crate) snippet: String,
 }
 
 #[derive(Debug, Clone, Default)]
-pub(super) struct ReasoningEnhancement {
-    pub(super) supplemental_evidence: Vec<EvidenceItem>,
-    pub(super) summary_lines: Vec<String>,
+pub(crate) struct ReasoningEnhancement {
+    pub(crate) supplemental_evidence: Vec<EvidenceItem>,
+    pub(crate) summary_lines: Vec<String>,
     /// Traversal chains rendered as "seed → hop1 → hop2 (score X.XX)".
-    pub(super) chain_lines: Vec<String>,
+    pub(crate) chain_lines: Vec<String>,
 }
 
 #[derive(Debug, Clone)]

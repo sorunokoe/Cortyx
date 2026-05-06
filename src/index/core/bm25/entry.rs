@@ -131,6 +131,7 @@ pub(crate) struct BM25Entry {
     pub session_id: String,
 }
 
+#[allow(dead_code)]
 impl BM25Entry {
     /// Accessor for term frequency map.
     pub fn term_freq(&self) -> &HashMap<String, f32> {
