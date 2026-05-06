@@ -18,7 +18,7 @@ mod hooks;
 mod registration;
 mod utils;
 
-use anyhow::Result;
+use crate::error::Result;
 use detection::detect_clients;
 use hooks::write_hook_scripts;
 use registration::register_mcp_server;

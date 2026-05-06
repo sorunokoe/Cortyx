@@ -16,7 +16,7 @@
 /// Applied to top-10 BM25 candidates: < 10 ms total.
 #[cfg(feature = "rerank")]
 pub mod inner {
-    use anyhow::Result;
+    use crate::error::Result;
     use std::path::Path;
     use std::sync::{Mutex, OnceLock};
 
@@ -44,7 +44,7 @@ pub mod inner {
         pub fn load(project_root: &Path) -> Result<Self> {
             let model_path = project_root.join(".cortyx").join(MODEL_FILE);
             if !model_path.exists() {
-                anyhow::bail!(
+                crate::cortyx_bail!(
                     "Reranker model not found at {}. \
                      Run: python3 scripts/download_reranker.py",
                     model_path.display()
@@ -57,14 +57,14 @@ pub mod inner {
 
             let tokenizer_path = project_root.join(".cortyx").join(TOKENIZER_FILE);
             if !tokenizer_path.exists() {
-                anyhow::bail!(
+                crate::cortyx_bail!(
                     "Reranker tokenizer not found at {}. \
                      Run: python3 scripts/download_reranker.py",
                     tokenizer_path.display()
                 );
             }
             let tokenizer = Tokenizer::from_file(&tokenizer_path)
-                .map_err(|e| anyhow::anyhow!("Tokenizer load failed: {e}"))?;
+                .map_err(|e| crate::cortyx_err!("Tokenizer load failed: {e}"))?;
 
             Ok(Self {
                 session: Mutex::new(session),

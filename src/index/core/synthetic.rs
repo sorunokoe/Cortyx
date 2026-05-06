@@ -557,10 +557,8 @@ impl NeuronIndex {
                 rates.sort_by(|a, b| a.0.total_cmp(&b.0));
                 let difference = rates.last().map(|(value, _)| *value).unwrap_or_default()
                     - rates.first().map(|(value, _)| *value).unwrap_or_default();
-                let evidence: Vec<String> = vec![
-                    rates.first().unwrap().1.clone(),
-                    rates.last().unwrap().1.clone(),
-                ];
+                let evidence: Vec<String> =
+                    vec![rates[0].1.clone(), rates[rates.len() - 1].1.clone()];
                 return self.write_synthetic_answer(
                     "nightly-accommodation-delta",
                     task,
@@ -7241,10 +7239,9 @@ impl NeuronIndex {
             if matches.len() < 2 {
                 continue;
             }
-            let (first_line_idx, first_frequency, first_day, first_line) =
-                matches.first().cloned().unwrap();
+            let (first_line_idx, first_frequency, first_day, first_line) = matches[0].clone();
             let (last_line_idx, last_frequency, last_day, last_line) =
-                matches.last().cloned().unwrap();
+                matches[matches.len() - 1].clone();
             if first_frequency == last_frequency && first_day == last_day {
                 continue;
             }

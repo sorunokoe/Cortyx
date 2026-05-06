@@ -1,16 +1,16 @@
 //! Systems programming language extractors (Zig, Dart).
 
 use super::super::AstSummary;
+use super::compile_regex;
 use regex::Regex;
 
 pub fn extract_zig(content: &str) -> AstSummary {
     use std::sync::OnceLock;
     static FN_RE: OnceLock<Regex> = OnceLock::new();
     static TYPE_RE: OnceLock<Regex> = OnceLock::new();
-    let fn_re = FN_RE.get_or_init(|| Regex::new(r"(?m)^\s*pub\s+fn\s+(\w+)").unwrap());
-    let type_re = TYPE_RE.get_or_init(|| {
-        Regex::new(r"(?m)^\s*pub\s+const\s+(\w+)\s*=\s*(?:struct|union|enum)").unwrap()
-    });
+    let fn_re = FN_RE.get_or_init(|| compile_regex(r"(?m)^\s*pub\s+fn\s+(\w+)"));
+    let type_re = TYPE_RE
+        .get_or_init(|| compile_regex(r"(?m)^\s*pub\s+const\s+(\w+)\s*=\s*(?:struct|union|enum)"));
     AstSummary {
         functions: fn_re
             .captures_iter(content)
@@ -30,10 +30,9 @@ pub fn extract_dart(content: &str) -> AstSummary {
     use std::sync::OnceLock;
     static FN_RE: OnceLock<Regex> = OnceLock::new();
     static TYPE_RE: OnceLock<Regex> = OnceLock::new();
-    let fn_re =
-        FN_RE.get_or_init(|| Regex::new(r"(?m)^\s*(?:[\w<>\[\]?]+\s+)+([a-z]\w*)\s*\(").unwrap());
+    let fn_re = FN_RE.get_or_init(|| compile_regex(r"(?m)^\s*(?:[\w<>\[\]?]+\s+)+([a-z]\w*)\s*\("));
     let type_re = TYPE_RE.get_or_init(|| {
-        Regex::new(r"(?m)^\s*(?:abstract\s+)?(?:class|mixin|extension|enum)\s+(\w+)").unwrap()
+        compile_regex(r"(?m)^\s*(?:abstract\s+)?(?:class|mixin|extension|enum)\s+(\w+)")
     });
     AstSummary {
         functions: fn_re

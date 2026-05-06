@@ -2,7 +2,7 @@
 //!
 //! Monitors project files for changes and automatically updates the index.
 
-use anyhow::Result;
+use crate::error::Result;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -46,7 +46,7 @@ pub fn start_watcher(
             // Drain overflow buffer first — these are events that couldn't fit in the
             // primary channel during a burst save (guaranteed delivery on next cycle).
             {
-                let mut ov = overflow_for_task.lock().unwrap();
+                let mut ov = overflow_for_task.lock().unwrap_or_else(|e| e.into_inner());
                 batch.append(&mut *ov);
             }
 
@@ -154,7 +154,10 @@ pub fn start_watcher(
                 // Fast path: primary channel. On overflow, push to the overflow
                 // buffer so no invalidation is ever silently dropped.
                 if tx.try_send(path.clone()).is_err() {
-                    overflow.lock().unwrap().push(path);
+                    overflow
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner())
+                        .push(path);
                 }
             }
         }

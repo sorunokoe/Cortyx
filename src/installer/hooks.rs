@@ -1,10 +1,10 @@
 //! Claude Code hook script generation and registration.
 
+use crate::error::Result;
 use crate::installer::{
     registration::{ensure_parent_dir, load_json_object_or_default},
     utils::dirs_home,
 };
-use anyhow::Result;
 use std::path::{Path, PathBuf};
 
 /// Write Claude Code hook scripts for auto-save and hook-side health checks.
@@ -75,7 +75,7 @@ fn register_claude_hooks_in_settings(
 ) -> Result<()> {
     let mut json = load_json_object_or_default(settings, "Claude Code settings")?;
     let root = json.as_object_mut().ok_or_else(|| {
-        anyhow::anyhow!(
+        crate::cortyx_err!(
             "Claude Code settings {} must contain a top-level JSON object",
             settings.display()
         )
@@ -90,7 +90,7 @@ fn register_claude_hooks_in_settings(
         .get_mut("hooks")
         .and_then(serde_json::Value::as_object_mut)
         .ok_or_else(|| {
-            anyhow::anyhow!(
+            crate::cortyx_err!(
                 "Claude Code settings {} has non-object hooks",
                 settings.display()
             )
@@ -118,7 +118,7 @@ fn append_hook_command(
     let commands = hooks
         .get_mut(event)
         .and_then(serde_json::Value::as_array_mut)
-        .ok_or_else(|| anyhow::anyhow!("Claude Code hooks.{event} must be an array"))?;
+        .ok_or_else(|| crate::cortyx_err!("Claude Code hooks.{event} must be an array"))?;
     if !commands.iter().any(|value| value.as_str() == Some(command)) {
         commands.push(serde_json::Value::String(command.to_string()));
     }

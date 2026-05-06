@@ -7,6 +7,29 @@ use std::io;
 use std::path::PathBuf;
 use thiserror::Error;
 
+#[macro_export]
+macro_rules! cortyx_err {
+    ($($arg:tt)*) => {
+        $crate::error::CortyxError::other(format!($($arg)*))
+    };
+}
+
+#[macro_export]
+macro_rules! cortyx_bail {
+    ($($arg:tt)*) => {
+        return Err($crate::cortyx_err!($($arg)*))
+    };
+}
+
+#[macro_export]
+macro_rules! cortyx_ensure {
+    ($cond:expr, $($arg:tt)*) => {
+        if !($cond) {
+            $crate::cortyx_bail!($($arg)*)
+        }
+    };
+}
+
 /// Errors related to the neuron index.
 #[non_exhaustive]
 #[derive(Error, Debug)]
@@ -177,6 +200,26 @@ pub enum CortyxError {
     #[error("IO error: {0}")]
     Io(#[from] io::Error),
 
+    /// JSON serialization or deserialization error.
+    #[error("JSON error: {0}")]
+    Json(#[from] serde_json::Error),
+
+    /// Regex compilation error.
+    #[error("Regex error: {0}")]
+    Regex(#[from] regex::Error),
+
+    /// Directory walking error.
+    #[error("Walkdir error: {0}")]
+    Walkdir(#[from] walkdir::Error),
+
+    /// File watching error.
+    #[error("Notify error: {0}")]
+    Notify(#[from] notify::Error),
+
+    /// UTF-8 decoding error.
+    #[error("UTF-8 error: {0}")]
+    Utf8(#[from] std::str::Utf8Error),
+
     /// Other errors (for internal use, migration path from anyhow).
     #[error("{0}")]
     Other(String),
@@ -186,6 +229,12 @@ impl CortyxError {
     /// Create an "other" error from any displayable value.
     pub fn other(msg: impl std::fmt::Display) -> Self {
         Self::Other(msg.to_string())
+    }
+}
+
+impl From<bincode::Error> for CortyxError {
+    fn from(err: bincode::Error) -> Self {
+        Self::Index(IndexError::Serialization(err))
     }
 }
 

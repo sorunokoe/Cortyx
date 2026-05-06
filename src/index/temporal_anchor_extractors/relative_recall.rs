@@ -7,9 +7,7 @@ pub(super) fn parse_relative_temporal_recall_query(
     task_lower: &str,
 ) -> Option<RelativeTemporalRecallQuery> {
     let trimmed = task_lower.trim().trim_end_matches('?');
-    let captures = Regex::new(r"^as of\s+(.+?\d{4}),\s*(.+)$")
-        .unwrap()
-        .captures(trimmed)?;
+    let captures = compile_regex(r"^as of\s+(.+?\d{4}),\s*(.+)$").captures(trimmed)?;
     let as_of_text = captures.get(1)?.as_str();
     let prompt_body = captures.get(2)?.as_str().trim().to_string();
     let (year, month, day) = parse_relative_recall_date(as_of_text)?;
@@ -24,10 +22,9 @@ pub(super) fn parse_relative_temporal_recall_query(
 }
 
 fn parse_relative_recall_date(text: &str) -> Option<(i32, u32, u32)> {
-    let captures = Regex::new(
+    let captures = compile_regex(
         r"(?i)\b(\d{1,2})\s+(january|february|march|april|may|june|july|august|september|october|november|december),\s*(\d{4})\b",
     )
-    .unwrap()
     .captures(text)?;
     let day = captures.get(1)?.as_str().parse::<u32>().ok()?;
     let month = named_month_to_number(captures.get(2)?.as_str())?;
@@ -69,8 +66,7 @@ fn relative_recall_target_day(body: &str, year: i32, month: u32, day: u32) -> Op
 
 fn parse_last_weekday_marker(body: &str) -> Option<i32> {
     let weekday =
-        Regex::new(r"(?i)\blast\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b")
-            .unwrap()
+        compile_regex(r"(?i)\blast\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b")
             .captures(body)?
             .get(1)?
             .as_str()
@@ -95,10 +91,9 @@ fn parse_relative_unit_ago(body: &str) -> Option<(i32, String)> {
     if lower.contains("a few days ago") {
         return Some((3, "day".to_string()));
     }
-    let captures = Regex::new(
+    let captures = compile_regex(
         r"(?i)\b(a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d+)\s+(day|days|week|weeks|month|months|year|years)\s+ago\b",
     )
-    .unwrap()
     .captures(&lower)?;
     let amount = match captures.get(1)?.as_str() {
         "a" | "an" | "one" => 1,

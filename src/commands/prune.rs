@@ -1,7 +1,7 @@
 //! Prune command - remove low-quality or stale neurons.
 
+use crate::error::Result;
 use crate::{index, neuron};
-use anyhow::Result;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 

@@ -61,7 +61,7 @@ pub(super) fn canonicalize_sync_synapse_vec(synapses: &[SyncSynapse]) -> Vec<Syn
 pub(super) fn sync_synapse_sort_key(synapse: &SyncSynapse) -> (String, String, u32, String) {
     (
         path_to_string(&synapse.target),
-        serde_json::to_string(&synapse.edge_type).expect("sync synapse type is serializable"),
+        serde_json::to_string(&synapse.edge_type).unwrap_or_default(),
         synapse.weight.to_bits(),
         synapse.reason.clone(),
     )
@@ -99,7 +99,7 @@ pub(super) fn path_to_string(path: &Path) -> String {
 }
 
 fn blake3_hash_json<T: Serialize>(value: &T) -> String {
-    let bytes = serde_json::to_vec(value).expect("sync payload is serializable");
+    let bytes = serde_json::to_vec(value).unwrap_or_default();
     blake3_hex(&bytes)
 }
 

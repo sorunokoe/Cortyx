@@ -1,8 +1,8 @@
 //! Concepts command - manage global concept registry.
 
 use crate::cli::ConceptsCommand;
+use crate::error::Result;
 use crate::{global_index, index};
-use anyhow::Result;
 use std::path::Path;
 
 /// Helper to auto-commit changes to global concepts directory
@@ -17,7 +17,7 @@ pub fn auto_commit_global_concepts(global_dir: &Path, message: &str) -> Result<b
         .output()?;
     if !status.status.success() {
         let stderr = String::from_utf8_lossy(&status.stderr);
-        anyhow::bail!("git status failed in {}: {stderr}", global_dir.display());
+        crate::cortyx_bail!("git status failed in {}: {stderr}", global_dir.display());
     }
     if String::from_utf8_lossy(&status.stdout).trim().is_empty() {
         return Ok(false);
@@ -29,7 +29,7 @@ pub fn auto_commit_global_concepts(global_dir: &Path, message: &str) -> Result<b
         .output()?;
     if !add.status.success() {
         let stderr = String::from_utf8_lossy(&add.stderr);
-        anyhow::bail!("git add failed in {}: {stderr}", global_dir.display());
+        crate::cortyx_bail!("git add failed in {}: {stderr}", global_dir.display());
     }
 
     let commit = std::process::Command::new("git")
@@ -38,7 +38,7 @@ pub fn auto_commit_global_concepts(global_dir: &Path, message: &str) -> Result<b
         .output()?;
     if !commit.status.success() {
         let stderr = String::from_utf8_lossy(&commit.stderr);
-        anyhow::bail!(
+        crate::cortyx_bail!(
             "git commit failed in {}: {}",
             global_dir.display(),
             stderr.trim()
@@ -122,7 +122,7 @@ pub fn run(sub: ConceptsCommand) -> Result<()> {
                 .current_dir(&global_dir)
                 .status()?;
             if !fetch.success() {
-                anyhow::bail!("git fetch failed — check your remote and network");
+                crate::cortyx_bail!("git fetch failed — check your remote and network");
             }
             let merge = std::process::Command::new("git")
                 .args(["merge", "--ff-only", "origin/main"])
@@ -137,7 +137,7 @@ pub fn run(sub: ConceptsCommand) -> Result<()> {
             if merge.success() {
                 println!("Concepts updated.");
             } else {
-                anyhow::bail!(
+                crate::cortyx_bail!(
                     "git merge --ff-only failed — diverged history; manual rebase needed"
                 );
             }
@@ -158,7 +158,7 @@ pub fn run(sub: ConceptsCommand) -> Result<()> {
             if push.success() {
                 println!("Concepts pushed.");
             } else {
-                anyhow::bail!("git push failed — check remote or create empty repo first");
+                crate::cortyx_bail!("git push failed — check remote or create empty repo first");
             }
         },
 
@@ -243,7 +243,10 @@ pub fn run(sub: ConceptsCommand) -> Result<()> {
                         }
                     }
                 }
-                let dest = neurons_dir.join(summary.path.file_name().unwrap());
+                let Some(file_name) = summary.path.file_name() else {
+                    continue;
+                };
+                let dest = neurons_dir.join(file_name);
                 std::fs::copy(&src, &dest)?;
                 println!("  ✓ {}", summary.path.display());
                 published += 1;

@@ -11,10 +11,9 @@ pub(super) fn parse_cashback_query(task_lower: &str) -> Option<CashbackQuery> {
     if !task_lower.contains("cashback") || !task_lower.contains("earn") {
         return None;
     }
-    let merchant_phrase = Regex::new(
+    let merchant_phrase = compile_regex(
         r"\bat\s+([a-z0-9][a-z0-9&' -]*?)(?:\s+(?:last|this|next|on|from|during|in)\b|[?]|$)",
     )
-    .unwrap()
     .captures(task_lower)
     .and_then(|captures| captures.get(1))
     .map(|value| value.as_str().trim().to_string())?;
@@ -45,8 +44,7 @@ pub(super) fn parse_savings_query(task_lower: &str) -> Option<SavingsQuery> {
     if !task_contains_any(task_lower, &["save on", "saved on"]) || task_lower.contains("cashback") {
         return None;
     }
-    let tail = Regex::new(r"(?i)\bsav(?:e|ed)\s+on\s+(.+?)\??$")
-        .unwrap()
+    let tail = compile_regex(r"(?i)\bsav(?:e|ed)\s+on\s+(.+?)\??$")
         .captures(task_lower)
         .and_then(|captures| captures.get(1))
         .map(|value| value.as_str().trim())?;
@@ -80,10 +78,9 @@ pub(super) fn parse_discount_percent_query(task_lower: &str) -> Option<SavingsQu
     ) {
         return None;
     }
-    let tail = Regex::new(
+    let tail = compile_regex(
         r"(?i)\bwhat\s+(?:percentage|percent)\s+discount\s+did\s+i\s+get\s+on\s+(.+?)\??$",
     )
-    .unwrap()
     .captures(task_lower)
     .and_then(|captures| captures.get(1))
     .map(|value| value.as_str().trim())?;
@@ -146,8 +143,7 @@ pub(super) fn parse_sale_minimum_query(task_lower: &str) -> Option<SaleMinimumQu
     {
         return None;
     }
-    let tail = Regex::new(r"(?i)\bif i (?:sold|sell)\s+(.+?)\??$")
-        .unwrap()
+    let tail = compile_regex(r"(?i)\bif i (?:sold|sell)\s+(.+?)\??$")
         .captures(task_lower)
         .and_then(|captures| captures.get(1))
         .map(|value| value.as_str().trim())?;
@@ -207,8 +203,7 @@ pub(super) fn parse_revenue_query(task_lower: &str) -> Option<RevenueQuery> {
     if !task_contains_any(task_lower, &["made from selling", "earned from selling"]) {
         return None;
     }
-    let item_phrase = Regex::new(r"(?i)\b(?:made|earned)\s+from\s+selling\s+(.+?)\??$")
-        .unwrap()
+    let item_phrase = compile_regex(r"(?i)\b(?:made|earned)\s+from\s+selling\s+(.+?)\??$")
         .captures(task_lower)
         .and_then(|captures| captures.get(1))
         .map(|value| strip_revenue_time_window(value.as_str()))?;
@@ -230,12 +225,11 @@ pub(super) fn parse_revenue_query(task_lower: &str) -> Option<RevenueQuery> {
 }
 
 fn strip_revenue_time_window(surface: &str) -> String {
-    let without_window = Regex::new(r"(?i)\s+(?:this|last|next)\s+(?:day|week|month|year)s?\b.*$")
-        .unwrap()
-        .replace(surface, "")
-        .into_owned();
-    Regex::new(r"(?i)\s+so\s+far\b.*$")
-        .unwrap()
+    let without_window =
+        compile_regex(r"(?i)\s+(?:this|last|next)\s+(?:day|week|month|year)s?\b.*$")
+            .replace(surface, "")
+            .into_owned();
+    compile_regex(r"(?i)\s+so\s+far\b.*$")
         .replace(&without_window, "")
         .trim()
         .to_string()

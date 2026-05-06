@@ -202,7 +202,7 @@ pub(super) fn load_or_new_meta(meta_file: &Path, source: &Path, kind: NeuronKind
 
 /// Serialize and write metadata to disk atomically.
 pub(super) fn save_meta(meta_file: &Path, meta: &NeuronMeta) -> Result<()> {
-    atomic_write_json(meta_file, meta)
+    Ok(atomic_write_json(meta_file, meta)?)
 }
 
 pub(super) fn refresh_meta_after_content_write(meta: &mut NeuronMeta, content: &str) {
@@ -224,7 +224,7 @@ pub(super) fn record_mutation_provenance(
     section: Option<String>,
     summary: Option<String>,
 ) -> Result<()> {
-    record_content_provenance_edit(
+    Ok(record_content_provenance_edit(
         neuron_path,
         meta,
         content,
@@ -236,7 +236,7 @@ pub(super) fn record_mutation_provenance(
             ..Default::default()
         },
     )
-    .map(|_| ())
+    .map(|_| ())?)
 }
 
 pub(super) fn finalize_mutation_message(message: String, provenance_result: Result<()>) -> String {

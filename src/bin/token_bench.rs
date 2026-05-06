@@ -1,5 +1,5 @@
-use anyhow::{ensure, Result};
 use clap::Parser;
+use cortyx::error::Result;
 use cortyx::index::NeuronIndex;
 use cortyx::mcp::{CortyxServer, GetContextsInput};
 use cortyx::miner;
@@ -202,7 +202,7 @@ fn base_input(entry: &FixtureEntry, max_tokens: usize) -> GetContextsInput {
 }
 
 fn extract_context_handle(output: &str) -> Option<String> {
-    let handle = Regex::new(r"<!-- Context handle: ([^ ]+) -->").unwrap();
+    let handle = Regex::new(r"<!-- Context handle: ([^ ]+) -->").ok()?;
     handle
         .captures(output)
         .and_then(|caps| caps.get(1))
@@ -255,7 +255,7 @@ fn print_guardrail_status(args: &Args, results: &BenchResults) -> Result<()> {
     let mut guarded = false;
     if let Some(min_pct) = args.min_retrieval_savings_pct {
         guarded = true;
-        ensure!(
+        cortyx::cortyx_ensure!(
             results.retrieval.savings_pct >= min_pct,
             "Retrieval savings must be ≥{min_pct:.1}%; got {:.1}%",
             results.retrieval.savings_pct
@@ -269,7 +269,7 @@ fn print_guardrail_status(args: &Args, results: &BenchResults) -> Result<()> {
     }
     if let Some(max_tokens) = args.max_retrieval_avg_tokens {
         guarded = true;
-        ensure!(
+        cortyx::cortyx_ensure!(
             results.retrieval.avg_tokens <= max_tokens,
             "Retrieval average tokens must be ≤{max_tokens}; got {}",
             results.retrieval.avg_tokens
@@ -283,7 +283,7 @@ fn print_guardrail_status(args: &Args, results: &BenchResults) -> Result<()> {
     }
     if let Some(min_pct) = args.min_delta_repeat_savings_pct {
         guarded = true;
-        ensure!(
+        cortyx::cortyx_ensure!(
             results.delta_repeat.savings_pct >= min_pct,
             "Capsule+delta repeat savings must be ≥{min_pct:.1}%; got {:.1}%",
             results.delta_repeat.savings_pct
@@ -297,7 +297,7 @@ fn print_guardrail_status(args: &Args, results: &BenchResults) -> Result<()> {
     }
     if let Some(max_tokens) = args.max_delta_repeat_avg_tokens {
         guarded = true;
-        ensure!(
+        cortyx::cortyx_ensure!(
             results.delta_repeat.avg_tokens <= max_tokens,
             "Capsule+delta repeat average tokens must be ≤{max_tokens}; got {}",
             results.delta_repeat.avg_tokens

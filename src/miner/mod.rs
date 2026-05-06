@@ -10,7 +10,7 @@
 /// turns get `SynapseType::TemporalFollows` edges to capture temporal order.
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result};
+use crate::error::Result;
 
 use crate::index::NeuronIndex;
 
@@ -124,10 +124,10 @@ pub fn mine_file(
     idx: &mut NeuronIndex,
     module: Option<&str>,
 ) -> Result<usize> {
-    let raw =
-        std::fs::read_to_string(path).with_context(|| format!("Cannot read {}", path.display()))?;
-    let turns =
-        detect_and_parse(&raw).with_context(|| format!("Failed to parse {}", path.display()))?;
+    let raw = std::fs::read_to_string(path)
+        .map_err(|e| crate::cortyx_err!("Cannot read {}: {e}", path.display()))?;
+    let turns = detect_and_parse(&raw)
+        .map_err(|e| crate::cortyx_err!("Failed to parse {}: {e}", path.display()))?;
     writer::write_verbatim_neurons(&turns, path, project_root, idx, module)
 }
 
@@ -141,10 +141,10 @@ fn mine_file_staged(
     idx: &mut NeuronIndex,
     module: Option<&str>,
 ) -> Result<(usize, Vec<PathBuf>, Vec<Turn>)> {
-    let raw =
-        std::fs::read_to_string(path).with_context(|| format!("Cannot read {}", path.display()))?;
-    let turns =
-        detect_and_parse(&raw).with_context(|| format!("Failed to parse {}", path.display()))?;
+    let raw = std::fs::read_to_string(path)
+        .map_err(|e| crate::cortyx_err!("Cannot read {}: {e}", path.display()))?;
+    let turns = detect_and_parse(&raw)
+        .map_err(|e| crate::cortyx_err!("Failed to parse {}: {e}", path.display()))?;
     let (count, paths) =
         writer::write_verbatim_neurons_staged(&turns, path, project_root, idx, module)?;
     Ok((count, paths, turns))

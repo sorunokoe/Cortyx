@@ -6,10 +6,25 @@
 //! - Config/Data: Shell, SQL, HCL, Protocol Buffers, GraphQL
 //! - Special: Jupyter, Universal fallback
 
+use regex::Regex;
+
 mod config;
 mod scripting;
 mod special;
 mod systems;
+
+pub(super) fn compile_regex(pattern: &str) -> Regex {
+    match Regex::new(pattern) {
+        Ok(regex) => regex,
+        Err(err) => {
+            tracing::error!("invalid AST extractor regex {pattern:?}: {err}");
+            match Regex::new(r"$^") {
+                Ok(fallback) => fallback,
+                Err(_) => unreachable!("fallback regex must compile"),
+            }
+        },
+    }
+}
 
 // Re-export all extractors for parent module
 pub(super) use config::{extract_graphql, extract_hcl, extract_proto, extract_shell, extract_sql};

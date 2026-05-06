@@ -3,7 +3,6 @@
 use crate::neuron::SynapseType;
 use rmcp::schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 
 // ─── Tool input types ─────────────────────────────────────────────────────────
 
@@ -437,7 +436,9 @@ pub(super) fn derive_cortyx_route(
         });
     }
 
-    let task_value = task.clone().unwrap();
+    let Some(task_value) = task else {
+        unreachable!("task.is_none() returns above")
+    };
     let task_lower = task_value.to_ascii_lowercase();
     let kind = if looks_like_wake_up_request(&task_lower) {
         CortyxRouteKind::WakeUp

@@ -106,7 +106,7 @@ fn strip_go_module_prefix(import_path: &str, module_path: &str) -> Option<String
 /// C/C++: `#include "relative/path.h"` (quotes only — angle brackets are stdlib).
 pub(super) fn c_include_imports(content: &str, source_rel: &Path) -> Vec<PathBuf> {
     static RE: OnceLock<Regex> = OnceLock::new();
-    let re = RE.get_or_init(|| Regex::new(r#"(?m)^#include\s+"([^"]+)""#).unwrap());
+    let re = RE.get_or_init(|| compile_regex(r#"(?m)^#include\s+"([^"]+)""#));
     let dir = source_rel.parent().unwrap_or(Path::new(""));
     re.captures_iter(content)
         .filter_map(|c| c.get(1))
@@ -117,7 +117,7 @@ pub(super) fn c_include_imports(content: &str, source_rel: &Path) -> Vec<PathBuf
 /// Ruby: `require_relative 'sibling'` → sibling file in the same directory.
 pub(super) fn ruby_imports(content: &str, source_rel: &Path) -> Vec<PathBuf> {
     static RE: OnceLock<Regex> = OnceLock::new();
-    let re = RE.get_or_init(|| Regex::new(r#"(?m)^require_relative\s+['"]([^'"]+)['"]"#).unwrap());
+    let re = RE.get_or_init(|| compile_regex(r#"(?m)^require_relative\s+['"]([^'"]+)['"]"#));
     let dir = source_rel.parent().unwrap_or(Path::new(""));
     re.captures_iter(content)
         .filter_map(|c| c.get(1))
@@ -129,7 +129,7 @@ pub(super) fn ruby_imports(content: &str, source_rel: &Path) -> Vec<PathBuf> {
 /// the last identifier component as a same-directory source file.
 pub(super) fn simple_import_imports(content: &str, source_rel: &Path, ext: &str) -> Vec<PathBuf> {
     static RE: OnceLock<Regex> = OnceLock::new();
-    let re = RE.get_or_init(|| Regex::new(r"(?m)^import\s+([\w.]+)").unwrap());
+    let re = RE.get_or_init(|| compile_regex(r"(?m)^import\s+([\w.]+)"));
     let dir = source_rel.parent().unwrap_or(Path::new(""));
     re.captures_iter(content)
         .filter_map(|c| c.get(1))
@@ -145,7 +145,7 @@ pub(super) fn simple_import_imports(content: &str, source_rel: &Path, ext: &str)
 /// Maps dot-joined module name to a lib-convention file path.
 pub(super) fn elixir_imports(content: &str, _source_rel: &Path) -> Vec<PathBuf> {
     static RE: OnceLock<Regex> = OnceLock::new();
-    let re = RE.get_or_init(|| Regex::new(r"(?m)^\s*(?:alias|import|use)\s+([\w.]+)").unwrap());
+    let re = RE.get_or_init(|| compile_regex(r"(?m)^\s*(?:alias|import|use)\s+([\w.]+)"));
     re.captures_iter(content)
         .filter_map(|c| c.get(1))
         .map(|m| {

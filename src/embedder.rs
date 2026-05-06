@@ -13,7 +13,7 @@
 // user code once the embed feature is active.
 #[cfg(feature = "embed")]
 mod inner {
-    use anyhow::Result;
+    use crate::error::Result;
     use fastembed::{
         EmbeddingModel, InitOptions, RerankInitOptions, RerankerModel, TextEmbedding, TextRerank,
     };
@@ -40,7 +40,7 @@ mod inner {
         /// Use this in air-gapped environments, CI, or corporate proxies that block downloads.
         pub fn new() -> Result<Self> {
             if std::env::var("CORTYX_NO_DOWNLOAD").is_ok() {
-                anyhow::bail!(
+                crate::cortyx_bail!(
                     "CORTYX_NO_DOWNLOAD is set — dense embedding model not loaded. \
                      Falling back to BM25-only retrieval."
                 );
@@ -60,7 +60,7 @@ mod inner {
             let mut guard = self
                 .model
                 .lock()
-                .map_err(|_| anyhow::anyhow!("embedding model mutex was poisoned"))?;
+                .map_err(|_| crate::cortyx_err!("embedding model mutex was poisoned"))?;
             Ok(guard.embed(texts.to_vec(), None)?)
         }
 
@@ -69,7 +69,7 @@ mod inner {
             let mut batch = self.embed_batch(&[query])?;
             batch
                 .pop()
-                .ok_or_else(|| anyhow::anyhow!("Empty embedding result"))
+                .ok_or_else(|| crate::cortyx_err!("Empty embedding result"))
         }
     }
 
@@ -84,7 +84,7 @@ mod inner {
     impl RerankerBackend {
         pub fn new() -> Result<Self> {
             if std::env::var("CORTYX_NO_DOWNLOAD").is_ok() {
-                anyhow::bail!(
+                crate::cortyx_bail!(
                     "CORTYX_NO_DOWNLOAD is set — reranker model not loaded. \
                      Falling back to BM25+TF-IDF."
                 );
@@ -137,7 +137,7 @@ pub fn cosine_sim(_a: &[f32], _b: &[f32]) -> f32 {
 // All functions gated on the `embed` feature.
 
 #[cfg(feature = "embed")]
-use anyhow::Result;
+use crate::error::Result;
 #[cfg(feature = "embed")]
 use std::{
     collections::HashMap,
@@ -178,7 +178,7 @@ pub fn load_embeddings(project_root: &Path) -> EmbeddingStore {
 pub fn save_embeddings(project_root: &Path, store: &EmbeddingStore) -> Result<()> {
     let path = embeddings_path(project_root);
     std::fs::create_dir_all(path.parent().unwrap_or(Path::new(".")))?;
-    anyhow::ensure!(
+    crate::cortyx_ensure!(
         store.len() <= u32::MAX as usize,
         "Embedding store too large to serialize ({} entries)",
         store.len()
@@ -190,7 +190,7 @@ pub fn save_embeddings(project_root: &Path, store: &EmbeddingStore) -> Result<()
     write_u32(&mut buf, store.len() as u32);
     for (p, vec) in store {
         let path_bytes = p.to_string_lossy().into_owned().into_bytes();
-        anyhow::ensure!(
+        crate::cortyx_ensure!(
             path_bytes.len() <= u32::MAX as usize,
             "Path too long to serialize: {} bytes",
             path_bytes.len()
@@ -257,7 +257,7 @@ fn write_u32(buf: &mut Vec<u8>, v: u32) {
 #[cfg(feature = "embed")]
 fn read_u32(data: &[u8], offset: &mut usize) -> Result<u32> {
     if *offset + 4 > data.len() {
-        anyhow::bail!("Unexpected EOF reading u32 at {}", offset);
+        crate::cortyx_bail!("Unexpected EOF reading u32 at {}", offset);
     }
     let v = u32::from_le_bytes(data[*offset..*offset + 4].try_into()?);
     *offset += 4;
@@ -275,17 +275,17 @@ fn read_embeddings(path: &Path) -> Result<EmbeddingStore> {
     let mut off = 0usize;
 
     let magic = read_u32(&data, &mut off)?;
-    anyhow::ensure!(magic == MAGIC, "Bad magic in embeddings.bin: {magic:#x}");
+    crate::cortyx_ensure!(magic == MAGIC, "Bad magic in embeddings.bin: {magic:#x}");
     let version = read_u32(&data, &mut off)?;
-    anyhow::ensure!(
+    crate::cortyx_ensure!(
         version == EMBED_VERSION,
         "Unsupported embeddings.bin version: {version} (expected {EMBED_VERSION}). \
          Delete .cortyx/embeddings.bin and rerun `cortyx compile --features embed` to regenerate."
     );
     let dim = read_u32(&data, &mut off)? as usize;
-    anyhow::ensure!(dim <= MAX_DIM, "dim too large in embeddings.bin: {dim}");
+    crate::cortyx_ensure!(dim <= MAX_DIM, "dim too large in embeddings.bin: {dim}");
     let count = read_u32(&data, &mut off)? as usize;
-    anyhow::ensure!(
+    crate::cortyx_ensure!(
         count <= MAX_ENTRIES,
         "entry count too large in embeddings.bin: {count}"
     );
@@ -293,26 +293,28 @@ fn read_embeddings(path: &Path) -> Result<EmbeddingStore> {
     let mut store = HashMap::with_capacity(count);
     for _ in 0..count {
         let path_len = read_u32(&data, &mut off)? as usize;
-        anyhow::ensure!(path_len <= MAX_PATH_LEN, "path_len too large: {path_len}");
+        crate::cortyx_ensure!(path_len <= MAX_PATH_LEN, "path_len too large: {path_len}");
         let end = off
             .checked_add(path_len)
-            .ok_or_else(|| anyhow::anyhow!("path_len overflow"))?;
-        anyhow::ensure!(end <= data.len(), "Truncated path");
+            .ok_or_else(|| crate::cortyx_err!("path_len overflow"))?;
+        crate::cortyx_ensure!(end <= data.len(), "Truncated path");
         let path_str = std::str::from_utf8(&data[off..end])?;
         let neuron_path = PathBuf::from(path_str);
         off = end;
 
         let vec_bytes = dim
             .checked_mul(4)
-            .ok_or_else(|| anyhow::anyhow!("dim*4 overflow"))?;
+            .ok_or_else(|| crate::cortyx_err!("dim*4 overflow"))?;
         let vec_end = off
             .checked_add(vec_bytes)
-            .ok_or_else(|| anyhow::anyhow!("vector offset overflow"))?;
-        anyhow::ensure!(vec_end <= data.len(), "Truncated vector");
+            .ok_or_else(|| crate::cortyx_err!("vector offset overflow"))?;
+        crate::cortyx_ensure!(vec_end <= data.len(), "Truncated vector");
         let vec: Vec<f32> = (0..dim)
             .map(|i| {
                 // Safety: bounds checked above; slice is always exactly 4 bytes.
-                f32::from_le_bytes(data[off + i * 4..off + i * 4 + 4].try_into().unwrap())
+                let mut bytes = [0u8; 4];
+                bytes.copy_from_slice(&data[off + i * 4..off + i * 4 + 4]);
+                f32::from_le_bytes(bytes)
             })
             .collect();
         off = vec_end;

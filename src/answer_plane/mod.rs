@@ -3917,13 +3917,14 @@ fn answer_surface_score(
 }
 
 pub(super) mod temporal;
+#[cfg(test)]
+use self::temporal::select_temporal_employment_duration_answer;
 use self::temporal::{
     best_calendar_grounded_current_anchor_rank, collect_temporal_candidates, current_kg_values,
     is_temporal_reasoning_query, is_temporal_sequence_query, kg_entity_query_terms,
     kg_predicate_query_terms, parse_temporal_elapsed_query, parse_temporal_gap_query,
     required_tail_anchor_tokens, select_comparison_answer, select_dialogue_temporal_answer,
-    select_temporal_count_answer, select_temporal_duration_answer,
-    select_temporal_employment_duration_answer, select_temporal_order_answer,
+    select_temporal_count_answer, select_temporal_duration_answer, select_temporal_order_answer,
     select_temporal_state_answer, shift_date_by_days, split_once_case_insensitive,
     temporal_focus_terms,
 };

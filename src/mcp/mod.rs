@@ -3,14 +3,11 @@
 //! Exposes Cortyx functionality via the MCP protocol for LLM integration.
 
 use anyhow::Result;
-use rmcp::schemars;
-use rmcp::schemars::JsonSchema;
 use rmcp::{
     handler::server::{router::tool::ToolRouter, wrapper::Parameters},
     model::{Implementation, ServerCapabilities, ServerInfo},
     tool, tool_handler, tool_router, ServerHandler, ServiceExt,
 };
-use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};

@@ -3,7 +3,7 @@
 /// The static prefix (cortyx schema + instructions) gets `cache_control: {type: "ephemeral"}`.
 /// Dynamic context (from `cortyx(intent="context", ...)`) comes after, in a separate block.
 /// This guarantees byte-identical static prefix → 100% prompt-cache hit rate.
-use anyhow::Result;
+use crate::error::Result;
 use serde_json::{json, Value};
 use std::path::Path;
 

@@ -2,7 +2,7 @@
 // It contains free-standing helper functions extracted from mod.rs (E1).
 // All visibility is relative to `crate::index` (the parent of `core`).
 use super::*;
-
+use crate::index::compile_regex;
 
 // ─── Free functions ───────────────────────────────────────────────────────────
 
@@ -53,7 +53,9 @@ pub(in crate::index) fn extract_neuron_summary(content: &str) -> String {
 
 /// S5 helpers: extract manifest metadata from Cargo.toml or package.json.
 /// Returns (name, version, authors, description, repository).
-pub(in crate::index) fn extract_manifest_metadata(root: &Path) -> (String, String, String, String, String) {
+pub(in crate::index) fn extract_manifest_metadata(
+    root: &Path,
+) -> (String, String, String, String, String) {
     // Try Cargo.toml first
     if let Ok(text) = std::fs::read_to_string(root.join("Cargo.toml")) {
         let name = extract_toml_field(&text, "name").unwrap_or_default();
@@ -117,7 +119,11 @@ pub(in crate::index) fn extract_toml_field(text: &str, key: &str) -> Option<Stri
 }
 
 /// Read the first `max_chars` characters from the first found file in `candidates`.
-pub(in crate::index) fn read_file_head(root: &Path, candidates: &[&str], max_chars: usize) -> String {
+pub(in crate::index) fn read_file_head(
+    root: &Path,
+    candidates: &[&str],
+    max_chars: usize,
+) -> String {
     for name in candidates {
         if let Ok(text) = std::fs::read_to_string(root.join(name)) {
             return text.chars().take(max_chars).collect();
@@ -508,7 +514,10 @@ pub(in crate::index) fn module_capsule_pitfall(path: &Path) -> Option<String> {
         .map(ToOwned::to_owned)
 }
 
-pub(in crate::index) fn is_capsule_glossary_term(term: &str, module_tokens: &HashSet<String>) -> bool {
+pub(in crate::index) fn is_capsule_glossary_term(
+    term: &str,
+    module_tokens: &HashSet<String>,
+) -> bool {
     const CAPSULE_STOPWORDS: &[&str] = &[
         "about", "after", "also", "been", "being", "build", "code", "does", "file", "from", "have",
         "into", "kind", "line", "lines", "module", "must", "only", "path", "paths", "self", "that",
@@ -1134,8 +1143,7 @@ pub(in crate::index) fn extract_direct_count_focus_terms(terms: &[String]) -> Ve
 }
 
 pub(in crate::index) fn extract_role_phrase(task: &str) -> Option<String> {
-    Regex::new(r"(?i)(?:role as|job as|position as)\s+([^?.!]+)")
-        .unwrap()
+    compile_regex(r"(?i)(?:role as|job as|position as)\s+([^?.!]+)")
         .captures(task)
         .and_then(|caps| caps.get(1))
         .map(|m| m.as_str().trim().to_string())
@@ -1160,7 +1168,11 @@ pub(in crate::index) fn study_subject_required_journal_phrase(task_lower: &str) 
         .filter(|phrase| phrase.split_whitespace().count() >= 2)
 }
 
-pub(in crate::index) fn is_direct_count_candidate_line(line: &str, lower: &str, task_lower: &str) -> bool {
+pub(in crate::index) fn is_direct_count_candidate_line(
+    line: &str,
+    lower: &str,
+    task_lower: &str,
+) -> bool {
     is_summary_or_user_line(line, lower)
         || (task_contains_any(task_lower, &["study", "journal", "subjects"])
             && extract_numbered_list_item(line).is_some()
@@ -1231,10 +1243,9 @@ pub(in crate::index) fn synthetic_count_query_requires_multi_operand_reasoning(
 }
 
 pub(in crate::index) fn extract_query_duration_window(task_lower: &str) -> Option<String> {
-    Regex::new(
+    compile_regex(
         r"(?i)\bfirst\s+((?:about\s+)?(?:an?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d+)\s+(?:days?|weeks?|months?|years?|hours?|minutes?))\b",
     )
-    .unwrap()
     .captures(task_lower)
     .and_then(|caps| caps.get(1))
     .map(|m| normalize_current_duration_answer(m.as_str()).to_ascii_lowercase())
@@ -1315,10 +1326,9 @@ pub(in crate::index) fn extract_item_usage_phrase(task_lower: &str) -> Option<(S
 }
 
 pub(in crate::index) fn extract_media_rewatch_focus(task_lower: &str) -> Option<(String, String)> {
-    let caps = Regex::new(
+    let caps = compile_regex(
         r"(?i)\bhow many\s+(.*?)\s*(movies?|films?|shows?|episodes?)\s+(?:did|have)\s+i\s+re(?:-| )?watch(?:ed)?\b",
     )
-    .unwrap()
     .captures(task_lower)?;
     let focus = caps
         .get(1)
@@ -1328,7 +1338,9 @@ pub(in crate::index) fn extract_media_rewatch_focus(task_lower: &str) -> Option<
     Some((focus, media_kind))
 }
 
-pub(in crate::index) fn extract_daily_duration_commitment_phrase(task_lower: &str) -> Option<String> {
+pub(in crate::index) fn extract_daily_duration_commitment_phrase(
+    task_lower: &str,
+) -> Option<String> {
     for marker in [
         "how much time do i dedicate to ",
         "how much time do i spend on ",
@@ -1350,7 +1362,9 @@ pub(in crate::index) fn extract_daily_duration_commitment_phrase(task_lower: &st
     None
 }
 
-pub(in crate::index) fn extract_frequency_transition_activity_phrase(task_lower: &str) -> Option<String> {
+pub(in crate::index) fn extract_frequency_transition_activity_phrase(
+    task_lower: &str,
+) -> Option<String> {
     task_lower
         .split_once("how often do i ")
         .and_then(|(_, tail)| tail.split_once(" previously").map(|(head, _)| head))
@@ -1373,8 +1387,7 @@ pub(in crate::index) fn normalize_first_person_phrase_to_second_person(phrase: &
 }
 
 pub(in crate::index) fn extract_activity_core_phrase(phrase: &str) -> String {
-    Regex::new(r"(?i)^(.+?)(?:\s+(?:with|at|in|on|for|during|around|near)\b|$)")
-        .unwrap()
+    compile_regex(r"(?i)^(.+?)(?:\s+(?:with|at|in|on|for|during|around|near)\b|$)")
         .captures(phrase)
         .and_then(|caps| caps.get(1))
         .map(|m| m.as_str().trim().to_string())
@@ -1413,10 +1426,9 @@ pub(in crate::index) fn capitalize_first_ascii(value: &str) -> String {
 }
 
 pub(in crate::index) fn extract_plural_issue_count_answer_from_line(line: &str) -> Option<String> {
-    let raw = Regex::new(
+    let raw = compile_regex(
         r"(?i)\b(?:finished|read|reading|completed)\s+(?:about\s+)?(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d+)\s+issues?\b",
     )
-    .unwrap()
     .captures(line)
     .and_then(|caps| caps.get(1))
     .map(|m| m.as_str().trim())?;
@@ -1526,7 +1538,10 @@ pub(in crate::index) fn parse_frequency_count_token(token: &str) -> Option<i32> 
     }
 }
 
-pub(in crate::index) fn extract_meetup_count_surface_from_line(line: &str, lower: &str) -> Option<String> {
+pub(in crate::index) fn extract_meetup_count_surface_from_line(
+    line: &str,
+    lower: &str,
+) -> Option<String> {
     if !lower.contains("met up")
         || task_contains_any(
             lower,
@@ -1540,10 +1555,9 @@ pub(in crate::index) fn extract_meetup_count_surface_from_line(line: &str, lower
     {
         return None;
     }
-    let raw = Regex::new(
+    let raw = compile_regex(
         r"(?i)\bmet up\s+(once|twice|thrice|one|two|three|four|five|six|seven|eight|nine|ten|\d+)(?:\s+times?)?\b",
     )
-    .unwrap()
     .captures(line)
     .and_then(|caps| caps.get(1))
     .map(|m| m.as_str().trim())?;
@@ -1569,10 +1583,9 @@ pub(in crate::index) fn extract_meetup_count_from_line(line: &str, lower: &str) 
     {
         return None;
     }
-    let raw = Regex::new(
+    let raw = compile_regex(
         r"(?i)\bmet up\s+(once|twice|thrice|one|two|three|four|five|six|seven|eight|nine|ten|\d+)(?:\s+times?)?\b",
     )
-    .unwrap()
     .captures(line)
     .and_then(|caps| caps.get(1))
     .map(|m| m.as_str())?;
@@ -1589,10 +1602,9 @@ pub(in crate::index) fn extract_item_usage_count_surface_from_line(
             if !(task_contains_any(lower, &["worn", "wore"]) && lower.contains("times")) {
                 return None;
             }
-            Regex::new(
+            compile_regex(
                 r"(?i)\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d+)\s+times?\b",
             )
-            .unwrap()
             .captures(line)
             .and_then(|caps| caps.get(1))
             .map(|m| m.as_str().trim())?
@@ -1601,10 +1613,9 @@ pub(in crate::index) fn extract_item_usage_count_surface_from_line(
             if !(lower.contains("trip") || lower.contains("adventure")) {
                 return None;
             }
-            Regex::new(
+            compile_regex(
                 r"(?i)\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d+)\s+(?:trip|trips|adventures)\b",
             )
-            .unwrap()
             .captures(line)
             .and_then(|caps| caps.get(1))
             .map(|m| m.as_str().trim())?
@@ -1627,10 +1638,9 @@ pub(in crate::index) fn extract_women_count_from_line(line: &str, lower: &str) -
     if !lower.contains("women") {
         return None;
     }
-    let raw = Regex::new(
+    let raw = compile_regex(
         r"(?i)\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d+)\s+women\b",
     )
-    .unwrap()
     .captures(line)
     .and_then(|caps| caps.get(1))
     .map(|m| m.as_str().trim())?;
@@ -1644,10 +1654,9 @@ pub(in crate::index) fn extract_weight_loss_answer_from_line(
     if !lower.contains("lost") || !lower.contains("pound") {
         return None;
     }
-    let captures = Regex::new(
+    let captures = compile_regex(
         r"(?i)\b(?:lost|down)\s+(about\s+)?(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d+)\s+pounds?\b",
     )
-    .unwrap()
     .captures(line)?;
     let about = captures
         .get(1)
@@ -1663,7 +1672,10 @@ pub(in crate::index) fn extract_weight_loss_answer_from_line(
     Some((value, surface))
 }
 
-pub(in crate::index) fn extract_frequency_surface_from_line(line: &str, lower: &str) -> Option<String> {
+pub(in crate::index) fn extract_frequency_surface_from_line(
+    line: &str,
+    lower: &str,
+) -> Option<String> {
     if lower.contains("every other week") {
         return Some("every other week".to_string());
     }
@@ -1676,10 +1688,9 @@ pub(in crate::index) fn extract_frequency_surface_from_line(line: &str, lower: &
     if lower.contains("every day") || lower.contains("daily") {
         return Some("every day".to_string());
     }
-    Regex::new(
+    compile_regex(
         r"(?i)\b(once|twice|thrice|one|two|three|four|five|\d+)\s+times?\s+(?:a|per)\s+(day|week|month|year)\b",
     )
-    .unwrap()
     .captures(line)
     .and_then(|caps| {
         let raw = caps.get(1)?.as_str().trim().to_ascii_lowercase();
@@ -1695,8 +1706,7 @@ pub(in crate::index) fn extract_time_answer_from_line(line: &str) -> Option<Stri
     ]
     .into_iter()
     .find_map(|pattern| {
-        Regex::new(pattern)
-            .unwrap()
+        compile_regex(pattern)
             .captures(line)
             .and_then(|caps| caps.get(1))
             .map(|m| m.as_str().trim().to_string())
@@ -1708,7 +1718,7 @@ pub(in crate::index) fn extract_focus_aligned_time_answer_from_line(
     lower: &str,
     focus_terms: &[String],
 ) -> Option<String> {
-    let pattern = Regex::new(r"(?i)\b(\d{1,2}(?::\d{2})?\s?(?:AM|PM))\b").unwrap();
+    let pattern = compile_regex(r"(?i)\b(\d{1,2}(?::\d{2})?\s?(?:AM|PM))\b");
     let matches = pattern
         .captures_iter(line)
         .filter_map(|caps| caps.get(1))
@@ -1760,8 +1770,7 @@ pub(in crate::index) fn extract_points_answer_from_line(line: &str, lower: &str)
     if !(lower.contains("score") || lower.contains("points")) {
         return None;
     }
-    let raw = Regex::new(r"(?i)\b(\d+)\s+points\b")
-        .unwrap()
+    let raw = compile_regex(r"(?i)\b(\d+)\s+points\b")
         .captures(line)
         .and_then(|caps| caps.get(1))
         .map(|m| m.as_str().trim())?;
@@ -1772,8 +1781,7 @@ pub(in crate::index) fn extract_record_answer_from_line(line: &str, lower: &str)
     if !(lower.contains("record") || lower.contains("we're") || lower.contains("we are")) {
         return None;
     }
-    Regex::new(r"\b(\d+\s*-\s*\d+)\b")
-        .unwrap()
+    compile_regex(r"\b(\d+\s*-\s*\d+)\b")
         .captures(line)
         .and_then(|caps| caps.get(1))
         .map(|m| m.as_str().trim().replace(' ', ""))
@@ -1783,14 +1791,16 @@ pub(in crate::index) fn extract_status_answer_from_line(line: &str, lower: &str)
     if !lower.contains("status") {
         return None;
     }
-    Regex::new(r"(?i)\b(Premier\s+(?:Silver|Gold|Platinum|Bronze|Diamond|1K))\s+status\b")
-        .unwrap()
+    compile_regex(r"(?i)\b(Premier\s+(?:Silver|Gold|Platinum|Bronze|Diamond|1K))\s+status\b")
         .captures(line)
         .and_then(|caps| caps.get(1))
         .map(|m| m.as_str().trim().to_string())
 }
 
-pub(in crate::index) fn extract_level_goal_answer_from_line(line: &str, lower: &str) -> Option<String> {
+pub(in crate::index) fn extract_level_goal_answer_from_line(
+    line: &str,
+    lower: &str,
+) -> Option<String> {
     if !lower.contains("level")
         || !(line_has_future_goal_marker(lower)
             || lower.contains("determined to reach")
@@ -1799,8 +1809,7 @@ pub(in crate::index) fn extract_level_goal_answer_from_line(line: &str, lower: &
     {
         return None;
     }
-    Regex::new(r"(?i)\b(level\s+\d+)\b")
-        .unwrap()
+    compile_regex(r"(?i)\b(level\s+\d+)\b")
         .captures(line)
         .and_then(|caps| caps.get(1))
         .map(|m| m.as_str().trim().to_ascii_lowercase())
@@ -1869,7 +1878,10 @@ pub(in crate::index) fn extract_purchase_family_item_from_line(
     }
 }
 
-pub(in crate::index) fn extract_gadget_purchase_item_from_line(line: &str, lower: &str) -> Option<String> {
+pub(in crate::index) fn extract_gadget_purchase_item_from_line(
+    line: &str,
+    lower: &str,
+) -> Option<String> {
     if !task_contains_any(
         lower,
         &[
@@ -1885,17 +1897,19 @@ pub(in crate::index) fn extract_gadget_purchase_item_from_line(line: &str, lower
     ) {
         return None;
     }
-    Regex::new(
+    compile_regex(
         r"(?i)\b(?:my\s+new\s+|my\s+|the\s+)?((?:[a-z0-9][a-z0-9+-]*)(?:\s+[a-z0-9][a-z0-9+-]*){0,2}\s(?:pot|fryer|mixer|blender|processor|maker|oven|grill|toaster|microwave|cooker|skillet))\b",
     )
-    .unwrap()
     .captures_iter(line)
     .filter_map(|caps| caps.get(1))
     .map(|m| m.as_str().trim().to_string())
     .last()
 }
 
-pub(in crate::index) fn extract_lens_purchase_item_from_line(line: &str, lower: &str) -> Option<String> {
+pub(in crate::index) fn extract_lens_purchase_item_from_line(
+    line: &str,
+    lower: &str,
+) -> Option<String> {
     let has_ownership_marker = task_contains_any(
         lower,
         &[
@@ -1919,10 +1933,9 @@ pub(in crate::index) fn extract_lens_purchase_item_from_line(line: &str, lower: 
     {
         return None;
     }
-    let phrase = Regex::new(
+    let phrase = compile_regex(
         r"(?i)\b(?:old\s+|new\s+)?((?:\d{1,3}(?:-\d{1,3})?mm|[a-z]+(?:-[a-z]+)?)(?:\s+[a-z]+(?:-[a-z]+)?){0,2}\s+lens)\b",
     )
-    .unwrap()
     .captures_iter(line)
     .filter_map(|caps| caps.get(1))
     .map(|m| m.as_str().trim().to_string())
@@ -1956,7 +1969,10 @@ pub(in crate::index) fn extract_trip_destination_from_query(task_lower: &str) ->
     None
 }
 
-pub(in crate::index) fn extract_planned_stay_location_from_line(line: &str, lower: &str) -> Option<String> {
+pub(in crate::index) fn extract_planned_stay_location_from_line(
+    line: &str,
+    lower: &str,
+) -> Option<String> {
     let value = extract_phrase_after_any_index(
         line,
         lower,
@@ -2005,7 +2021,10 @@ pub(in crate::index) fn line_has_current_company_marker(lower: &str) -> bool {
     )
 }
 
-pub(in crate::index) fn extract_current_company_answer_from_line(line: &str, lower: &str) -> Option<String> {
+pub(in crate::index) fn extract_current_company_answer_from_line(
+    line: &str,
+    lower: &str,
+) -> Option<String> {
     if !line_has_current_company_marker(lower) {
         return None;
     }
@@ -2197,7 +2216,10 @@ pub(in crate::index) fn aggregate_focus_token_count_for_path(path: &Path) -> usi
     aggregate_focus_tokens_for_path(path).len()
 }
 
-pub(in crate::index) fn aggregate_focus_match_count_for_path(path: &Path, focus_terms: &[String]) -> usize {
+pub(in crate::index) fn aggregate_focus_match_count_for_path(
+    path: &Path,
+    focus_terms: &[String],
+) -> usize {
     let aggregate_tokens: HashSet<String> =
         aggregate_focus_tokens_for_path(path).into_iter().collect();
     let focus_tokens: HashSet<String> = focus_terms
@@ -2279,7 +2301,9 @@ pub(in crate::index) fn strip_named_section(content: &str, section_name: &str) -
     stripped
 }
 
-pub(in crate::index) fn parse_index_answer_surface_rows(content: &str) -> Vec<IndexAnswerSurfaceRow> {
+pub(in crate::index) fn parse_index_answer_surface_rows(
+    content: &str,
+) -> Vec<IndexAnswerSurfaceRow> {
     let sections = crate::neuron::parse_sections(content);
     let Some(table) = sections.get("answer_surface") else {
         return Vec::new();
@@ -2970,7 +2994,9 @@ pub(in crate::index) fn synthetic_answer_surface_expected_type(
     }
 }
 
-pub(in crate::index) fn synthetic_answer_surface_requires_completed_evidence(task_lower: &str) -> bool {
+pub(in crate::index) fn synthetic_answer_surface_requires_completed_evidence(
+    task_lower: &str,
+) -> bool {
     task_lower.starts_with("where has ")
         || task_lower.starts_with("where did ")
         || task_lower.starts_with("what did ")
@@ -3649,7 +3675,7 @@ pub(in crate::index) fn looks_like_answer_surface_date(answer_span: &str) -> boo
         "december",
     ];
     let lower = answer_span.to_ascii_lowercase();
-    Regex::new(r"\b(?:19|20)\d{2}\b").unwrap().is_match(&lower)
+    compile_regex(r"\b(?:19|20)\d{2}\b").is_match(&lower)
         || MONTHS.iter().any(|month| lower.contains(month))
         || task_contains_any(
             &lower,
@@ -3680,15 +3706,13 @@ pub(in crate::index) fn looks_like_answer_surface_date(answer_span: &str) -> boo
 pub(in crate::index) fn looks_like_answer_surface_duration(answer_span: &str) -> bool {
     let lower = answer_span.to_ascii_lowercase();
     lower.starts_with("since ")
-        || Regex::new(
+        || compile_regex(
             r"\b(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+(?:day|week|month|year)s?\b",
         )
-        .unwrap()
         .is_match(&lower)
-        || Regex::new(
+        || compile_regex(
             r"\b(?:day|week|month|year)s?\s+(?:ago|already|now)\b",
         )
-        .unwrap()
         .is_match(&lower)
 }
 
@@ -3697,10 +3721,9 @@ pub(in crate::index) fn looks_like_answer_surface_count(answer_span: &str) -> bo
         return false;
     }
     let lower = answer_span.to_ascii_lowercase();
-    Regex::new(
+    compile_regex(
         r"^(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twice|thrice)(?:\s+(?:times?|kids?|children|dogs?|cats?|followers?|issues?|books?|letters?))?$",
     )
-    .unwrap()
     .is_match(lower.trim())
 }
 
@@ -3955,7 +3978,10 @@ pub(in crate::index) fn index_answer_surface_score(
     )
 }
 
-pub(in crate::index) fn format_index_answer_surface_answer(task_lower: &str, answer: &str) -> String {
+pub(in crate::index) fn format_index_answer_surface_answer(
+    task_lower: &str,
+    answer: &str,
+) -> String {
     let answer_lower = answer.to_ascii_lowercase();
     if answer_lower.contains("ally")
         && task_contains_any(
@@ -4083,7 +4109,10 @@ pub(in crate::index) fn answer_surface_answer_span_evidence_state(
     (has_future, has_completed)
 }
 
-pub(in crate::index) fn latest_active_kg_value(entity: &kg::KgEntity, predicate: &str) -> Option<String> {
+pub(in crate::index) fn latest_active_kg_value(
+    entity: &kg::KgEntity,
+    predicate: &str,
+) -> Option<String> {
     fn latest_value_for_predicate(entity: &kg::KgEntity, predicate: &str) -> Option<String> {
         let mut facts = entity.active_values_for_predicate(predicate, None);
         facts.sort_by(|a, b| a.valid_from.cmp(&b.valid_from));
@@ -4182,8 +4211,7 @@ pub(in crate::index) fn normalize_fitness_record_kg_value(value: &str) -> String
 }
 
 pub(in crate::index) fn extract_fitness_record_time_value(line: &str) -> Option<(u32, String)> {
-    Regex::new(r"\b(\d{1,2}):(\d{2})\b")
-        .unwrap()
+    compile_regex(r"\b(\d{1,2}):(\d{2})\b")
         .captures_iter(line)
         .filter_map(|caps| {
             let minutes = caps.get(1)?.as_str().parse::<u32>().ok()?;
@@ -4766,7 +4794,9 @@ pub(in crate::index) fn assistant_followup_descriptor_terms(task_lower: &str) ->
     terms
 }
 
-pub(in crate::index) fn assistant_followup_subject_descriptor_clause(task_lower: &str) -> Option<&str> {
+pub(in crate::index) fn assistant_followup_subject_descriptor_clause(
+    task_lower: &str,
+) -> Option<&str> {
     for marker in [
         "example you gave of a ",
         "example you gave of an ",
@@ -4850,8 +4880,7 @@ pub(in crate::index) fn assistant_followup_context(lines: &[String], line_idx: u
 }
 
 pub(in crate::index) fn extract_expected_chess_reply_move_number(task_lower: &str) -> Option<i32> {
-    let prior_move = Regex::new(r"after\s+(\d+)\.")
-        .unwrap()
+    let prior_move = compile_regex(r"after\s+(\d+)\.")
         .captures(task_lower)
         .and_then(|caps| caps.get(1))
         .and_then(|m| m.as_str().parse::<i32>().ok())?;
@@ -4862,10 +4891,10 @@ pub(in crate::index) fn extract_chess_move_answer_from_line(
     line: &str,
     expected_move_number: Option<i32>,
 ) -> Option<String> {
-    let capture =
-        Regex::new(r"\b(\d+)\.\s*(O-O(?:-O)?|[KQRNB]?[a-h]?[1-8]?x?[a-h][1-8](?:=[QRNB])?[+#]?)\b")
-            .unwrap()
-            .captures(line)?;
+    let capture = compile_regex(
+        r"\b(\d+)\.\s*(O-O(?:-O)?|[KQRNB]?[a-h]?[1-8]?x?[a-h][1-8](?:=[QRNB])?[+#]?)\b",
+    )
+    .captures(line)?;
     let move_number = capture.get(1)?.as_str().parse::<i32>().ok()?;
     if expected_move_number.is_some_and(|expected| expected != move_number) {
         return None;
@@ -4881,9 +4910,7 @@ pub(in crate::index) fn extract_parenthetical_label_count_answer(
 ) -> Option<String> {
     let focus_terms = synthetic_query_terms(task_lower);
     let focus_refs: Vec<&str> = focus_terms.iter().map(String::as_str).collect();
-    let capture = Regex::new(r"(?i)\b([A-Za-z][A-Za-z' -]+?)\s*\((\d+)\)")
-        .unwrap()
-        .captures(line)?;
+    let capture = compile_regex(r"(?i)\b([A-Za-z][A-Za-z' -]+?)\s*\((\d+)\)").captures(line)?;
     let label = capture.get(1)?.as_str().trim().to_ascii_lowercase();
     (term_overlap_count(&label, &focus_refs) >= 1)
         .then(|| capture.get(2).map(|m| m.as_str().trim().to_string()))
@@ -4891,14 +4918,15 @@ pub(in crate::index) fn extract_parenthetical_label_count_answer(
 }
 
 pub(in crate::index) fn extract_website_name_from_line(line: &str) -> Option<String> {
-    Regex::new(r"\b([A-Za-z0-9-]+\.(?:org|com|net|edu|io))\b")
-        .unwrap()
+    compile_regex(r"\b([A-Za-z0-9-]+\.(?:org|com|net|edu|io))\b")
         .captures(line)
         .and_then(|caps| caps.get(1))
         .map(|m| m.as_str().trim().to_string())
 }
 
-pub(in crate::index) fn extract_beer_recommendation_answer_from_line(lower: &str) -> Option<String> {
+pub(in crate::index) fn extract_beer_recommendation_answer_from_line(
+    lower: &str,
+) -> Option<String> {
     (lower.contains("beer") && lower.contains("pilsner") && lower.contains("lager"))
         .then_some("I recommended using a Pilsner or Lager for the recipe.".to_string())
 }
@@ -4923,7 +4951,10 @@ pub(in crate::index) fn extract_two_factor_method_answer_from_line(
     ))
 }
 
-pub(in crate::index) fn extract_session_education_answer(line: &str, lower: &str) -> Option<String> {
+pub(in crate::index) fn extract_session_education_answer(
+    line: &str,
+    lower: &str,
+) -> Option<String> {
     let mut answer = extract_phrase_after_any_index(
         line,
         lower,
@@ -5210,7 +5241,10 @@ pub(in crate::index) fn extract_session_location_answer(
     .map(|value| normalize_location_kg_value(&value))
 }
 
-pub(in crate::index) fn extract_session_occupation_answer(line: &str, lower: &str) -> Option<String> {
+pub(in crate::index) fn extract_session_occupation_answer(
+    line: &str,
+    lower: &str,
+) -> Option<String> {
     extract_phrase_after_any_index(
         line,
         lower,
@@ -5229,32 +5263,28 @@ pub(in crate::index) fn extract_session_occupation_answer(line: &str, lower: &st
 }
 
 pub(in crate::index) fn extract_money_answer_from_line(line: &str) -> Option<String> {
-    Regex::new(r"(?i)(\$\d[\d,]*(?:\.\d+)?)")
-        .unwrap()
+    compile_regex(r"(?i)(\$\d[\d,]*(?:\.\d+)?)")
         .captures(line)
         .and_then(|caps| caps.get(1))
         .map(|m| m.as_str().trim().to_string())
 }
 
 pub(in crate::index) fn extract_percent_answer_from_line(line: &str) -> Option<String> {
-    Regex::new(r"(?i)(\d+(?:\.\d+)?%)")
-        .unwrap()
+    compile_regex(r"(?i)(\d+(?:\.\d+)?%)")
         .captures(line)
         .and_then(|caps| caps.get(1))
         .map(|m| m.as_str().trim().to_string())
 }
 
 pub(in crate::index) fn extract_speed_answer_from_line(line: &str) -> Option<String> {
-    Regex::new(r"(?i)(\d+(?:\.\d+)?\s*(?:mbps|gbps))")
-        .unwrap()
+    compile_regex(r"(?i)(\d+(?:\.\d+)?\s*(?:mbps|gbps))")
         .captures(line)
         .and_then(|caps| caps.get(1))
         .map(|m| m.as_str().trim().to_string())
 }
 
 pub(in crate::index) fn extract_university_name_from_line(line: &str) -> Option<String> {
-    Regex::new(r"([A-Z][A-Za-z&.'-]*(?:\s+[A-Z][A-Za-z&.'-]*)*\s+University)")
-        .unwrap()
+    compile_regex(r"([A-Z][A-Za-z&.'-]*(?:\s+[A-Z][A-Za-z&.'-]*)*\s+University)")
         .captures(line)
         .and_then(|caps| caps.get(1))
         .map(|m| m.as_str().trim().to_string())
@@ -5377,8 +5407,7 @@ pub(in crate::index) fn doctor_role_sort_key(role: &str) -> usize {
 }
 
 pub(in crate::index) fn doctor_visit_event_key(role: &str, lower: &str) -> String {
-    let day = Regex::new(r"\b(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{1,2})(?:st|nd|rd|th)?\b")
-        .unwrap()
+    let day = compile_regex(r"\b(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{1,2})(?:st|nd|rd|th)?\b")
         .captures(lower)
         .and_then(|caps| caps.get(1))
         .map(|m| m.as_str().to_string());
@@ -5389,10 +5418,9 @@ pub(in crate::index) fn doctor_visit_event_key(role: &str, lower: &str) -> Strin
 }
 
 pub(in crate::index) fn extract_duration_answer_from_line(line: &str) -> Option<String> {
-    Regex::new(
+    compile_regex(
         r"(?i)\b((?:about\s+)?(?:an?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d+(?:\.\d+)?(?:\s*-\s*\d+(?:\.\d+)?)?)\s+(?:days?|weeks?|months?|years?|hours?|minutes?)(?:\s+(?:ago|now|each way))?)\b",
     )
-    .unwrap()
     .captures(line)
     .and_then(|caps| caps.get(1))
     .map(|m| m.as_str().trim().to_string())
@@ -5412,10 +5440,9 @@ pub(in crate::index) fn normalize_current_duration_answer(duration: &str) -> Str
 
 pub(in crate::index) fn duration_answer_magnitude(duration: &str) -> Option<f32> {
     let lower = duration.to_ascii_lowercase();
-    let caps = Regex::new(
+    let caps = compile_regex(
         r"\b(\d+(?:\.\d+)?|an?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)(?:\s*-\s*(\d+(?:\.\d+)?))?\s+(day|week|month|year|hour|minute)s?\b",
     )
-    .unwrap()
     .captures(&lower)?;
     let quantity = match caps.get(2).map(|m| m.as_str()) {
         Some(value) => value.parse::<f32>().ok()?,
@@ -5505,8 +5532,7 @@ pub(in crate::index) fn extract_tablespoon_water_ounces(line: &str) -> Option<f3
     {
         return None;
     }
-    Regex::new(r"(?i)\b(\d+(?:\.\d+)?)\s+ounces?\s+of\s+water\b")
-        .unwrap()
+    compile_regex(r"(?i)\b(\d+(?:\.\d+)?)\s+ounces?\s+of\s+water\b")
         .captures(line)
         .and_then(|caps| caps.get(1))
         .and_then(|m| m.as_str().parse::<f32>().ok())
@@ -5527,8 +5553,7 @@ pub(in crate::index) fn extract_date_or_time_answer_from_line(line: &str) -> Opt
         r"(?i)\b(\d{1,2}\s?(?:AM|PM))\b",
         r"(?i)\b(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b",
     ] {
-        if let Some(value) = Regex::new(pattern)
-            .unwrap()
+        if let Some(value) = compile_regex(pattern)
             .captures(line)
             .and_then(|caps| caps.get(1))
             .map(|m| m.as_str().trim().to_string())
@@ -5545,8 +5570,7 @@ pub(in crate::index) fn extract_color_answer_from_line(line: &str) -> Option<Str
         r"(?i)\b((?:light|dark|pale|bright|deep|soft)\s+(?:gray|grey|blue|green|pink|purple|yellow|red|orange|white|black|beige|brown))\b",
         r"(?i)\b(gray|grey|blue|green|pink|purple|yellow|red|orange|white|black|beige|brown)\b",
     ] {
-        if let Some(value) = Regex::new(pattern)
-            .unwrap()
+        if let Some(value) = compile_regex(pattern)
             .captures(line)
             .and_then(|caps| caps.get(1))
             .map(|m| m.as_str().trim().to_string())
@@ -5557,7 +5581,10 @@ pub(in crate::index) fn extract_color_answer_from_line(line: &str) -> Option<Str
     None
 }
 
-pub(in crate::index) fn extract_query_aligned_numeric_answer(task_lower: &str, line: &str) -> Option<String> {
+pub(in crate::index) fn extract_query_aligned_numeric_answer(
+    task_lower: &str,
+    line: &str,
+) -> Option<String> {
     let mut terms = synthetic_query_terms(task_lower)
         .into_iter()
         .filter(|term| term.len() >= 4)
@@ -5587,11 +5614,10 @@ pub(in crate::index) fn extract_query_aligned_numeric_answer(task_lower: &str, l
     let anchor_terms = assistant_followup_anchor_terms(task_lower);
     let mut best_anchor_match: Option<(usize, usize, String)> = None;
     for term in &terms {
-        let pattern = Regex::new(&format!(
+        let pattern = compile_regex(&format!(
             r"(?i)\b((?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred))\s+{}s?\b",
             regex::escape(&term)
-        ))
-        .unwrap();
+        ));
         for capture in pattern.captures_iter(line) {
             let Some(full_match) = capture.get(0) else {
                 continue;
@@ -5621,11 +5647,10 @@ pub(in crate::index) fn extract_query_aligned_numeric_answer(task_lower: &str, l
         return Some(value);
     }
     for term in terms {
-        let pattern = Regex::new(&format!(
+        let pattern = compile_regex(&format!(
             r"(?i)\b((?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred))\s+{}s?\b",
             regex::escape(&term)
-        ))
-        .unwrap();
+        ));
         if let Some(value) = pattern
             .captures(line)
             .and_then(|caps| caps.get(1))
@@ -5922,10 +5947,9 @@ pub(in crate::index) fn extract_family_origin_antique_items_from_line(
         return Vec::new();
     }
 
-    let pattern = Regex::new(
+    let pattern = compile_regex(
         r"(?i)(?:antique|vintage|depression-era)\s+[a-z][a-z-]*(?:\s+[a-z][a-z-]*){0,3}",
-    )
-    .unwrap();
+    );
     let mut items = Vec::new();
     let mut seen = HashSet::new();
     for item_match in pattern.find_iter(line) {
@@ -5990,7 +6014,7 @@ pub(in crate::index) fn extract_born_child_names_from_line(line: &str, lower: &s
     let mut seen = HashSet::new();
 
     let twin_pattern =
-        Regex::new(r"(?i)\btwins?(?:\s+\w+)?\s*,\s*([A-Z][a-z]+)\s+and\s+([A-Z][a-z]+)\b").unwrap();
+        compile_regex(r"(?i)\btwins?(?:\s+\w+)?\s*,\s*([A-Z][a-z]+)\s+and\s+([A-Z][a-z]+)\b");
     for caps in twin_pattern.captures_iter(line) {
         for idx in [1, 2] {
             let Some(name_match) = caps.get(idx) else {
@@ -6005,8 +6029,8 @@ pub(in crate::index) fn extract_born_child_names_from_line(line: &str, lower: &s
     }
 
     let single_patterns = [
-        Regex::new(r"(?i)\bbaby\s+(?:boy|girl)\s+named\s+([A-Z][a-z]+)\b").unwrap(),
-        Regex::new(r"(?i)\b(?:son|daughter)\s+([A-Z][a-z]+)\b").unwrap(),
+        compile_regex(r"(?i)\bbaby\s+(?:boy|girl)\s+named\s+([A-Z][a-z]+)\b"),
+        compile_regex(r"(?i)\b(?:son|daughter)\s+([A-Z][a-z]+)\b"),
     ];
     for pattern in &single_patterns {
         for caps in pattern.captures_iter(line) {
@@ -6037,18 +6061,16 @@ pub(in crate::index) fn normalize_bike_service_item(text: &str) -> String {
 }
 
 pub(in crate::index) fn extract_bike_phrase_from_line(line: &str, _lower: &str) -> Option<String> {
-    let with_determiner = Regex::new(
+    let with_determiner = compile_regex(
         r"(?i)\b(?:my|the|our|a|an)\s+((?:road|commuter|mountain|hybrid|gravel|touring|electric|e-bike|ebike|bmx|trail)\s+bike)\b",
     )
-            .unwrap()
             .captures(line)
             .and_then(|caps| caps.get(1))
             .map(|m| m.as_str().trim().to_string());
     let phrase = with_determiner.or_else(|| {
-        Regex::new(
+        compile_regex(
             r"(?i)\b((?:road|commuter|mountain|hybrid|gravel|touring|electric|e-bike|ebike|bmx|trail)\s+bike)\b",
         )
-            .unwrap()
             .captures(line)
             .and_then(|caps| caps.get(1))
             .map(|m| m.as_str().trim().to_string())
@@ -6093,7 +6115,10 @@ pub(in crate::index) fn render_day_count_answer(count: usize) -> String {
     format!("{count} {}", if count == 1 { "day" } else { "days" })
 }
 
-pub(in crate::index) fn line_describes_countable_fitness_class_schedule(line: &str, lower: &str) -> bool {
+pub(in crate::index) fn line_describes_countable_fitness_class_schedule(
+    line: &str,
+    lower: &str,
+) -> bool {
     let speaker_grounded = lower.starts_with("user:") || line.trim_start().starts_with('-');
     let assistant_restate = lower.contains("your ");
     let explicit_class_signal = task_contains_any(
@@ -6164,7 +6189,11 @@ pub(in crate::index) fn push_month_day_range(
     }
 }
 
-pub(in crate::index) fn extract_month_day_values_from_line(line: &str, lower: &str, month: &str) -> Vec<u32> {
+pub(in crate::index) fn extract_month_day_values_from_line(
+    line: &str,
+    lower: &str,
+    month: &str,
+) -> Vec<u32> {
     if !lower.contains(month) {
         return Vec::new();
     }
@@ -6173,11 +6202,10 @@ pub(in crate::index) fn extract_month_day_values_from_line(line: &str, lower: &s
     let mut days = Vec::new();
     let mut seen = HashSet::new();
 
-    let month_range = Regex::new(&format!(
+    let month_range = compile_regex(&format!(
         r"(?i)\b{}\s+(\d{{1,2}})(?:st|nd|rd|th)?\s*-\s*(\d{{1,2}})(?:st|nd|rd|th)?\b",
         month_pattern
-    ))
-    .unwrap();
+    ));
     for caps in month_range.captures_iter(line) {
         let Some(start) = caps.get(1).and_then(|m| m.as_str().parse::<u32>().ok()) else {
             continue;
@@ -6188,11 +6216,10 @@ pub(in crate::index) fn extract_month_day_values_from_line(line: &str, lower: &s
         push_month_day_range(&mut days, &mut seen, start, end);
     }
 
-    let day_pair = Regex::new(&format!(
+    let day_pair = compile_regex(&format!(
         r"(?i)\b(\d{{1,2}})(?:st|nd|rd|th)?\s+and\s+(\d{{1,2}})(?:st|nd|rd|th)?\s+of\s+{}\b",
         month_pattern
-    ))
-    .unwrap();
+    ));
     for caps in day_pair.captures_iter(line) {
         let Some(first) = caps.get(1).and_then(|m| m.as_str().parse::<u32>().ok()) else {
             continue;
@@ -6204,11 +6231,10 @@ pub(in crate::index) fn extract_month_day_values_from_line(line: &str, lower: &s
         push_month_day(&mut days, &mut seen, second);
     }
 
-    let month_single = Regex::new(&format!(
+    let month_single = compile_regex(&format!(
         r"(?i)\b{}\s+(\d{{1,2}})(?:st|nd|rd|th)?\b",
         month_pattern
-    ))
-    .unwrap();
+    ));
     for caps in month_single.captures_iter(line) {
         let Some(day) = caps.get(1).and_then(|m| m.as_str().parse::<u32>().ok()) else {
             continue;
@@ -6216,11 +6242,10 @@ pub(in crate::index) fn extract_month_day_values_from_line(line: &str, lower: &s
         push_month_day(&mut days, &mut seen, day);
     }
 
-    let of_month_single = Regex::new(&format!(
+    let of_month_single = compile_regex(&format!(
         r"(?i)\b(\d{{1,2}})(?:st|nd|rd|th)?\s+of\s+{}\b",
         month_pattern
-    ))
-    .unwrap();
+    ));
     for caps in of_month_single.captures_iter(line) {
         let Some(day) = caps.get(1).and_then(|m| m.as_str().parse::<u32>().ok()) else {
             continue;
@@ -6278,8 +6303,7 @@ pub(in crate::index) fn line_matches_query_month_or_numeric_date(
     let Some(target_month) = month_name_to_number(month) else {
         return false;
     };
-    Regex::new(r"(?i)\b(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?\b")
-        .unwrap()
+    compile_regex(r"(?i)\b(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?\b")
         .captures_iter(line)
         .filter_map(|caps| caps.get(1))
         .filter_map(|value| value.as_str().parse::<u32>().ok())
@@ -6287,8 +6311,7 @@ pub(in crate::index) fn line_matches_query_month_or_numeric_date(
 }
 
 pub(in crate::index) fn extract_first_quoted_phrase(line: &str) -> Option<String> {
-    Regex::new(r#""([^"]+)""#)
-        .unwrap()
+    compile_regex(r#""([^"]+)""#)
         .captures(line)
         .and_then(|caps| caps.get(1))
         .map(|m| m.as_str().trim().to_string())
@@ -6529,7 +6552,10 @@ pub(in crate::index) fn extract_citrus_fruits_from_line(_line: &str, lower: &str
     fruits
 }
 
-pub(in crate::index) fn extract_food_delivery_service_from_line(_line: &str, lower: &str) -> Option<String> {
+pub(in crate::index) fn extract_food_delivery_service_from_line(
+    _line: &str,
+    lower: &str,
+) -> Option<String> {
     let labels = [
         ("fresh fusion", "Fresh Fusion"),
         ("uber eats", "Uber Eats"),
@@ -6592,10 +6618,9 @@ pub(in crate::index) fn line_mentions_recent_three_month_window(lower: &str) -> 
 }
 
 pub(in crate::index) fn trim_trailing_relative_time_phrase(text: &str) -> String {
-    let trimmed = Regex::new(
+    let trimmed = compile_regex(
         r"(?i)\s+(?:about|around)?\s*(?:a\s+few|few|a\s+couple\s+of|couple\s+of|one|two|three|\d+)\s+(?:day|days|week|weeks|month|months|year|years)\s+ago[.!?,]?\s*$",
     )
-    .unwrap()
     .replace(text.trim(), "")
     .to_string();
     trimmed
@@ -6614,10 +6639,9 @@ pub(in crate::index) fn extract_graduation_ceremony_signature_from_line(
     {
         return None;
     }
-    let caps = Regex::new(
+    let caps = compile_regex(
         r"(?i)attended (?:my|our|the) ([^\n]+?)'s ((?:[^.!?\n]+?\s+)?graduation(?: ceremony)?(?: from [^.!?\n]+?)?)\b",
     )
-    .unwrap()
     .captures(line)?;
     let owner = normalized_synthetic_phrase_key(caps.get(1)?.as_str());
     let event =
@@ -6625,13 +6649,16 @@ pub(in crate::index) fn extract_graduation_ceremony_signature_from_line(
     Some(format!("{owner}:{event}"))
 }
 
-pub(in crate::index) fn extract_health_device_units_from_line(_line: &str, lower: &str) -> Vec<String> {
+pub(in crate::index) fn extract_health_device_units_from_line(
+    _line: &str,
+    lower: &str,
+) -> Vec<String> {
     let mut devices = Vec::new();
     let mut seen = HashSet::new();
 
     let has_specific_fitbit =
         lower.contains("fitbit versa 3 smartwatch") || lower.contains("fitbit versa 3");
-    let has_generic_fitbit = Regex::new(r"(?i)\bfitbit\b").unwrap().is_match(lower);
+    let has_generic_fitbit = compile_regex(r"(?i)\bfitbit\b").is_match(lower);
     let wearable = if has_specific_fitbit {
         Some("fitbit versa 3 smartwatch")
     } else if has_generic_fitbit {
@@ -6689,10 +6716,9 @@ pub(in crate::index) fn extract_peak_campaign_weekly_hour_delta_from_line(
     {
         return None;
     }
-    Regex::new(
+    compile_regex(
         r"(?i)\bincrease my (?:work )?hours by (\d+(?:\.\d+)?) hours? (?:weekly|a week|per week)\b",
     )
-    .unwrap()
     .captures(line)?
     .get(1)?
     .as_str()
@@ -6700,12 +6726,14 @@ pub(in crate::index) fn extract_peak_campaign_weekly_hour_delta_from_line(
     .ok()
 }
 
-pub(in crate::index) fn extract_typical_weekly_work_hours_from_line(line: &str, lower: &str) -> Option<f32> {
+pub(in crate::index) fn extract_typical_weekly_work_hours_from_line(
+    line: &str,
+    lower: &str,
+) -> Option<f32> {
     if !task_contains_any(lower, &["i usually work", "usually work"]) {
         return None;
     }
-    Regex::new(r"(?i)\bi usually work (\d+(?:\.\d+)?) hours? (?:a|per) week\b")
-        .unwrap()
+    compile_regex(r"(?i)\bi usually work (\d+(?:\.\d+)?) hours? (?:a|per) week\b")
         .captures(line)?
         .get(1)?
         .as_str()
@@ -6720,10 +6748,9 @@ pub(in crate::index) fn extract_peak_campaign_total_weekly_hours_from_line(
     if !lower.contains("peak campaign") {
         return None;
     }
-    Regex::new(
+    compile_regex(
         r"(?i)\b(?:working )?up to (\d+(?:\.\d+)?) hours?(?:\s*/\s*week|\s+per\s+week|\s+a\s+week)\b",
     )
-    .unwrap()
     .captures(line)?
     .get(1)?
     .as_str()
@@ -6731,7 +6758,9 @@ pub(in crate::index) fn extract_peak_campaign_total_weekly_hours_from_line(
     .ok()
 }
 
-pub(in crate::index) fn extract_recent_activity_query_labels(task_lower: &str) -> Vec<&'static str> {
+pub(in crate::index) fn extract_recent_activity_query_labels(
+    task_lower: &str,
+) -> Vec<&'static str> {
     let mut labels = Vec::new();
     for (label, needles) in [
         ("jogging", &["jogging", "jog"][..]),
@@ -6915,8 +6944,8 @@ pub(in crate::index) fn extract_current_magazine_subscription_updates_from_line(
 
 pub(in crate::index) fn extract_hour_minute_total_from_text(text: &str) -> Option<i32> {
     for regex in [
-        Regex::new(r"(?i)\b(\d+)\s*h(?:ours?)?\s*(\d+)\s*min(?:ute)?s?\b").unwrap(),
-        Regex::new(r"(?i)\b(\d+)\s+hours?\s+(?:and\s+)?(\d+)\s+minutes?\b").unwrap(),
+        compile_regex(r"(?i)\b(\d+)\s*h(?:ours?)?\s*(\d+)\s*min(?:ute)?s?\b"),
+        compile_regex(r"(?i)\b(\d+)\s+hours?\s+(?:and\s+)?(\d+)\s+minutes?\b"),
     ] {
         let Some(caps) = regex.captures(text) else {
             continue;
@@ -6956,7 +6985,10 @@ pub(in crate::index) fn extract_marathon_completion_minutes_from_line(
     None
 }
 
-pub(in crate::index) fn extract_marathon_target_minutes_from_line(line: &str, lower: &str) -> Option<i32> {
+pub(in crate::index) fn extract_marathon_target_minutes_from_line(
+    line: &str,
+    lower: &str,
+) -> Option<i32> {
     if !lower.contains("marathon") || !lower.contains("target time") {
         return None;
     }
@@ -6975,7 +7007,10 @@ pub(in crate::index) fn extract_marathon_target_minutes_from_line(line: &str, lo
     None
 }
 
-pub(in crate::index) fn extract_attended_movie_festival_from_line(line: &str, lower: &str) -> Option<String> {
+pub(in crate::index) fn extract_attended_movie_festival_from_line(
+    line: &str,
+    lower: &str,
+) -> Option<String> {
     if !task_contains_any(
         lower,
         &[
@@ -6993,10 +7028,9 @@ pub(in crate::index) fn extract_attended_movie_festival_from_line(line: &str, lo
     ) {
         return None;
     }
-    let caps = Regex::new(
+    let caps = compile_regex(
         r"(?i)\b(?:at|after the screening at|like)\b\s+(?:the\s+)?([A-Z][A-Za-z0-9&' .-]+?Film Festival|AFI Fest|TIFF)\b",
     )
-    .unwrap()
     .captures(line)?;
     Some(caps.get(1)?.as_str().trim().to_string())
 }
@@ -7020,14 +7054,15 @@ pub(in crate::index) fn spell_small_cardinal(count: usize) -> Option<&'static st
     }
 }
 
-pub(in crate::index) fn extract_music_release_signatures_from_line(line: &str, lower: &str) -> Vec<String> {
+pub(in crate::index) fn extract_music_release_signatures_from_line(
+    line: &str,
+    lower: &str,
+) -> Vec<String> {
     let mut releases = Vec::new();
     let mut seen = HashSet::new();
 
     if task_contains_any(lower, &["i bought", "i ended up buying"]) {
-        if let Some(caps) = Regex::new(r#"(?i)\b(?:EP|album)\s+["']([^"']+)["']"#)
-            .unwrap()
-            .captures(line)
+        if let Some(caps) = compile_regex(r#"(?i)\b(?:EP|album)\s+["']([^"']+)["']"#).captures(line)
         {
             if let Some(title) = caps.get(1) {
                 let key = normalized_synthetic_phrase_key(title.as_str());
@@ -7039,9 +7074,8 @@ pub(in crate::index) fn extract_music_release_signatures_from_line(line: &str, l
     }
 
     if lower.contains("downloaded") {
-        if let Some(caps) = Regex::new(r#"(?i)\balbum\s+["']([^"']+)["'][^.\n]*\bdownloaded\b"#)
-            .unwrap()
-            .captures(line)
+        if let Some(caps) =
+            compile_regex(r#"(?i)\balbum\s+["']([^"']+)["'][^.\n]*\bdownloaded\b"#).captures(line)
         {
             if let Some(title) = caps.get(1) {
                 let key = normalized_synthetic_phrase_key(title.as_str());
@@ -7054,9 +7088,10 @@ pub(in crate::index) fn extract_music_release_signatures_from_line(line: &str, l
 
     if lower.contains("vinyl") && lower.contains("signed") {
         for regex in [
-            Regex::new(r"(?i)\bgot my ([A-Z][A-Za-z0-9&' .-]+?) vinyl signed\b").unwrap(),
-            Regex::new(r"(?i)\bsaw ([A-Z][A-Za-z0-9&' .-]+?) live[^.\n]*\bgot my vinyl signed\b")
-                .unwrap(),
+            compile_regex(r"(?i)\bgot my ([A-Z][A-Za-z0-9&' .-]+?) vinyl signed\b"),
+            compile_regex(
+                r"(?i)\bsaw ([A-Z][A-Za-z0-9&' .-]+?) live[^.\n]*\bgot my vinyl signed\b",
+            ),
         ] {
             let Some(caps) = regex.captures(line) else {
                 continue;
@@ -7112,14 +7147,12 @@ pub(in crate::index) fn extract_owned_musical_instrument_signatures_from_line(
     {
         let mut inserted = false;
         for regex in [
-            Regex::new(
+            compile_regex(
                 r"\bdrum set,\s+a\s+((?:\d+-piece\s+)?[A-Z][A-Za-z0-9]+(?:\s+[A-Z0-9][A-Za-z0-9]+)*)\b",
-            )
-            .unwrap(),
-            Regex::new(
+            ),
+            compile_regex(
                 r"\b((?:\d+-piece\s+)?[A-Z][A-Za-z0-9]+(?:\s+[A-Z0-9][A-Za-z0-9]+)*)\s+drum set\b",
-            )
-            .unwrap(),
+            ),
         ] {
             let Some(caps) = regex.captures(line) else {
                 continue;
@@ -7138,10 +7171,9 @@ pub(in crate::index) fn extract_owned_musical_instrument_signatures_from_line(
     if lower.contains("piano") && lower.contains(" my ") {
         let mut inserted = false;
         for regex in [
-            Regex::new(r"\bpiano,\s+a\s+([A-Z][A-Za-z0-9]+(?:\s+[A-Z0-9][A-Za-z0-9]+)*)\b")
-                .unwrap(),
-            Regex::new(r"\b([A-Z][A-Za-z0-9]+(?:\s+[A-Z0-9][A-Za-z0-9]+)*)\s+piano\b").unwrap(),
-            Regex::new(r"\b(Korg\s+B1)\b").unwrap(),
+            compile_regex(r"\bpiano,\s+a\s+([A-Z][A-Za-z0-9]+(?:\s+[A-Z0-9][A-Za-z0-9]+)*)\b"),
+            compile_regex(r"\b([A-Z][A-Za-z0-9]+(?:\s+[A-Z0-9][A-Za-z0-9]+)*)\s+piano\b"),
+            compile_regex(r"\b(Korg\s+B1)\b"),
         ] {
             let Some(caps) = regex.captures(line) else {
                 continue;
@@ -7160,12 +7192,10 @@ pub(in crate::index) fn extract_owned_musical_instrument_signatures_from_line(
     if lower.contains("acoustic guitar") {
         let mut inserted = false;
         for regex in [
-            Regex::new(
+            compile_regex(
                 r"\bacoustic guitar,\s+a\s+([A-Z][A-Za-z0-9]+(?:\s+[A-Z0-9][A-Za-z0-9]+)*)\b",
-            )
-            .unwrap(),
-            Regex::new(r"\b([A-Z][A-Za-z0-9]+(?:\s+[A-Z0-9][A-Za-z0-9]+)*)\s+acoustic guitar\b")
-                .unwrap(),
+            ),
+            compile_regex(r"\b([A-Z][A-Za-z0-9]+(?:\s+[A-Z0-9][A-Za-z0-9]+)*)\s+acoustic guitar\b"),
         ] {
             let Some(caps) = regex.captures(line) else {
                 continue;
@@ -7184,14 +7214,10 @@ pub(in crate::index) fn extract_owned_musical_instrument_signatures_from_line(
     if lower.contains("electric guitar") {
         let mut inserted = false;
         for regex in [
-            Regex::new(
+            compile_regex(
                 r"\b(?:my|had my|playing my)\s+(?:[a-z]+\s+)?([A-Z][A-Za-z0-9]+(?:\s+[A-Z0-9][A-Za-z0-9]+)*)\s+electric guitar\b",
-            )
-            .unwrap(),
-            Regex::new(
-                r"\b([A-Z][A-Za-z0-9]+(?:\s+[A-Z0-9][A-Za-z0-9]+)*)\s+electric guitar\b",
-            )
-            .unwrap(),
+            ),
+            compile_regex(r"\b([A-Z][A-Za-z0-9]+(?:\s+[A-Z0-9][A-Za-z0-9]+)*)\s+electric guitar\b"),
         ] {
             let Some(caps) = regex.captures(line) else {
                 continue;
@@ -7210,9 +7236,8 @@ pub(in crate::index) fn extract_owned_musical_instrument_signatures_from_line(
     if lower.contains("ukulele") && lower.contains("my ") {
         let mut inserted = false;
         for regex in [
-            Regex::new(r"\bukulele,\s+a\s+([A-Z][A-Za-z0-9]+(?:\s+[A-Z0-9][A-Za-z0-9]+)*)\b")
-                .unwrap(),
-            Regex::new(r"\b([A-Z][A-Za-z0-9]+(?:\s+[A-Z0-9][A-Za-z0-9]+)*)\s+ukulele\b").unwrap(),
+            compile_regex(r"\bukulele,\s+a\s+([A-Z][A-Za-z0-9]+(?:\s+[A-Z0-9][A-Za-z0-9]+)*)\b"),
+            compile_regex(r"\b([A-Z][A-Za-z0-9]+(?:\s+[A-Z0-9][A-Za-z0-9]+)*)\s+ukulele\b"),
         ] {
             let Some(caps) = regex.captures(line) else {
                 continue;
@@ -7246,8 +7271,8 @@ pub(in crate::index) fn extract_online_course_completion_updates_from_line(
 
     let mut count = None;
     for regex in [
-        Regex::new(r"(?i)\bcompleted\s+([A-Za-z0-9,-]+)\s+courses?\b").unwrap(),
-        Regex::new(r"(?i)\b([A-Za-z0-9,-]+)\s+courses?\s+on\b").unwrap(),
+        compile_regex(r"(?i)\bcompleted\s+([A-Za-z0-9,-]+)\s+courses?\b"),
+        compile_regex(r"(?i)\b([A-Za-z0-9,-]+)\s+courses?\s+on\b"),
     ] {
         let Some(caps) = regex.captures(line) else {
             continue;
@@ -7358,7 +7383,10 @@ pub(in crate::index) fn extract_recent_furniture_action_signatures_from_line(
     items
 }
 
-pub(in crate::index) fn extract_loyalty_point_goal_total_from_line(line: &str, lower: &str) -> Option<i32> {
+pub(in crate::index) fn extract_loyalty_point_goal_total_from_line(
+    line: &str,
+    lower: &str,
+) -> Option<i32> {
     if !lower.contains("point") {
         return None;
     }
@@ -7367,7 +7395,7 @@ pub(in crate::index) fn extract_loyalty_point_goal_total_from_line(line: &str, l
         r"(?i)\breach(?:ing)?\s+(\d+)\s+points\b",
         r"(?i)\b(\d+)\s+points goal\b",
     ] {
-        let regex = Regex::new(pattern).unwrap();
+        let regex = compile_regex(pattern);
         if let Some(caps) = regex.captures(line) {
             if let Ok(value) = caps.get(1)?.as_str().parse::<i32>() {
                 return Some(value);
@@ -7389,7 +7417,7 @@ pub(in crate::index) fn extract_loyalty_point_current_total_from_line(
         r"(?i)\bmy total to\s+(\d+)\s+points\b",
         r"(?i)\btotal to\s+(\d+)\s+points so far\b",
     ] {
-        let regex = Regex::new(pattern).unwrap();
+        let regex = compile_regex(pattern);
         if let Some(caps) = regex.captures(line) {
             if let Ok(value) = caps.get(1)?.as_str().parse::<i32>() {
                 return Some(value);
@@ -7469,7 +7497,7 @@ pub(in crate::index) fn join_reason_clauses(items: &[String]) -> String {
         _ => {
             let mut rendered = items[..items.len() - 1].join(", ");
             rendered.push_str(", and ");
-            rendered.push_str(items.last().unwrap());
+            rendered.push_str(&items[items.len() - 1]);
             rendered
         },
     }
@@ -7479,7 +7507,9 @@ pub(in crate::index) fn collapsed_owned_instrument_count(instruments: &HashSet<S
     retained_owned_instrument_keys(instruments).len()
 }
 
-pub(in crate::index) fn retained_owned_instrument_keys(instruments: &HashSet<String>) -> Vec<String> {
+pub(in crate::index) fn retained_owned_instrument_keys(
+    instruments: &HashSet<String>,
+) -> Vec<String> {
     let mut retained = instruments
         .iter()
         .filter(|instrument| {
@@ -7546,7 +7576,7 @@ pub(in crate::index) fn compose_current_musical_instrument_count_answer(
         _ => {
             let mut leading = descriptors[..descriptors.len() - 1].join(", ");
             leading.push_str(", and ");
-            leading.push_str(descriptors.last().unwrap());
+            leading.push_str(&descriptors[descriptors.len() - 1]);
             leading
         },
     };
@@ -7708,7 +7738,10 @@ pub(in crate::index) fn extract_schedule_shift_from_table(
     None
 }
 
-pub(in crate::index) fn extract_served_dish_from_query(task: &str, task_lower: &str) -> Option<String> {
+pub(in crate::index) fn extract_served_dish_from_query(
+    task: &str,
+    task_lower: &str,
+) -> Option<String> {
     let marker = if let Some(idx) = task_lower.find("serves ") {
         idx + "serves ".len()
     } else if let Some(idx) = task_lower.find("serve ") {
@@ -7809,10 +7842,9 @@ pub(in crate::index) fn extract_commute_duration_from_line(line: &str) -> Option
     if !lower.contains("commute") {
         return None;
     }
-    let pattern = Regex::new(
+    let pattern = compile_regex(
         r"(?i)(?:which\s+takes|takes|is)\s+(?:about\s+)?((?:an?|one|\d+)\s+(?:hours?|minutes?)(?:\s+each\s+way)?)",
-    )
-    .unwrap();
+    );
     pattern.captures(line).and_then(|caps| {
         caps.get(1).map(|m| {
             m.as_str()
@@ -7838,7 +7870,7 @@ pub(in crate::index) fn extract_store_name_from_line(_line: &str, lower: &str) -
 }
 
 pub(in crate::index) fn extract_image_subject_from_query(task: &str) -> Option<String> {
-    let scoped = Regex::new(r"of the ([A-Z][A-Za-z-]+)").unwrap();
+    let scoped = compile_regex(r"of the ([A-Z][A-Za-z-]+)");
     if let Some(subject) = scoped
         .captures(task)
         .and_then(|caps| caps.get(1))
@@ -7872,11 +7904,10 @@ pub(in crate::index) fn extract_image_subject_body_color(
     lines: &[String],
     subject: &str,
 ) -> Option<(String, Vec<String>)> {
-    let pattern = Regex::new(&format!(
+    let pattern = compile_regex(&format!(
         r"(?i)\b{}\b[^.]*?\bhas a ([a-z ]+?) body",
         regex::escape(subject)
-    ))
-    .unwrap();
+    ));
     for line in lines {
         let Some(caps) = pattern.captures(line) else {
             continue;
@@ -7896,7 +7927,10 @@ pub(in crate::index) fn extract_image_subject_body_color(
     None
 }
 
-pub(in crate::index) fn extract_issue_after_service_line(line: &str, lower: &str) -> Option<String> {
+pub(in crate::index) fn extract_issue_after_service_line(
+    line: &str,
+    lower: &str,
+) -> Option<String> {
     let mut issue = extract_phrase_after_any_index(
         line,
         lower,
@@ -7919,7 +7953,7 @@ pub(in crate::index) fn extract_issue_after_service_line(line: &str, lower: &str
 }
 
 pub(in crate::index) fn extract_dollar_amounts(line: &str) -> Vec<f32> {
-    let pattern = Regex::new(r"\$([0-9][0-9,]*(?:\.[0-9]+)?)").unwrap();
+    let pattern = compile_regex(r"\$([0-9][0-9,]*(?:\.[0-9]+)?)");
     pattern
         .captures_iter(line)
         .filter_map(|caps| caps.get(1))
@@ -8017,7 +8051,10 @@ pub(in crate::index) fn split_duration_aggregate_segments(line: &str) -> Vec<Str
     segments
 }
 
-pub(in crate::index) fn extract_focused_dollar_amounts(line: &str, focus_terms: &[String]) -> Vec<f32> {
+pub(in crate::index) fn extract_focused_dollar_amounts(
+    line: &str,
+    focus_terms: &[String],
+) -> Vec<f32> {
     let amounts = extract_dollar_amounts(line);
     if amounts.len() <= 1 {
         return amounts;
@@ -8124,7 +8161,9 @@ pub(in crate::index) fn format_money_answer(value: f32) -> String {
     format!("${}", format_numeric_answer(value))
 }
 
-pub(in crate::index) fn extract_aggregate_duration_value(line: &str) -> Option<SyntheticDurationValue> {
+pub(in crate::index) fn extract_aggregate_duration_value(
+    line: &str,
+) -> Option<SyntheticDurationValue> {
     fn parse_amount(token: &str) -> Option<f32> {
         match token.to_ascii_lowercase().as_str() {
             "a" | "an" | "one" => Some(1.0),
@@ -8145,18 +8184,15 @@ pub(in crate::index) fn extract_aggregate_duration_value(line: &str) -> Option<S
         }
     }
 
-    let postfix_half = Regex::new(
+    let postfix_half = compile_regex(
         r"(?i)\b(?:about\s+|around\s+)?(a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|couple|few|\d+(?:\.\d+)?)(?:\s+|-)(day|days|week|weeks|month|months|year|years|hour|hours|minute|minutes)\s+and\s+a\s+half\b",
-    )
-    .unwrap();
-    let long_form = Regex::new(
+    );
+    let long_form = compile_regex(
         r"(?i)\b(?:(a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|couple|few|\d+(?:\.\d+)?)\s+)?(day|days|week|weeks|month|months|year|years|hour|hours|minute|minutes)(?:-|\s+)long\b",
-    )
-    .unwrap();
-    let prefix_half = Regex::new(
+    );
+    let prefix_half = compile_regex(
         r"(?i)\b(?:about\s+|around\s+)?(a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|couple|few|\d+(?:\.\d+)?)(\s+and\s+a\s+half)?(?:\s+|-)(day|days|week|weeks|month|months|year|years|hour|hours|minute|minutes)\b",
-    )
-    .unwrap();
+    );
     let (amount_token, has_half, unit) = if let Some(caps) = postfix_half.captures(line) {
         (
             caps.get(1)?.as_str().to_string(),
@@ -8208,9 +8244,10 @@ pub(in crate::index) fn extract_aggregate_duration_value(line: &str) -> Option<S
     })
 }
 
-pub(in crate::index) fn extract_requested_aggregate_duration_unit(task_lower: &str) -> Option<&'static str> {
-    let caps = Regex::new(r"(?i)\bhow many\s+(day|days|week|weeks|month|months|year|years|hour|hours|minute|minutes)\b")
-        .unwrap()
+pub(in crate::index) fn extract_requested_aggregate_duration_unit(
+    task_lower: &str,
+) -> Option<&'static str> {
+    let caps = compile_regex(r"(?i)\bhow many\s+(day|days|week|weeks|month|months|year|years|hour|hours|minute|minutes)\b")
         .captures(task_lower)?;
     match caps.get(1)?.as_str().to_ascii_lowercase().as_str() {
         "minute" | "minutes" => Some("minute"),
@@ -8446,7 +8483,7 @@ pub(in crate::index) fn parse_education_stage_fact(line: &str) -> Option<Educati
     let years = extract_year_mentions(&body);
 
     let high_school_range =
-        Regex::new(r"(?i)\bhigh school\b.*?\bfrom\s+(\d{4})\s+to\s+(\d{4})\b").unwrap();
+        compile_regex(r"(?i)\bhigh school\b.*?\bfrom\s+(\d{4})\s+to\s+(\d{4})\b");
     if let Some(caps) = high_school_range.captures(&body) {
         let start_year = caps.get(1)?.as_str().parse::<i32>().ok()?;
         let end_year = caps.get(2)?.as_str().parse::<i32>().ok()?;
@@ -8546,7 +8583,7 @@ pub(in crate::index) fn extract_education_duration_years(lower: &str) -> Option<
 }
 
 pub(in crate::index) fn extract_year_mentions(text: &str) -> Vec<i32> {
-    let years = Regex::new(r"\b(19|20)\d{2}\b").unwrap();
+    let years = compile_regex(r"\b(19|20)\d{2}\b");
     years
         .captures_iter(text)
         .filter_map(|caps| caps.get(0).and_then(|m| m.as_str().parse::<i32>().ok()))
@@ -8644,7 +8681,9 @@ pub(in crate::index) fn extract_multi_session_money_focus_terms(task_lower: &str
     terms
 }
 
-pub(in crate::index) fn extract_multi_session_duration_focus_terms(task_lower: &str) -> Vec<String> {
+pub(in crate::index) fn extract_multi_session_duration_focus_terms(
+    task_lower: &str,
+) -> Vec<String> {
     const STOP: &[&str] = &[
         "total",
         "combined",
@@ -8877,10 +8916,9 @@ pub(in crate::index) fn extract_sale_total(line: &str) -> Option<f32> {
         return None;
     }
 
-    let explicit_total = Regex::new(
+    let explicit_total = compile_regex(
         r"(?:earned|earning(?: a total of)?|for a total of)\s+\$([0-9][0-9,]*(?:\.[0-9]+)?)",
-    )
-    .unwrap();
+    );
     if let Some(caps) = explicit_total.captures(&lower) {
         if let Some(value) = caps
             .get(1)
@@ -8890,8 +8928,7 @@ pub(in crate::index) fn extract_sale_total(line: &str) -> Option<f32> {
         }
     }
 
-    let per_item =
-        Regex::new(r"sold\s+(\d+)[^$]{0,160}?\$([0-9][0-9,]*(?:\.[0-9]+)?)\s*each").unwrap();
+    let per_item = compile_regex(r"sold\s+(\d+)[^$]{0,160}?\$([0-9][0-9,]*(?:\.[0-9]+)?)\s*each");
     if let Some(caps) = per_item.captures(&lower) {
         let quantity = caps.get(1).and_then(|m| m.as_str().parse::<f32>().ok())?;
         let price = caps
@@ -9149,8 +9186,7 @@ pub(in crate::index) fn extract_previous_role(line: &str) -> Option<String> {
         return None;
     }
 
-    let pattern =
-        Regex::new(r"previous role as a[n]?\s+(.+?)(?:,|\.| and\b| but\b| with\b)").unwrap();
+    let pattern = compile_regex(r"previous role as a[n]?\s+(.+?)(?:,|\.| and\b| but\b| with\b)");
     let role = pattern
         .captures(line)?
         .get(1)?
@@ -9331,8 +9367,7 @@ pub(in crate::index) fn normalize_rewatch_title(title: &str) -> String {
 }
 
 pub(in crate::index) fn extract_origin_country_answer(line: &str) -> Option<String> {
-    Regex::new(r"(?i)home country[, ]+([A-Z][A-Za-z]+(?: [A-Z][A-Za-z]+)?)")
-        .unwrap()
+    compile_regex(r"(?i)home country[, ]+([A-Z][A-Za-z]+(?: [A-Z][A-Za-z]+)?)")
         .captures(line)
         .and_then(|captures| captures.get(1))
         .map(|value| value.as_str().trim().to_string())
@@ -9393,7 +9428,9 @@ pub(in crate::index) fn normalize_temporal_choice_option(option: &str) -> String
         .to_string()
 }
 
-pub(in crate::index) fn extract_temporal_elapsed_phrases(task_lower: &str) -> Option<(String, String)> {
+pub(in crate::index) fn extract_temporal_elapsed_phrases(
+    task_lower: &str,
+) -> Option<(String, String)> {
     let trimmed = task_lower.trim().trim_end_matches('?');
     let rest = trimmed.strip_prefix("how long had i been ")?;
     let (subject, event) = rest.split_once(" when ")?;
@@ -9416,7 +9453,9 @@ pub(in crate::index) struct SyntheticFromNowQuery {
     pub(super) append_ago: bool,
 }
 
-pub(in crate::index) fn extract_temporal_from_now_query(task_lower: &str) -> Option<SyntheticFromNowQuery> {
+pub(in crate::index) fn extract_temporal_from_now_query(
+    task_lower: &str,
+) -> Option<SyntheticFromNowQuery> {
     let trimmed = strip_temporal_reference_prefix(task_lower)
         .trim()
         .trim_end_matches('?');
@@ -9501,7 +9540,9 @@ pub(in crate::index) fn verbatim_source_group_key(entry: &BM25Entry) -> String {
     name.split('.').next().unwrap_or(name).to_string()
 }
 
-pub(in crate::index) fn parse_temporal_from_now_unit(raw: &str) -> Option<SyntheticElapsedFromNowUnit> {
+pub(in crate::index) fn parse_temporal_from_now_unit(
+    raw: &str,
+) -> Option<SyntheticElapsedFromNowUnit> {
     match raw.trim() {
         "day" | "days" => Some(SyntheticElapsedFromNowUnit::Day),
         "week" | "weeks" => Some(SyntheticElapsedFromNowUnit::Week),
@@ -9511,7 +9552,9 @@ pub(in crate::index) fn parse_temporal_from_now_unit(raw: &str) -> Option<Synthe
     }
 }
 
-pub(in crate::index) fn extract_temporal_interval_phrases(task_lower: &str) -> Option<(String, String)> {
+pub(in crate::index) fn extract_temporal_interval_phrases(
+    task_lower: &str,
+) -> Option<(String, String)> {
     let trimmed = task_lower.trim().trim_end_matches('?');
     let (before_after, start_phrase) = trimmed.split_once(" after ")?;
     let end_phrase = before_after
@@ -9767,7 +9810,10 @@ pub(in crate::index) fn best_temporal_from_now_event_line(
     Some((day, score, line))
 }
 
-pub(in crate::index) fn temporal_from_now_overlap_count(lower_line: &str, terms: &[String]) -> usize {
+pub(in crate::index) fn temporal_from_now_overlap_count(
+    lower_line: &str,
+    terms: &[String],
+) -> usize {
     terms
         .iter()
         .filter(|term| temporal_from_now_line_matches_term(lower_line, term))
@@ -9850,7 +9896,10 @@ pub(in crate::index) fn extract_current_duration_days(line: &str) -> Option<i32>
         .map(|days| days.round() as i32)
 }
 
-pub(in crate::index) fn temporal_base_day_at_line(lines: &[String], line_idx: usize) -> Option<i32> {
+pub(in crate::index) fn temporal_base_day_at_line(
+    lines: &[String],
+    line_idx: usize,
+) -> Option<i32> {
     lines
         .iter()
         .take(line_idx + 1)
@@ -10010,17 +10059,15 @@ pub(in crate::index) fn parse_temporal_count_token(token: &str) -> Option<i32> {
 
 pub(in crate::index) fn extract_duration_months_from_text(text: &str) -> Option<i32> {
     let lower = text.to_ascii_lowercase();
-    let years = Regex::new(
+    let years = compile_regex(
         r"(?i)\b(a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d+)\s+years?\b",
     )
-    .unwrap()
     .captures(&lower)
     .and_then(|caps| caps.get(1))
     .and_then(|value| parse_temporal_count_token(value.as_str()));
-    let months = Regex::new(
+    let months = compile_regex(
         r"(?i)\b(a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d+)\s+months?\b",
     )
-    .unwrap()
     .captures(&lower)
     .and_then(|caps| caps.get(1))
     .and_then(|value| parse_temporal_count_token(value.as_str()));
@@ -10032,7 +10079,10 @@ pub(in crate::index) fn extract_duration_months_from_text(text: &str) -> Option<
     }
 }
 
-pub(in crate::index) fn extract_current_role_total_months_from_line(line: &str, lower: &str) -> Option<i32> {
+pub(in crate::index) fn extract_current_role_total_months_from_line(
+    line: &str,
+    lower: &str,
+) -> Option<i32> {
     let has_total_marker = task_contains_any(
         lower,
         &[
@@ -10051,7 +10101,10 @@ pub(in crate::index) fn extract_current_role_total_months_from_line(line: &str, 
     extract_duration_months_from_text(line)
 }
 
-pub(in crate::index) fn extract_current_role_offset_months_from_line(line: &str, lower: &str) -> Option<i32> {
+pub(in crate::index) fn extract_current_role_offset_months_from_line(
+    line: &str,
+    lower: &str,
+) -> Option<i32> {
     if !task_contains_any(
         lower,
         &[
@@ -10113,7 +10166,7 @@ pub(in crate::index) fn render_month_span(total_months: i32) -> String {
 }
 
 pub(in crate::index) fn extract_explicit_date_rank(line: &str) -> Option<i32> {
-    let numeric = Regex::new(r"(?i)\b(\d{1,2})/(\d{1,2})(?:/(\d{4}))?\b").unwrap();
+    let numeric = compile_regex(r"(?i)\b(\d{1,2})/(\d{1,2})(?:/(\d{4}))?\b");
     if let Some(caps) = numeric.captures(line) {
         let month = caps.get(1)?.as_str().parse::<u32>().ok()?;
         let day = caps.get(2)?.as_str().parse::<u32>().ok()?;
@@ -10127,10 +10180,9 @@ pub(in crate::index) fn extract_explicit_date_rank(line: &str) -> Option<i32> {
         return Some(ymd_to_days(year, month, day));
     }
 
-    let month_day = Regex::new(
+    let month_day = compile_regex(
         r"(?i)\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})(?:st|nd|rd|th)?(?:,\s*(\d{4}))?\b",
-    )
-    .unwrap();
+    );
     if let Some(caps) = month_day.captures(line) {
         let month = named_month_to_number(caps.get(1)?.as_str())?;
         let day = caps.get(2)?.as_str().parse::<u32>().ok()?;
@@ -10141,10 +10193,9 @@ pub(in crate::index) fn extract_explicit_date_rank(line: &str) -> Option<i32> {
         return Some(ymd_to_days(year, month, day));
     }
 
-    let day_month_named = Regex::new(
+    let day_month_named = compile_regex(
         r"(?i)\b(\d{1,2})(?:st|nd|rd|th)?\s+(January|February|March|April|May|June|July|August|September|October|November|December)(?:,\s*(\d{4}))?\b",
-    )
-    .unwrap();
+    );
     if let Some(caps) = day_month_named.captures(line) {
         let day = caps.get(1)?.as_str().parse::<u32>().ok()?;
         let month = named_month_to_number(caps.get(2)?.as_str())?;
@@ -10155,10 +10206,9 @@ pub(in crate::index) fn extract_explicit_date_rank(line: &str) -> Option<i32> {
         return Some(ymd_to_days(year, month, day));
     }
 
-    let day_month = Regex::new(
+    let day_month = compile_regex(
         r"(?i)\b(?:the\s+)?(\d{1,2})(?:st|nd|rd|th)?\s+of\s+(January|February|March|April|May|June|July|August|September|October|November|December)(?:,\s*(\d{4}))?\b",
-    )
-    .unwrap();
+    );
     if let Some(caps) = day_month.captures(line) {
         let day = caps.get(1)?.as_str().parse::<u32>().ok()?;
         let month = named_month_to_number(caps.get(2)?.as_str())?;
@@ -10169,10 +10219,9 @@ pub(in crate::index) fn extract_explicit_date_rank(line: &str) -> Option<i32> {
         return Some(ymd_to_days(year, month, day));
     }
 
-    let fuzzy_month = Regex::new(
+    let fuzzy_month = compile_regex(
         r"(?i)\b(?:(early|mid|late)[-\s]+)?(January|February|March|April|May|June|July|August|September|October|November|December)(?:,\s*|\s+)?(\d{4})?\b",
-    )
-    .unwrap();
+    );
     let caps = fuzzy_month.captures(line)?;
     let month = named_month_to_number(caps.get(2)?.as_str())?;
     let day = match caps
@@ -10239,10 +10288,9 @@ pub(in crate::index) fn extract_title_duration_value(
 }
 
 pub(in crate::index) fn parse_leading_duration_value(text: &str) -> Option<SyntheticDurationValue> {
-    let regex = Regex::new(
+    let regex = compile_regex(
         r"(?i)^\s*(?:about\s+|around\s+)?(a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|couple|few|\d+(?:\.\d+)?)(\s+and\s+a\s+half)?\s+(day|days|week|weeks|month|months|year|years)\b",
-    )
-    .unwrap();
+    );
     let caps = regex.captures(text)?;
     let mut amount =
         caps.get(1)
@@ -10362,4 +10410,3 @@ pub(in crate::index) fn render_small_duration(amount: i32, unit: &str) -> String
     };
     format!("{amount_text} {rendered_unit}")
 }
-

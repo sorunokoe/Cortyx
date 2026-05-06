@@ -1,3 +1,6 @@
+#![allow(missing_docs)]
+#![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
+
 // Cortyx public library API.
 //
 // Exposes `index` and `miner` for in-process use by integration tests and benchmarks.

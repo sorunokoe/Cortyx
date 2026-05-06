@@ -18,7 +18,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use anyhow::Result;
+use crate::error::Result;
 use serde::{Deserialize, Serialize};
 
 /// Default global concept directory.
@@ -178,7 +178,7 @@ impl GlobalIndex {
     pub fn publish(&mut self, neuron_path: &Path, project_root: &Path) -> Result<PathBuf> {
         let name = neuron_path
             .file_name()
-            .ok_or_else(|| anyhow::anyhow!("Invalid neuron path"))?;
+            .ok_or_else(|| crate::cortyx_err!("Invalid neuron path"))?;
 
         let dest_dir = global_neurons_dir();
         std::fs::create_dir_all(&dest_dir)?;
@@ -192,7 +192,7 @@ impl GlobalIndex {
 
         // D2: Dedup check — reject if same fingerprint already published
         if self.entries.iter().any(|e| e.fingerprint == fingerprint) {
-            anyhow::bail!(
+            crate::cortyx_bail!(
                 "Concept already published (fingerprint collision). \
                  Use a more unique/specialized neuron."
             );

@@ -5,7 +5,7 @@
 #[cfg(feature = "embed")]
 use crate::embedder::{load_embeddings, EmbeddingStore};
 
-use anyhow::Result;
+use crate::error::Result;
 use rayon::prelude::*;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -30,6 +30,19 @@ use crate::neuron::{
 use crate::reasoner::{
     GraphReasoner, ReasonerNeuron, ReasonerSeed, ReasoningReport, TraversalOptions,
 };
+
+fn compile_regex(pattern: &str) -> Regex {
+    match Regex::new(pattern) {
+        Ok(regex) => regex,
+        Err(err) => {
+            tracing::error!("invalid index regex {pattern:?}: {err}");
+            match Regex::new(r"$^") {
+                Ok(fallback) => fallback,
+                Err(_) => unreachable!("fallback regex must compile"),
+            }
+        },
+    }
+}
 
 mod age_event_extractors;
 mod age_event_families;

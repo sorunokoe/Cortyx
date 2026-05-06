@@ -1,7 +1,7 @@
 #[cfg(feature = "embed")]
 use crate::embedder::{load_embeddings, EmbeddingStore};
 
-use anyhow::Result;
+use crate::error::Result;
 use rayon::prelude::*;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -316,7 +316,7 @@ const MIGRATIONS: &[(u32, u32, MigrationFn)] = &[
 pub(super) fn migrate_entries(
     mut raw: serde_json::Value,
     stored_version: u32,
-) -> anyhow::Result<Vec<BM25Entry>> {
+) -> Result<Vec<BM25Entry>> {
     let mut ver = stored_version;
     for &(from, to, migrate) in MIGRATIONS {
         if ver == from && ver < INDEX_VERSION {
@@ -335,12 +335,12 @@ pub(super) fn migrate_entries(
             .map(|(from, _, _)| *from)
             .unwrap_or(INDEX_VERSION);
         if stored_version < oldest_supported {
-            anyhow::bail!(
+            crate::cortyx_bail!(
                 "Index version {stored_version} predates supported migrations (oldest supported: v{oldest_supported}). \
                  Curated neuron markdown remains on disk; run `cortyx compile .` to rebuild only the search index."
             );
         }
-        anyhow::bail!(
+        crate::cortyx_bail!(
             "No migration path from version {stored_version} to {INDEX_VERSION}; \
              run `cortyx compile .` to rebuild."
         );
@@ -1823,8 +1823,8 @@ impl NeuronIndex {
                 .filter_map(|(_, i)| self.entries[*i].timestamp_secs)
                 .collect();
             if !ts_values.is_empty() {
-                let min_ts = *ts_values.iter().min().unwrap();
-                let max_ts = *ts_values.iter().max().unwrap();
+                let min_ts = ts_values.iter().copied().min().unwrap_or_default();
+                let max_ts = ts_values.iter().copied().max().unwrap_or_default();
                 let range = (max_ts - min_ts).max(1) as f32;
                 for (score, i) in bm25_scored.iter_mut() {
                     if let Some(ts) = self.entries[*i].timestamp_secs {
