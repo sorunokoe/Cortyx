@@ -13,12 +13,20 @@ pub(super) const CORROBORATION_FACTOR: f32 = 0.25;
 pub(super) const EPSILON: f32 = 1e-6;
 pub(super) const REVERSE_EDGE_WEIGHT_FACTOR: f32 = 0.7;
 
+/// An adjacency entry produced by [`build_adjacency`].
+///
+/// Each edge wraps the original synapse plus a flag describing whether the edge
+/// was synthesized as a reverse traversal edge.
 #[derive(Debug, Clone)]
 pub(super) struct TraversalEdge {
     pub synapse: Synapse,
     pub reverse: bool,
 }
 
+/// The strongest known contribution from one seed origin into a target node.
+///
+/// [`build_reasoned_nodes`] aggregates these per-origin contributions into the
+/// final scored [`ReasonedNode`] surface.
 #[derive(Debug, Clone)]
 pub(super) struct NodeContribution {
     pub score: f32,
@@ -26,7 +34,11 @@ pub(super) struct NodeContribution {
     pub strongest_step: Option<ReasonedStep>,
 }
 
-/// Build adjacency list from neuron synapses, including reverse edges
+/// Build an adjacency map keyed by source neuron path.
+///
+/// The returned graph contains each neuron's outgoing synapses plus synthesized
+/// reverse edges whose weights are discounted by [`REVERSE_EDGE_WEIGHT_FACTOR`]
+/// so traversal can optionally walk backwards through the graph.
 pub(super) fn build_adjacency(
     neurons: &HashMap<PathBuf, ReasonerNeuron>,
 ) -> HashMap<PathBuf, Vec<TraversalEdge>> {
@@ -116,7 +128,11 @@ pub(super) fn upsert_contribution(
     should_replace
 }
 
-/// Build reasoned nodes from contribution tracking
+/// Build final [`ReasonedNode`] values from per-origin contribution tracking.
+///
+/// This collapses all contributions for a target path into one scored node,
+/// applies corroboration bonuses across supporting origins, and enriches the
+/// output with neuron or KG metadata used by the reasoning report.
 pub(super) fn build_reasoned_nodes(
     contributions: &HashMap<PathBuf, HashMap<PathBuf, NodeContribution>>,
     neurons: &HashMap<PathBuf, ReasonerNeuron>,

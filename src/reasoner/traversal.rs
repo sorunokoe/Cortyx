@@ -30,6 +30,11 @@ pub struct GraphReasoner {
 }
 
 impl GraphReasoner {
+    /// Create a graph reasoner from mined neurons and KG entities.
+    ///
+    /// `neurons` provides the traversal graph inputs, while `kg_entities`
+    /// provides fact-bearing entity nodes that can be surfaced in the final
+    /// [`ReasoningReport`]. The adjacency list is built once up front.
     pub fn new<I, J>(neurons: I, kg_entities: J) -> Self
     where
         I: IntoIterator<Item = ReasonerNeuron>,
@@ -52,10 +57,12 @@ impl GraphReasoner {
         }
     }
 
-    /// Traverse a small support graph from the provided seed evidence.
+    /// Traverse a support graph from the provided seed evidence.
     ///
-    /// Seed scores are normalized relative to the strongest seed so callers can pass any
-    /// positive scoring system (BM25, heuristic scores, etc.) without calibrating this core.
+    /// `seeds` is the starting evidence set; scores are normalized relative to
+    /// the strongest seed so callers can pass any positive scoring system.
+    /// `options` controls hop depth, expansion limits, reverse-edge traversal,
+    /// and fact filtering for the resulting [`ReasoningReport`].
     pub fn trace(&self, seeds: &[ReasonerSeed], options: TraversalOptions) -> ReasoningReport {
         let mut deduped: HashMap<PathBuf, f32> = HashMap::new();
         for seed in seeds {

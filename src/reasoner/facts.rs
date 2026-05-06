@@ -17,7 +17,12 @@ struct FactKey {
     ended: String,
 }
 
-/// Build reasoned facts from nodes with KG entities
+/// Extract reasoned facts for scored nodes backed by KG entities.
+///
+/// The extractor walks each reasoned node, pulls either all facts or only the
+/// currently active facts for the matching KG entity, skips empty values, and
+/// merges duplicate fact rows while preserving the strongest score and combined
+/// supporting paths.
 pub(super) fn build_reasoned_facts(
     nodes: &[ReasonedNode],
     kg_entities: &HashMap<PathBuf, KgEntity>,

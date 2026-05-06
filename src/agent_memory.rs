@@ -23,6 +23,10 @@ pub struct StructuredDiaryEntry {
     pub refined_plan: Option<String>,
 }
 
+/// Return `true` when any structured diary metadata is present after normalization.
+///
+/// This is the gate between storing a diary entry as raw free-form text versus
+/// rendering the full structured `# Agent memory` format.
 pub fn has_structured_diary_fields(
     title: Option<&str>,
     status: Option<&str>,
@@ -43,6 +47,12 @@ pub fn has_structured_diary_fields(
         || !normalize_list(depends_on).is_empty()
 }
 
+/// Render a diary entry in Cortyx's structured Markdown format.
+///
+/// The output starts with `# Agent memory`, followed by normalized `- key:
+/// value` metadata lines and optional `## action` / `## outcome` sections. If no
+/// structured fields survive normalization, the function returns the normalized
+/// action text by itself.
 pub fn render_structured_diary_entry(
     agent: &str,
     action: &str,
@@ -114,6 +124,41 @@ pub fn render_structured_diary_entry(
     out.trim_end().to_string()
 }
 
+pub fn render_structured_diary_entry_from_entry(entry: &StructuredDiaryEntry) -> String {
+    let mut rendered = render_structured_diary_entry(
+        entry.agent.as_deref().unwrap_or("agent"),
+        entry.action.as_deref().unwrap_or(""),
+        entry.title.as_deref(),
+        entry.status.as_deref(),
+        entry.goal.as_deref(),
+        entry.next_step.as_deref(),
+        entry.blocker.as_deref(),
+        entry.outcome.as_deref(),
+        &entry.entities,
+        &entry.depends_on,
+    );
+    if let Some(refined_plan) = normalize_inline(entry.refined_plan.as_deref()) {
+        let metadata = format!("- refined_plan: {refined_plan}\n");
+        if let Some(section_pos) = rendered.find("\n## ") {
+            rendered.insert_str(section_pos + 1, &metadata);
+        } else if rendered.is_empty() {
+            rendered = metadata.trim_end().to_string();
+        } else if rendered.ends_with('\n') {
+            rendered.push_str(&metadata);
+        } else {
+            rendered.push('\n');
+            rendered.push_str(&metadata);
+        }
+    }
+    rendered.trim_end().to_string()
+}
+
+/// Parse a structured diary entry from Markdown.
+///
+/// Recognizes the format emitted by [`render_structured_diary_entry`]: the
+/// `# Agent memory` header, `- key: value` metadata lines, and `## action` /
+/// `## outcome` sections. Field values are normalized as they are extracted,
+/// and `None` is returned when no structured diary markers or fields are found.
 pub fn parse_structured_diary_entry(content: &str) -> Option<StructuredDiaryEntry> {
     #[derive(Clone, Copy)]
     enum Section {
@@ -220,7 +265,12 @@ pub fn parse_structured_diary_entry(content: &str) -> Option<StructuredDiaryEntr
     }
 }
 
-pub fn summarize_structured_diary_entry(entry: &StructuredDiaryEntry) -> String {
+/// Build a one-line summary for a structured diary entry.
+///
+/// The summary prefers title/goal/action as the headline and truncates long
+/// inline fields to 96 characters with an ellipsis so it stays compact in
+/// timelines, history views, and collaboration summaries.
+pub fn entry_summary(entry: &StructuredDiaryEntry) -> String {
     let headline = entry
         .title
         .clone()
@@ -261,6 +311,55 @@ pub fn summarize_structured_diary_entry(entry: &StructuredDiaryEntry) -> String 
         parts.push(format!("refined_plan: {}", truncate_inline(refined_plan)));
     }
     parts.join(" — ")
+}
+
+/// Backward-compatible alias for [`entry_summary`].
+pub fn summarize_structured_diary_entry(entry: &StructuredDiaryEntry) -> String {
+    entry_summary(entry)
+}
+
+/// Render a timestamped history-view summary for a structured diary entry.
+///
+/// Unlike [`render_structured_diary_entry`], this is a display-oriented output:
+/// it starts with a timestamped one-line summary, then appends indented action,
+/// goal, blocker, outcome, and dependency lines for recent-history views.
+pub fn render_structured_diary_history_entry(
+    entry: &StructuredDiaryEntry,
+    timestamp_secs: Option<i64>,
+) -> String {
+    let timestamp = timestamp_secs
+        .map(format_history_timestamp_secs)
+        .unwrap_or_else(|| "unknown-time".to_string());
+    let mut out = format!("- {timestamp} — {}", entry_summary(entry));
+    if let Some(action) = &entry.action {
+        out.push_str(&format!(
+            "\n  action: {}",
+            truncate_chars(&summarize_history_text(action), 200)
+        ));
+    }
+    if let Some(goal) = &entry.goal {
+        out.push_str(&format!("\n  goal: {}", truncate_chars(goal, 200)));
+    }
+    if let Some(next_step) = &entry.next_step {
+        out.push_str(&format!(
+            "\n  next step: {}",
+            truncate_chars(next_step, 200)
+        ));
+    }
+    if let Some(blocker) = &entry.blocker {
+        out.push_str(&format!("\n  blocker: {}", truncate_chars(blocker, 200)));
+    }
+    if let Some(outcome) = &entry.outcome {
+        out.push_str(&format!(
+            "\n  outcome: {}",
+            truncate_chars(&summarize_history_text(outcome), 200)
+        ));
+    }
+    if !entry.depends_on.is_empty() {
+        out.push_str(&format!("\n  depends on: {}", entry.depends_on.join(", ")));
+    }
+    out.push('\n');
+    out
 }
 
 fn parse_metadata_line(line: &str) -> Option<(&str, &str)> {
@@ -316,8 +415,31 @@ fn truncate_inline(value: &str) -> String {
     truncated
 }
 
+fn truncate_chars(value: &str, max_chars: usize) -> String {
+    value.chars().take(max_chars).collect()
+}
+
+fn summarize_history_text(content: &str) -> String {
+    content
+        .lines()
+        .map(str::trim)
+        .find(|line| !line.is_empty() && !line.starts_with("<!--") && !line.starts_with('#'))
+        .unwrap_or("(empty diary entry)")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn format_history_timestamp_secs(timestamp_secs: i64) -> String {
+    if timestamp_secs < 0 {
+        return timestamp_secs.to_string();
+    }
+    let (y, mo, d, h, mi, s) = crate::neuron::unix_secs_to_datetime(timestamp_secs as u64);
+    format!("{y:04}-{mo:02}-{d:02}T{h:02}:{mi:02}:{s:02}Z")
+}
+
 /// Populate `entry.refined_plan` with a heuristic decomposition suggestion when
-/// the blocker (or goal/status) matches a vague or stuck pattern.
+/// the blocker, goal, or blocked status matches a vague or stuck pattern.
 ///
 /// Pure heuristic — no LLM required. Returns `true` if a suggestion was generated.
 pub fn refine_entry(entry: &mut StructuredDiaryEntry) -> bool {
@@ -453,6 +575,30 @@ mod tests {
             .as_deref()
             .unwrap()
             .contains("Investigated auth middleware coverage"));
+    }
+
+    #[test]
+    fn render_entry_from_entry_preserves_refined_plan() {
+        let content = render_structured_diary_entry_from_entry(&StructuredDiaryEntry {
+            agent: Some("reviewer".to_string()),
+            title: Some("Audit auth middleware".to_string()),
+            status: Some("blocked".to_string()),
+            goal: Some("Close the auth bypass without regressing login flow.".to_string()),
+            next_step: Some("Patch the legacy REST route and update tests.".to_string()),
+            blocker: Some("Waiting on route ownership clarification.".to_string()),
+            outcome: None,
+            entities: vec!["auth".to_string()],
+            depends_on: vec!["router-owner".to_string()],
+            action: Some(
+                "Investigated auth middleware coverage across the login path.".to_string(),
+            ),
+            refined_plan: Some("Break this into smaller sub-tasks first.".to_string()),
+        });
+        let parsed = parse_structured_diary_entry(&content).unwrap();
+        assert_eq!(
+            parsed.refined_plan.as_deref(),
+            Some("Break this into smaller sub-tasks first.")
+        );
     }
 
     #[test]
