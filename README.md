@@ -97,6 +97,59 @@ and release-binary footprint budget green in CI.
 
 Startup stays honest too: Cortyx only uses the binary activation-cache artifact when it is actually smaller than the canonical `index.json`. On the current benchmark-sized projects, rebuilding from `index.json` is the faster default path, so Cortyx now skips oversized cache artifacts automatically instead of paying a slower deserialization cost.
 
+## Architecture
+
+Cortyx is organized into focused modules after a major extraction refactor:
+
+```text
+src/
+├── index/
+│   └── core/              # BM25 retrieval engine
+│       ├── bm25/          # Scorer, config
+│       ├── query/         # Query analysis, helpers
+│       ├── activation/    # Top-k selection, token budget
+│       └── persistence/   # Index save/load
+├── answer_plane/          # Query processing and answer surface
+│   ├── temporal.rs        # Temporal fact reasoning
+│   ├── scoring.rs         # Answer candidate scoring
+│   └── output.rs          # Answer rendering
+├── miner/
+│   └── surface/           # File parsing and neuron extraction
+├── mcp/
+│   └── tools/             # MCP tool handlers by group
+│       ├── context.rs     # get_contexts, activate, deactivate
+│       ├── memory.rs      # diary_write, diary_read, diary_refine
+│       ├── knowledge.rs   # KG, synapse tools
+│       ├── collaboration.rs # share, publish
+│       └── admin.rs       # doctor, prune, rebuild
+├── reasoner/              # Multi-hop graph traversal
+│   ├── traversal.rs       # GraphReasoner (BFS over synapse edges)
+│   ├── adaptive.rs        # AdaptiveReasoner (iterative deepening)
+│   └── types.rs           # TraversalOptions, ReasoningReport
+├── types/                 # Domain newtypes (Type-Driven Design)
+│   ├── scores.rs          # SynapseWeight, BM25Score, ConfidenceScore
+│   ├── primitives.rs      # QueryText, TokenBudget, TokenCount
+│   └── ids.rs             # NeuronUuid, EditId, AuthorId
+├── neuron/                # Neuron metadata and synapse model
+├── agent_memory.rs        # Structured diary entries + refine_entry()
+└── error.rs               # CortyxError (thiserror)
+```
+
+No file exceeds 500 lines after the P2 extraction refactor. The type system uses newtypes throughout to eliminate classes of bugs at compile time — see `src/types/` for the full catalogue.
+
+## Adaptive Reasoning
+
+Cortyx implements three recursive reasoning features inspired by the RecursiveMAS architecture, adapted for a non-LLM retrieval engine:
+
+### 1. Adaptive Iterative Deepening (`AdaptiveReasoner`)
+Wraps `GraphReasoner` with automatic retry: if the first traversal pass did not converge (was cut short by `max_expansions`), it retries with `max_hops + 1`. Up to 3 passes total. Returns `IterationStats { passes, final_options }` alongside the `ReasoningReport`.
+
+### 2. Iterative Query Expansion
+When the top BM25 score falls below `LOW_CONFIDENCE_THRESHOLD` (= 4.0), a second retrieval pass is triggered with concept-cloud-expanded query terms. Results are merged via Reciprocal Rank Fusion (RRF). This handles vocabulary mismatch without requiring embeddings.
+
+### 3. Diary Blocker Decomposition (`refine_entry` / `cortyx_diary_refine`)
+`refine_entry(&mut StructuredDiaryEntry)` detects vague, too-large, or waiting blockers using heuristic patterns and populates `refined_plan` with a structured decomposition suggestion — no LLM required. The `cortyx_diary_refine` MCP tool exposes this to agents.
+
 ## Product contract
 
 - **Local core (shipped):** compile/mine/index/get-contexts/route/status over local neurons, temporal facts, agent diaries, and the optional git-federated concept library.

@@ -2,7 +2,8 @@ use anyhow::Result;
 use clap::Parser;
 use cortyx::cli::{Cli, Commands, ConceptsCommand, RouteIntent};
 use cortyx::{
-    answer_plane, commands, export, global_index, index, installer, mcp, miner, neuron, watcher,
+    agent_memory, answer_plane, commands, export, global_index, index, installer, mcp, miner,
+    neuron, watcher,
 };
 use serde_json::json;
 use std::path::{Path, PathBuf};
@@ -24,6 +25,104 @@ const MCP_TASK_EXAMPLE: &str = r#"cortyx(task="trace the auth flow")"#;
 const WATCH_EXAMPLE: &str = "cortyx watch";
 const DOCTOR_EXAMPLE: &str = "cortyx doctor";
 const INCREMENTAL_COMPILE_EXAMPLE: &str = "cortyx compile --incremental";
+
+#[derive(Default)]
+struct CliDiaryContent {
+    action: String,
+    title: Option<String>,
+    status: Option<String>,
+    goal: Option<String>,
+    next_step: Option<String>,
+    blocker: Option<String>,
+    outcome: Option<String>,
+    entities: Vec<String>,
+    depends_on: Vec<String>,
+}
+
+fn normalize_cli_value(value: &str) -> Option<String> {
+    let value = value.trim();
+    if value.is_empty() {
+        None
+    } else {
+        Some(value.split_whitespace().collect::<Vec<_>>().join(" "))
+    }
+}
+
+fn normalize_cli_list(value: &str) -> Vec<String> {
+    value.split(',').filter_map(normalize_cli_value).collect()
+}
+
+fn parse_cli_diary_content(content: &str) -> CliDiaryContent {
+    if let Some(entry) = agent_memory::parse_structured_diary_entry(content) {
+        return CliDiaryContent {
+            action: entry.action.unwrap_or_default(),
+            title: entry.title,
+            status: entry.status,
+            goal: entry.goal,
+            next_step: entry.next_step,
+            blocker: entry.blocker,
+            outcome: entry.outcome,
+            entities: entry.entities,
+            depends_on: entry.depends_on,
+        };
+    }
+
+    let mut parsed = CliDiaryContent::default();
+    let mut action_lines = Vec::new();
+    for raw_line in content.lines() {
+        let line = raw_line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let candidate = line.strip_prefix("- ").unwrap_or(line);
+        if let Some((label, value)) = candidate.split_once(':') {
+            match label.trim().to_ascii_lowercase().as_str() {
+                "title" => parsed.title = normalize_cli_value(value),
+                "status" => parsed.status = normalize_cli_value(value),
+                "goal" => parsed.goal = normalize_cli_value(value),
+                "next_step" | "next-step" | "next step" => {
+                    parsed.next_step = normalize_cli_value(value)
+                },
+                "blocker" => parsed.blocker = normalize_cli_value(value),
+                "outcome" => parsed.outcome = normalize_cli_value(value),
+                "entities" => parsed.entities = normalize_cli_list(value),
+                "depends_on" | "depends-on" | "depends on" => {
+                    parsed.depends_on = normalize_cli_list(value)
+                },
+                _ => action_lines.push(line.to_string()),
+            }
+        } else {
+            action_lines.push(line.to_string());
+        }
+    }
+    parsed.action = action_lines.join("\n");
+    parsed
+}
+
+fn recent_agent_diary_paths(index: &index::NeuronIndex, agent: &str, limit: usize) -> Vec<PathBuf> {
+    if limit == 0 {
+        return Vec::new();
+    }
+    let module = format!("@agent/{}", agent.trim());
+    let mut items: Vec<(i64, PathBuf)> = index
+        .list_neurons(Some(&module))
+        .into_iter()
+        .filter(|summary| summary.kind == neuron::NeuronKind::Verbatim)
+        .map(|summary| {
+            let timestamp = index
+                .context_metadata_for(&summary.path)
+                .and_then(|metadata| metadata.timestamp_secs)
+                .unwrap_or(i64::MIN);
+            (timestamp, summary.path)
+        })
+        .collect();
+    items.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
+    items
+        .into_iter()
+        .take(limit)
+        .map(|(_, path)| path)
+        .collect()
+}
 
 fn git_repo_root_and_relative_path(path: &Path) -> Result<(PathBuf, PathBuf)> {
     let cwd = std::env::current_dir()?;
@@ -460,6 +559,130 @@ async fn main() -> Result<()> {
             let mut idx = index::NeuronIndex::load_or_create(&root)?;
             let count = miner::mine_path(&path, &root, &mut idx, module.as_deref())?;
             println!("✓ Mined {count} Verbatim neurons from {}", path.display());
+        },
+        Commands::DiaryWrite {
+            agent,
+            content,
+            title,
+            status,
+            goal,
+            next_step,
+            blocker,
+            outcome,
+            entities,
+            depends_on,
+            timestamp,
+            path,
+        } => {
+            if agent.trim().is_empty() {
+                anyhow::bail!("agent name must not be empty");
+            }
+            let root = project_root(path);
+            let mut idx = index::NeuronIndex::load_or_create(&root)?;
+            let parsed = parse_cli_diary_content(&content);
+            let action = parsed.action;
+            let title = title.or(parsed.title);
+            let status = status.or(parsed.status);
+            let goal = goal.or(parsed.goal);
+            let next_step = next_step.or(parsed.next_step);
+            let blocker = blocker.or(parsed.blocker);
+            let outcome = outcome.or(parsed.outcome);
+            let entities = if entities.is_empty() {
+                parsed.entities
+            } else {
+                entities
+            };
+            let depends_on = if depends_on.is_empty() {
+                parsed.depends_on
+            } else {
+                depends_on
+            };
+            let structured = agent_memory::has_structured_diary_fields(
+                title.as_deref(),
+                status.as_deref(),
+                goal.as_deref(),
+                next_step.as_deref(),
+                blocker.as_deref(),
+                outcome.as_deref(),
+                &entities,
+                &depends_on,
+            );
+            let body = if structured {
+                agent_memory::render_structured_diary_entry(
+                    agent.trim(),
+                    &action,
+                    title.as_deref(),
+                    status.as_deref(),
+                    goal.as_deref(),
+                    next_step.as_deref(),
+                    blocker.as_deref(),
+                    outcome.as_deref(),
+                    &entities,
+                    &depends_on,
+                )
+            } else {
+                action.trim().to_string()
+            };
+            if body.is_empty() {
+                anyhow::bail!(
+                    "content must not be empty unless structured diary fields are supplied"
+                );
+            }
+            let effective_timestamp = timestamp.unwrap_or_else(neuron::now_iso8601);
+            let module = format!("@agent/{}", agent.trim());
+            let count = miner::mine_text(
+                &body,
+                "diary",
+                &root,
+                &mut idx,
+                Some(&module),
+                Some(agent.trim()),
+                Some(effective_timestamp.as_str()),
+            )?;
+            println!(
+                "✓ Diary entry written for agent '{}' ({count} neuron(s) created).",
+                agent.trim()
+            );
+        },
+        Commands::DiaryRead {
+            agent,
+            last_n,
+            path,
+        } => {
+            if agent.trim().is_empty() {
+                anyhow::bail!("agent name must not be empty");
+            }
+            let root = project_root(path);
+            let idx = index::NeuronIndex::load_or_create(&root)?;
+            let paths = recent_agent_diary_paths(&idx, &agent, last_n);
+            if paths.is_empty() {
+                println!("No diary entries found for agent '{}'.", agent.trim());
+            } else {
+                let mut out = format!("## Agent Diary: {} (last {})\n\n", agent.trim(), last_n);
+                for path in paths {
+                    let timestamp_secs = idx
+                        .context_metadata_for(&path)
+                        .and_then(|metadata| metadata.timestamp_secs);
+                    match std::fs::read_to_string(&path) {
+                        Ok(content) => {
+                            if let Some(entry) =
+                                agent_memory::parse_structured_diary_entry(&content)
+                            {
+                                out.push_str(&agent_memory::render_structured_diary_history_entry(
+                                    &entry,
+                                    timestamp_secs,
+                                ));
+                            } else {
+                                out.push_str(&format!("---\n{}\n", content));
+                            }
+                        },
+                        Err(err) => {
+                            out.push_str(&format!("- {} — read error: {}\n", path.display(), err));
+                        },
+                    }
+                }
+                print!("{out}");
+            }
         },
         Commands::Watch { path } => {
             let root = project_root(path);

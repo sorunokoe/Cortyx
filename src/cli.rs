@@ -95,6 +95,55 @@ pub enum Commands {
         #[arg(long)]
         module: Option<String>,
     },
+    /// Write an agent diary entry as a Verbatim neuron under `@agent/{agent}`.
+    DiaryWrite {
+        /// Agent identifier used for the diary namespace.
+        #[arg(long)]
+        agent: String,
+        /// Free-form action text, optionally followed by `key: value` metadata lines.
+        #[arg(long)]
+        content: String,
+        /// Optional structured title override.
+        #[arg(long)]
+        title: Option<String>,
+        /// Optional structured status override.
+        #[arg(long)]
+        status: Option<String>,
+        /// Optional structured goal override.
+        #[arg(long)]
+        goal: Option<String>,
+        /// Optional structured next-step override.
+        #[arg(long)]
+        next_step: Option<String>,
+        /// Optional structured blocker override.
+        #[arg(long)]
+        blocker: Option<String>,
+        /// Optional structured outcome override.
+        #[arg(long)]
+        outcome: Option<String>,
+        /// Optional comma-delimited related entities.
+        #[arg(long, value_delimiter = ',')]
+        entities: Vec<String>,
+        /// Optional comma-delimited dependencies.
+        #[arg(long, value_delimiter = ',')]
+        depends_on: Vec<String>,
+        /// Optional ISO-8601 timestamp for the diary entry.
+        #[arg(long)]
+        timestamp: Option<String>,
+        /// Project root (defaults to current directory)
+        path: Option<PathBuf>,
+    },
+    /// Read recent diary entries for an agent.
+    DiaryRead {
+        /// Agent identifier used for the diary namespace.
+        #[arg(long)]
+        agent: String,
+        /// Number of recent entries to show.
+        #[arg(long, default_value_t = 10)]
+        last_n: usize,
+        /// Project root (defaults to current directory)
+        path: Option<PathBuf>,
+    },
     /// Keep the local index fresh as files change.
     ///
     /// Auto-bootstraps a missing index on first run, then keeps dirty-file hot
@@ -403,6 +452,27 @@ mod tests {
 
         match cli.command {
             Commands::Route { intent, .. } => assert_eq!(intent, RouteIntent::Capabilities),
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn diary_write_command_parses_inline_content_flags() {
+        let cli = Cli::try_parse_from([
+            "cortyx",
+            "diary-write",
+            "--agent",
+            "reviewer",
+            "--content",
+            "Investigate auth\nstatus: blocked",
+        ])
+        .expect("diary-write command should parse");
+
+        match cli.command {
+            Commands::DiaryWrite { agent, content, .. } => {
+                assert_eq!(agent, "reviewer");
+                assert!(content.contains("status: blocked"));
+            },
             _ => panic!("unexpected command"),
         }
     }
