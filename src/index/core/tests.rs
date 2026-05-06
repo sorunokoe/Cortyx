@@ -4247,7 +4247,7 @@ fn save_writes_module_capsule_for_named_module() {
     auth_meta.synapses = vec![Synapse {
         target: db_p.clone(),
         edge_type: SynapseType::Calls,
-        weight: 0.8,
+        weight: crate::types::SynapseWeight::new(0.8),
         reason: "loads user token state".to_string(),
         learned_weight: 0.0,
         traversal_count: 0,
@@ -4301,7 +4301,7 @@ fn synapse_traversal_pulls_related_neuron() {
     engine_meta.synapses = vec![Synapse {
         target: ui_neuron.clone(),
         edge_type: SynapseType::Calls,
-        weight: 0.8,
+        weight: crate::types::SynapseWeight::new(0.8),
         reason: "render pipeline".to_string(),
         learned_weight: 0.0,
         traversal_count: 0,
@@ -4663,7 +4663,7 @@ fn relative_synapse_targets_resolved_in_adjacency() {
     source_meta.synapses = vec![Synapse {
         target: PathBuf::from("ui.context.md"), // relative!
         edge_type: SynapseType::Calls,
-        weight: 0.9,
+        weight: crate::types::SynapseWeight::new(0.9),
         reason: "calls render".to_string(),
         learned_weight: 0.0,
         traversal_count: 0,
@@ -5243,7 +5243,7 @@ fn concept_cloud_populated_from_structural_neighbours() {
     meta_caller.synapses.push(crate::neuron::Synapse {
         target: callee.clone(),
         edge_type: crate::neuron::SynapseType::Calls,
-        weight: 0.8,
+        weight: crate::types::SynapseWeight::new(0.8),
         reason: "calls validate_user".to_string(),
         learned_weight: 0.0,
         traversal_count: 0,
@@ -5285,7 +5285,7 @@ fn concept_cloud_enables_retrieval_via_graph() {
     meta_engine.synapses.push(crate::neuron::Synapse {
         target: hashing.clone(),
         edge_type: crate::neuron::SynapseType::Calls,
-        weight: 0.8,
+        weight: crate::types::SynapseWeight::new(0.8),
         reason: "calls hash function".to_string(),
         learned_weight: 0.0,
         traversal_count: 0,
@@ -5339,7 +5339,7 @@ fn concept_cloud_excludes_semantic_related_edges() {
     meta_a.synapses.push(crate::neuron::Synapse {
         target: b.clone(),
         edge_type: crate::neuron::SynapseType::SemanticRelated,
-        weight: 0.5,
+        weight: crate::types::SynapseWeight::new(0.5),
         reason: "related".to_string(),
         learned_weight: 0.0,
         traversal_count: 0,

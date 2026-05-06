@@ -114,7 +114,7 @@ pub(super) fn write_verbatim_neurons_staged(
                 meta.synapses.push(Synapse {
                     target: turn_neuron_paths[i + 1].clone(),
                     edge_type: SynapseType::TemporalFollows,
-                    weight: 0.6,
+                    weight: crate::types::SynapseWeight::new(0.6),
                     reason: "consecutive turn".to_string(),
                     learned_weight: 0.0,
                     traversal_count: 0,

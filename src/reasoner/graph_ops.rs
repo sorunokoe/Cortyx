@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 
 use crate::kg::KgEntity;
 use crate::neuron::{NeuronKind, Synapse};
+use crate::types::SynapseWeight;
 
 use super::types::{ReasonedNode, ReasonedStep, ReasonerNeuron};
 
@@ -49,7 +50,9 @@ pub(super) fn build_adjacency(
                     synapse: Synapse {
                         target: neuron.path.clone(),
                         edge_type: synapse.edge_type.inverse(),
-                        weight: synapse.weight * REVERSE_EDGE_WEIGHT_FACTOR,
+                        weight: SynapseWeight::new(
+                            synapse.weight.get() * REVERSE_EDGE_WEIGHT_FACTOR,
+                        ),
                         reason: format!("← {}", synapse.reason),
                         learned_weight: 0.0,
                         traversal_count: 0,

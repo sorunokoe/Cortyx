@@ -45,7 +45,7 @@ mod tests {
         Synapse {
             target: PathBuf::from(target),
             edge_type,
-            weight,
+            weight: crate::types::SynapseWeight::new(weight),
             reason: reason.to_string(),
             learned_weight: 0.9,
             traversal_count: 12,

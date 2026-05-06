@@ -3,6 +3,7 @@
 // All visibility is relative to `crate::index` (the parent of `core`).
 use super::*;
 use crate::index::compile_regex;
+use crate::types::{QueryText, SynapseWeight};
 
 // ─── Free functions ───────────────────────────────────────────────────────────
 
@@ -10869,7 +10870,10 @@ impl NeuronIndex {
         module: Option<&str>,
         kind: Option<&str>,
     ) -> Vec<PathBuf> {
-        let terms = tokenize(task);
+        let Ok(query) = QueryText::new(task) else {
+            return Vec::new();
+        };
+        let terms = tokenize(query.as_str());
 
         // Phase 1 — O(|candidates|) BM25 via posting list.
         //
@@ -11854,7 +11858,7 @@ impl NeuronIndex {
 
                 // ConceptExpands always propagates; others need threshold
                 let include = syn.edge_type == SynapseType::ConceptExpands
-                    || (neighbor_score + 0.01) * syn.weight * syn.effective_weight()
+                    || (neighbor_score + 0.01) * syn.weight.get() * syn.effective_weight()
                         >= SYNAPSE_RELEVANCE_THRESHOLD * max_score;
 
                 // S-3: Skip neurons that Contradict any already-selected neuron.
@@ -12113,14 +12117,17 @@ impl NeuronIndex {
         min_confidence: Option<f32>,
         multi_hop: bool,
     ) -> (Vec<PathBuf>, Vec<(PathBuf, String)>) {
+        let Ok(query) = QueryText::new(task) else {
+            return (Vec::new(), Vec::new());
+        };
         // Abstention signal: if caller set a minimum confidence threshold and the
         // best BM25 score for this query is below it, return nothing immediately.
         // This is critical for LongMemEval "absent" questions (20% of the dataset),
         // where returning a low-relevance neuron counts as a false positive.
         if let Some(threshold) = min_confidence {
-            if self.peek_max_bm25_score(task) < threshold {
+            if self.peek_max_bm25_score(query.as_str()) < threshold {
                 tracing::debug!(
-                    task,
+                    task = query.as_str(),
                     threshold,
                     "Abstention: top BM25 score below min_confidence — returning empty."
                 );
@@ -12137,7 +12144,7 @@ impl NeuronIndex {
         //
         // Simple queries (breadth=1, no synapses) → 0.5× budget (saves tokens)
         // Complex queries (broad match, cross-module) → 1.5× budget
-        let terms = tokenize(task);
+        let terms = tokenize(query.as_str());
         let complexity = self.compute_task_complexity(&terms);
         // F2: apply session-history budget scale on top of F1 complexity scale
         let history_scale = self.adaptive_budget_scale();
@@ -12590,7 +12597,10 @@ impl NeuronIndex {
     ///
     /// Complexity: O(|candidates|) — same as the fast path in `get_contexts`.
     pub fn peek_max_bm25_score(&self, task: &str) -> f32 {
-        let terms = tokenize(task);
+        let Ok(query) = QueryText::new(task) else {
+            return 0.0;
+        };
+        let terms = tokenize(query.as_str());
         let mut max_score = 0.0f32;
         for term in &terms {
             if let Some(idxs) = self.posting_list.get(term) {
@@ -13267,7 +13277,7 @@ impl NeuronIndex {
             }
             let na = core_neuron_path(&root.join(fa), root);
             let nb = core_neuron_path(&root.join(fb), root);
-            let weight = (0.5_f32 + *count as f32 * 0.05).min(0.9);
+            let weight = SynapseWeight::new((0.5_f32 + *count as f32 * 0.05).min(0.9));
             let reason = format!("git co-change: committed together {count}×");
 
             // Only create synapses for neurons that exist in our index
@@ -13627,7 +13637,7 @@ impl NeuronIndex {
                     .push(Synapse {
                         target: entry.neuron_path.clone(),
                         edge_type: syn.edge_type.inverse(),
-                        weight: syn.weight * 0.7,
+                        weight: SynapseWeight::new(syn.weight.get() * 0.7),
                         reason: format!("← {}", syn.reason),
                         learned_weight: 0.0,
                         traversal_count: 0,
@@ -13735,7 +13745,7 @@ impl NeuronIndex {
                     .push(Synapse {
                         target: entry.neuron_path.clone(),
                         edge_type: syn.edge_type.inverse(),
-                        weight: syn.weight * 0.7,
+                        weight: SynapseWeight::new(syn.weight.get() * 0.7),
                         reason: format!("← {}", syn.reason),
                         learned_weight: 0.0,
                         traversal_count: 0,
@@ -14531,7 +14541,8 @@ impl NeuronIndex {
     }
 
     pub fn derived_answer_path_for_task(&self, task: &str) -> Option<PathBuf> {
-        self.synthetic_answer_path(task)
+        let query = QueryText::new(task).ok()?;
+        self.synthetic_answer_path(query.as_str())
     }
 
     /// S-I (R16): Like `get_contexts_with_overflow` but returns BM25 scores for tiered emission.
@@ -14553,6 +14564,9 @@ impl NeuronIndex {
         min_confidence: Option<f32>,
         multi_hop: bool,
     ) -> (Vec<(PathBuf, f32)>, Vec<(PathBuf, String)>) {
+        let Ok(query) = QueryText::new(task) else {
+            return (Vec::new(), Vec::new());
+        };
         // Delegation: run the full pipeline then re-score the results for tier assignment.
         let (full_paths, overflow) = self.get_contexts_with_overflow(
             task,
@@ -14562,7 +14576,7 @@ impl NeuronIndex {
             min_confidence,
             multi_hop,
         );
-        let terms = tokenize(task);
+        let terms = tokenize(query.as_str());
         let full_with_scores: Vec<(PathBuf, f32)> = full_paths
             .into_iter()
             .map(|path| {

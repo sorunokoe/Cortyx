@@ -140,8 +140,7 @@ impl GraphReasoner {
                     continue;
                 }
 
-                let propagated =
-                    work.score * synapse.weight.clamp(0.0, 1.0) * synapse.effective_weight();
+                let propagated = work.score * synapse.weight.get() * synapse.effective_weight();
                 if propagated + EPSILON < options.min_propagated_score {
                     continue;
                 }

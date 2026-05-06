@@ -1,4 +1,5 @@
 use super::super::*;
+use crate::types::QueryText;
 use rmcp::{handler::server::wrapper::Parameters, tool, tool_router};
 
 #[tool_router(router = context_tool_router, vis = "pub(super)")]
@@ -18,7 +19,10 @@ impl CortyxServer {
 
         match route.kind {
             CortyxRouteKind::Context | CortyxRouteKind::Answer => {
-                let task = route.task.unwrap_or_default();
+                let task = match QueryText::new(route.task.unwrap_or_default()) {
+                    Ok(task) => task,
+                    Err(err) => return format!("ERROR: {err}"),
+                };
                 let module = input.module.clone().or_else(|| {
                     route
                         .agent
@@ -26,7 +30,7 @@ impl CortyxServer {
                         .map(|agent| format!("@agent/{}", agent.trim()))
                 });
                 self.get_contexts(Parameters(GetContextsInput {
-                    task,
+                    task: task.into_string(),
                     max_tokens: input.max_tokens,
                     module,
                     person: input.person,
@@ -81,6 +85,7 @@ impl CortyxServer {
         &self,
         Parameters(input): Parameters<GetContextsInput>,
     ) -> String {
+        let mut input = input;
         if input.task.len() > MAX_TASK_BYTES {
             return format!("ERROR: task exceeds {MAX_TASK_BYTES} byte limit");
         }
@@ -89,6 +94,10 @@ impl CortyxServer {
                 return format!("ERROR: previous_response exceeds {MAX_CONTENT_BYTES} byte limit");
             }
         }
+        input.task = match QueryText::new(std::mem::take(&mut input.task)) {
+            Ok(task) => task.into_string(),
+            Err(err) => return format!("ERROR: {err}"),
+        };
 
         // S6 — Implicit feedback: if the caller supplied their previous response,
         // apply soft-citation against last_activated before running the new query.

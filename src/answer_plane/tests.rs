@@ -48,7 +48,7 @@ fn linked_kg_reasoning_index() -> (tempfile::TempDir, NeuronIndex, PathBuf) {
         SynapseType::ConceptExpands,
         "expands to John's structured facts".to_string(),
     );
-    synapse.weight = 1.0;
+    synapse.weight = crate::types::SynapseWeight::new(1.0);
     meta.synapses.push(synapse);
 
     let mut idx = NeuronIndex::load_or_create(dir.path()).unwrap();

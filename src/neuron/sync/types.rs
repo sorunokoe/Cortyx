@@ -82,7 +82,7 @@ impl From<&Synapse> for SyncSynapse {
         Self {
             target: synapse.target.clone(),
             edge_type: synapse.edge_type.clone(),
-            weight: synapse.weight,
+            weight: synapse.weight.get(),
             reason: synapse.reason.clone(),
         }
     }

@@ -1,3 +1,4 @@
+use crate::types::SynapseWeight;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -71,7 +72,7 @@ pub struct Synapse {
     /// Semantic type — controls traversal multiplier and directionality.
     pub edge_type: SynapseType,
     /// Relevance weight in [0, 1]. Starts at 0.5; can be set manually via create_synapse.
-    pub weight: f32,
+    pub weight: SynapseWeight,
     /// Human-readable reason written by the LLM.
     pub reason: String,
     /// Learned traversal weight — starts at `edge_type.type_multiplier()` and updates
@@ -98,7 +99,7 @@ impl Synapse {
         Self {
             target,
             edge_type,
-            weight: 0.5,
+            weight: SynapseWeight::new(0.5),
             reason,
             learned_weight: 0.0,
             traversal_count: 0,
@@ -143,7 +144,7 @@ mod tests {
     #[test]
     fn synapse_has_correct_defaults() {
         let s = Synapse::new(PathBuf::from("a.md"), SynapseType::Imports, "test".into());
-        assert_eq!(s.weight, 0.5);
+        assert_eq!(s.weight, SynapseWeight::new(0.5));
         assert_eq!(s.edge_type, SynapseType::Imports);
         assert_eq!(s.learned_weight, 0.0);
         assert_eq!(s.traversal_count, 0);
