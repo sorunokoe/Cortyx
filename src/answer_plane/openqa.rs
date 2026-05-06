@@ -1,7 +1,7 @@
 use super::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum OpenQaLocationTarget {
+pub(super) enum OpenQaLocationTarget {
     State,
     Country,
     NationalPark,
