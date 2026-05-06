@@ -19,6 +19,7 @@ mod types;
 use self::types::*;
 
 mod output;
+pub(crate) use self::output::collect_evidence_with_reasoning;
 use self::output::{answer_candidate_lines, read_context_text, should_defer_precomputed_answer};
 
 mod multihop;

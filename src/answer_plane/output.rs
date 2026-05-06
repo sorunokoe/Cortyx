@@ -278,7 +278,7 @@ fn collect_evidence(
     evidence
 }
 
-fn collect_evidence_with_reasoning(
+pub(crate) fn collect_evidence_with_reasoning(
     index: &NeuronIndex,
     task: &str,
     paths_with_scores: &[(PathBuf, f32)],
