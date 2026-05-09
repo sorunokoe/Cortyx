@@ -49,6 +49,24 @@ pub use self::helpers::{
     dirty_path, infer_module, is_capsule_module, module_capsule_path, tokenize,
 };
 
+mod helpers_detect;
+pub(super) use self::helpers_detect::*;
+
+mod helpers_extract;
+pub(super) use self::helpers_extract::*;
+
+mod helpers_phrase;
+pub(super) use self::helpers_phrase::*;
+
+mod helpers_surface;
+pub(super) use self::helpers_surface::*;
+
+mod helpers_temporal2;
+pub(super) use self::helpers_temporal2::*;
+
+mod helpers_title;
+pub(super) use self::helpers_title::*;
+
 mod hierarchy;
 mod impl_helpers;
 mod invalidation;
