@@ -30,7 +30,7 @@ jobs:
 
       - name: Install Cortyx
         run: |
-          curl -fsSL https://raw.githubusercontent.com/cortyx-ai/cortyx/main/install.sh | bash
+          curl -fsSL https://raw.githubusercontent.com/sorunokoe/Cortyx/master/install.sh | bash
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Compile neurons (incremental)
