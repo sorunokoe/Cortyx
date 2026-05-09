@@ -26,6 +26,12 @@ jobs:
         with:
           shared-key: test-feedback
 
+      - name: Stub private PureReason deps (not available in CI)
+        run: |
+          mkdir -p ../../AI/PureReason/crates
+          cp -r stubs/pure-reason-core ../../AI/PureReason/crates/
+          cp -r stubs/pure-reason-verifier ../../AI/PureReason/crates/
+
       - name: Install cargo-nextest
         run: cargo install cargo-nextest --locked
 
@@ -48,6 +54,12 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           shared-key: test-feedback
+
+      - name: Stub private PureReason deps (not available in CI)
+        run: |
+          mkdir -p ../../AI/PureReason/crates
+          cp -r stubs/pure-reason-core ../../AI/PureReason/crates/
+          cp -r stubs/pure-reason-verifier ../../AI/PureReason/crates/
 
       - name: Run full proof lane
         run: bash scripts/test-full-proof.sh

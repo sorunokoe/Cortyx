@@ -1,0 +1,5 @@
+[package]
+name = "pure-reason-core"
+version = "0.0.0"
+edition = "2021"
+description = "Stub for CI — real crate is a private sibling repo (../../AI/PureReason)."

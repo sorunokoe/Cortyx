@@ -1,0 +1,8 @@
+[package]
+name = "pure-reason-verifier"
+version = "0.0.0"
+edition = "2021"
+description = "Stub for CI — real crate is a private sibling repo (../../AI/PureReason)."
+
+[dependencies]
+pure-reason-core = { path = "../pure-reason-core" }
