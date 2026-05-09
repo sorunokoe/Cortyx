@@ -38,9 +38,9 @@ pub enum RouteIntent {
 pub enum Commands {
     /// Start the MCP server (STDIO transport — works with Claude Code, Cursor, Codex)
     Serve {
-        /// Optional project name for multi-folder context sharing
+        /// Path to the project root (defaults to current directory)
         #[arg(short, long)]
-        project: Option<String>,
+        project: Option<PathBuf>,
     },
     /// Scan a folder and create neuron stubs (.context.md files)
     Compile {
