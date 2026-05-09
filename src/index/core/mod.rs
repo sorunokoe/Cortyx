@@ -69,6 +69,7 @@ pub(super) use self::helpers_title::*;
 
 mod hierarchy;
 mod impl_helpers;
+mod impl_helpers2;
 mod invalidation;
 mod lsh;
 use lsh::{hamming_distance, simhash_1024, simhash_with_seed, LSH_SEEDS};
