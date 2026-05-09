@@ -30,9 +30,11 @@ use crate::reasoner::{
 mod answer_surface;
 use answer_surface::*;
 
+mod activation;
 mod bm25;
 pub(super) use bm25::BM25Entry;
 
+mod compile;
 mod config;
 use config::*;
 pub use config::{
@@ -47,6 +49,9 @@ pub use self::helpers::{
     dirty_path, infer_module, is_capsule_module, module_capsule_path, tokenize,
 };
 
+mod hierarchy;
+mod impl_helpers;
+mod invalidation;
 mod lsh;
 use lsh::{hamming_distance, simhash_1024, simhash_with_seed, LSH_SEEDS};
 
@@ -68,6 +73,7 @@ pub(super) use query::{
 #[cfg(test)]
 use query::{neuron_body_has_move_residence_evidence, wilson_lower_bound};
 
+mod stats;
 mod synthetic;
 
 mod types;
