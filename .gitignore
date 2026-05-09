@@ -7,6 +7,10 @@ Thumbs.db
 .env
 cortyx_export_*.json
 benchmarks/generated/
+# Large eval fixtures not committed to git (only needed for local runs; CI skips them)
+tests/fixtures/locomo_sample.json
+tests/fixtures/locomo10.json
+
 # Runtime model/tokenizer files (download with scripts/download_reranker.py)
 .cortyx/
 .cortyx/reranker.onnx
