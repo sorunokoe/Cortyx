@@ -97,6 +97,8 @@ mod synthetic_kg;
 mod synthetic_router;
 mod synthetic_session;
 mod synthetic_temporal;
+mod synthetic_temporal2;
+mod synthetic_temporal3;
 
 mod types;
 pub use types::*;
