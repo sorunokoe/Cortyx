@@ -74,7 +74,11 @@ pub(super) use query::{
 use query::{neuron_body_has_move_residence_evidence, wilson_lower_bound};
 
 mod stats;
-mod synthetic;
+mod synthetic_count;
+mod synthetic_kg;
+mod synthetic_router;
+mod synthetic_session;
+mod synthetic_temporal;
 
 mod types;
 pub use types::*;
