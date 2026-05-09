@@ -2,6 +2,7 @@
 // It contains `impl NeuronIndex` methods extracted from helpers.rs.
 // All visibility is relative to `crate::index` (the parent of `core`).
 use super::*;
+use crate::types::{QueryText, SynapseWeight};
 
 impl NeuronIndex {
     /// Return the token count for a neuron path (for F2 budget tracking).

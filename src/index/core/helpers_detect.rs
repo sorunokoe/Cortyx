@@ -4,14 +4,13 @@ use super::*;
 use crate::index::compile_regex;
 use crate::types::{QueryText, SynapseWeight};
 
+/// Detect temporal markers in a query — triggers recency boost in retrieval.
+///
+/// Returns true when the query asks about time-relative facts ("most recent",
+/// "before", "after", etc.). Used to gate the temporal query routing boost so
+/// purely keyword-based queries (which have no temporal intent) are unaffected.
 pub(in crate::index) fn detect_temporal_query(task: &str) -> bool {
-    /// Detect temporal markers in a query — triggers recency boost in retrieval.
-    ///
-    /// Returns true when the query asks about time-relative facts ("most recent",
-    /// "before", "after", etc.). Used to gate the temporal query routing boost so
-    /// purely keyword-based queries (which have no temporal intent) are unaffected.
     const TEMPORAL_MARKERS: &[&str] = &[
-        "when did",
         "when was",
         "before",
         "after",
