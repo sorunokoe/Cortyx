@@ -12,8 +12,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Restored meaningful Clippy lints (removed blanket `clippy::all = "allow"`)
 - Fixed `Cargo.toml` repository URL to `https://github.com/sorunokoe/Cortyx`
+- Added `readme = "README.md"` to Cargo.toml for crates.io packaging
 - Removed stale documentation files (COMPLETE_STATUS, REFACTORING_STATUS, IMPLEMENTATION_GUIDE,
   FINAL_IMPLEMENTATION_REPORT, recursiveMAS_analysis_report)
+- **Monolith extraction** — split `src/index/core/` from 3 files totalling ~33k lines into 30+
+  focused modules; no single file exceeds 2,000 lines:
+  - `helpers.rs` (16k) → 7 focused files (`helpers_detect`, `helpers_extract`, `helpers_surface`,
+    `helpers_phrase`, `helpers_temporal2`, `helpers_title`)
+  - `synthetic.rs` (11k) → 5 focused files (`synthetic_router`, `synthetic_count`,
+    `synthetic_temporal` × 3, `synthetic_kg`, `synthetic_session`)
+  - `impl_helpers.rs` (2.9k) → 2 files (`impl_helpers`, `impl_helpers2`)
+  - `tests.rs` (5.5k) → 4 focused test files
+- **`--project` flag** — `cortyx serve --project /path/to/myapp` now loads `.cortyx/` from the
+  specified path instead of always using the current directory
 
 ---
 

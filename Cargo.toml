@@ -4,6 +4,7 @@ version = "0.2.0"
 edition = "2021"
 description = "MCP-native context delivery engine — local long-term memory, prompt-cache-aware context reuse, BM25 + hybrid retrieval"
 license = "MIT"
+readme = "README.md"
 repository = "https://github.com/sorunokoe/Cortyx"
 keywords = ["llm", "mcp", "context", "memory", "ai"]
 categories = ["command-line-utilities", "development-tools"]
