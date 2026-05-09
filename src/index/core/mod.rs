@@ -103,3 +103,9 @@ pub use types::*;
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_b;
+#[cfg(test)]
+mod tests_c;
+#[cfg(test)]
+mod tests_d;
