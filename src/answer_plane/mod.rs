@@ -40,10 +40,11 @@ use self::surface::*;
 mod relation;
 use self::relation::*;
 
-pub(super) mod temporal;
+pub mod temporal;
 #[cfg(test)]
 use self::temporal::select_temporal_employment_duration_answer;
 use self::temporal::*;
+pub use self::temporal::*;
 
 mod dialogue;
 use self::dialogue::*;
