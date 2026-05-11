@@ -316,7 +316,10 @@ impl NeuronIndex {
         best.map(|(day, _, line)| (day, line))
     }
 
-    pub fn verbatim_entry_groups_for_session(&self, session_id: &str) -> Vec<Vec<&BM25Entry>> {
+    pub(crate) fn verbatim_entry_groups_for_session(
+        &self,
+        session_id: &str,
+    ) -> Vec<Vec<&BM25Entry>> {
         let mut groups: BTreeMap<String, Vec<&BM25Entry>> = BTreeMap::new();
         for entry in self.entries.iter().filter(|entry| {
             matches!(entry.kind, NeuronKind::Verbatim) && entry.session_id == session_id
@@ -338,7 +341,7 @@ impl NeuronIndex {
             .collect()
     }
 
-    pub fn read_matching_session_group_lines<F>(
+    pub(crate) fn read_matching_session_group_lines<F>(
         &self,
         entries: &[&BM25Entry],
         mut predicate: F,

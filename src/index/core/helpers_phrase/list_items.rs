@@ -190,10 +190,7 @@ pub fn normalize_family_origin_item(text: &str) -> String {
         .to_string()
 }
 
-pub fn extract_family_origin_antique_items_from_line(
-    line: &str,
-    lower: &str,
-) -> Vec<String> {
+pub fn extract_family_origin_antique_items_from_line(line: &str, lower: &str) -> Vec<String> {
     if !task_contains_any(
         lower,
         &[
@@ -367,11 +364,7 @@ pub fn line_describes_bike_service_event(lower: &str) -> bool {
         )
 }
 
-pub fn extract_bike_service_item_from_line(
-    line: &str,
-    lower: &str,
-    month: &str,
-) -> Option<String> {
+pub fn extract_bike_service_item_from_line(line: &str, lower: &str, month: &str) -> Option<String> {
     if !line_matches_query_month_window(lower, month) || !line_describes_bike_service_event(lower) {
         return None;
     }
@@ -382,10 +375,7 @@ pub fn render_day_count_answer(count: usize) -> String {
     format!("{count} {}", if count == 1 { "day" } else { "days" })
 }
 
-pub fn line_describes_countable_fitness_class_schedule(
-    line: &str,
-    lower: &str,
-) -> bool {
+pub fn line_describes_countable_fitness_class_schedule(line: &str, lower: &str) -> bool {
     let speaker_grounded = lower.starts_with("user:") || line.trim_start().starts_with('-');
     let assistant_restate = lower.contains("your ");
     let explicit_class_signal = task_contains_any(
@@ -442,12 +432,7 @@ pub fn push_month_day(days: &mut Vec<u32>, seen: &mut HashSet<u32>, value: u32) 
     }
 }
 
-pub fn push_month_day_range(
-    days: &mut Vec<u32>,
-    seen: &mut HashSet<u32>,
-    start: u32,
-    end: u32,
-) {
+pub fn push_month_day_range(days: &mut Vec<u32>, seen: &mut HashSet<u32>, start: u32, end: u32) {
     if !(1..=31).contains(&start) || !(1..=31).contains(&end) || end < start {
         return;
     }
@@ -456,11 +441,7 @@ pub fn push_month_day_range(
     }
 }
 
-pub fn extract_month_day_values_from_line(
-    line: &str,
-    lower: &str,
-    month: &str,
-) -> Vec<u32> {
+pub fn extract_month_day_values_from_line(line: &str, lower: &str, month: &str) -> Vec<u32> {
     if !lower.contains(month) {
         return Vec::new();
     }
@@ -559,11 +540,7 @@ pub fn month_name_to_number(month: &str) -> Option<u32> {
     }
 }
 
-pub fn line_matches_query_month_or_numeric_date(
-    line: &str,
-    lower: &str,
-    month: &str,
-) -> bool {
+pub fn line_matches_query_month_or_numeric_date(line: &str, lower: &str, month: &str) -> bool {
     if line_matches_query_month_window(lower, month) {
         return true;
     }
@@ -576,4 +553,3 @@ pub fn line_matches_query_month_or_numeric_date(
         .filter_map(|value| value.as_str().parse::<u32>().ok())
         .any(|value| value == target_month)
 }
-

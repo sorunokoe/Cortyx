@@ -5,13 +5,13 @@
 
 use super::*;
 
-pub fn extract_duration_months(text: &str) -> Option<i32> {
+pub(crate) fn extract_duration_months(text: &str) -> Option<i32> {
     let years = extract_count_before_unit(text, "year").unwrap_or(0);
     let months = extract_count_before_unit(text, "month").unwrap_or(0);
     ((years > 0) || (months > 0)).then_some(years * 12 + months)
 }
 
-pub fn extract_duration_months_near_phrases(text: &str, phrases: &[&str]) -> Option<i32> {
+pub(crate) fn extract_duration_months_near_phrases(text: &str, phrases: &[&str]) -> Option<i32> {
     let tokens = duration_candidate_tokens(text);
     let spans = extract_duration_month_spans(&tokens);
     if spans.is_empty() {
@@ -45,14 +45,14 @@ pub fn extract_duration_months_near_phrases(text: &str, phrases: &[&str]) -> Opt
         .or_else(|| extract_duration_months(text))
 }
 
-pub fn extract_duration_days(text: &str) -> Option<i32> {
+pub(crate) fn extract_duration_days(text: &str) -> Option<i32> {
     let tokens = duration_candidate_tokens(text);
     extract_duration_day_spans(&tokens)
         .first()
         .map(|(_, _, days)| *days)
 }
 
-pub fn extract_duration_days_near_phrases(text: &str, phrases: &[&str]) -> Option<i32> {
+pub(crate) fn extract_duration_days_near_phrases(text: &str, phrases: &[&str]) -> Option<i32> {
     let tokens = duration_candidate_tokens(text);
     let spans = extract_duration_day_spans(&tokens);
     if spans.is_empty() {
@@ -196,7 +196,7 @@ fn phrase_token_positions(tokens: &[String], phrase: &str) -> Vec<usize> {
         .collect()
 }
 
-pub fn merge_duration_max(slot: &mut Option<i32>, candidate: Option<i32>) {
+pub(crate) fn merge_duration_max(slot: &mut Option<i32>, candidate: Option<i32>) {
     if let Some(value) = candidate {
         *slot = Some(slot.map_or(value, |existing| existing.max(value)));
     }
@@ -219,7 +219,7 @@ fn extract_count_before_unit(text: &str, unit: &str) -> Option<i32> {
     None
 }
 
-pub fn format_duration_months(total_months: i32) -> String {
+pub(crate) fn format_duration_months(total_months: i32) -> String {
     let years = total_months / 12;
     let months = total_months % 12;
     match (years, months) {
@@ -229,7 +229,10 @@ pub fn format_duration_months(total_months: i32) -> String {
     }
 }
 
-pub fn render_temporal_gap_answer(days: i32, style: &TemporalGapAnswerStyle) -> Option<String> {
+pub(crate) fn render_temporal_gap_answer(
+    days: i32,
+    style: &TemporalGapAnswerStyle,
+) -> Option<String> {
     match style {
         TemporalGapAnswerStyle::FixedUnit { unit } => {
             let amount = convert_days_to_gap_unit(days, unit)?;
@@ -261,7 +264,7 @@ fn convert_days_to_gap_unit(days: i32, unit: &str) -> Option<i32> {
     Some(amount.max(0))
 }
 
-pub fn render_natural_duration(days: i32) -> String {
+pub(crate) fn render_natural_duration(days: i32) -> String {
     if days >= 365 {
         let years = days / 365;
         let months = ((days % 365) + 15) / 30;
@@ -296,14 +299,14 @@ fn render_small_duration_quantity(amount: i32, unit: &str) -> String {
     format!("{quantity} {suffix}")
 }
 
-pub fn elapsed_days_since_anchor(anchor_rank: Option<i32>, rank: i32) -> Option<i32> {
+pub(crate) fn elapsed_days_since_anchor(anchor_rank: Option<i32>, rank: i32) -> Option<i32> {
     if rank < 0 {
         return Some(-rank);
     }
     Some((anchor_rank? - rank).abs())
 }
 
-pub fn convert_days_to_elapsed_unit(days: i32, unit: &str) -> Option<i32> {
+pub(crate) fn convert_days_to_elapsed_unit(days: i32, unit: &str) -> Option<i32> {
     let amount = match unit {
         "day" => days,
         "week" => (days + 3) / 7,
@@ -314,7 +317,7 @@ pub fn convert_days_to_elapsed_unit(days: i32, unit: &str) -> Option<i32> {
     Some(amount.max(1))
 }
 
-pub fn render_relative_elapsed(unit: &str, amount: i32) -> String {
+pub(crate) fn render_relative_elapsed(unit: &str, amount: i32) -> String {
     let quantity = small_number_word(amount).unwrap_or_else(|| amount.to_string());
     let suffix = if amount == 1 {
         unit.to_string()

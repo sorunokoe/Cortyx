@@ -366,11 +366,7 @@ pub fn study_subject_required_journal_phrase(task_lower: &str) -> Option<String>
         .filter(|phrase| phrase.split_whitespace().count() >= 2)
 }
 
-pub fn is_direct_count_candidate_line(
-    line: &str,
-    lower: &str,
-    task_lower: &str,
-) -> bool {
+pub fn is_direct_count_candidate_line(line: &str, lower: &str, task_lower: &str) -> bool {
     is_summary_or_user_line(line, lower)
         || (task_contains_any(task_lower, &["study", "journal", "subjects"])
             && extract_numbered_list_item(line).is_some()
@@ -536,9 +532,7 @@ pub fn extract_media_rewatch_focus(task_lower: &str) -> Option<(String, String)>
     Some((focus, media_kind))
 }
 
-pub fn extract_daily_duration_commitment_phrase(
-    task_lower: &str,
-) -> Option<String> {
+pub fn extract_daily_duration_commitment_phrase(task_lower: &str) -> Option<String> {
     for marker in [
         "how much time do i dedicate to ",
         "how much time do i spend on ",
@@ -560,9 +554,7 @@ pub fn extract_daily_duration_commitment_phrase(
     None
 }
 
-pub fn extract_frequency_transition_activity_phrase(
-    task_lower: &str,
-) -> Option<String> {
+pub fn extract_frequency_transition_activity_phrase(task_lower: &str) -> Option<String> {
     task_lower
         .split_once("how often do i ")
         .and_then(|(_, tail)| tail.split_once(" previously").map(|(head, _)| head))
@@ -683,4 +675,3 @@ pub fn line_has_future_goal_marker(lower: &str) -> bool {
         ],
     )
 }
-

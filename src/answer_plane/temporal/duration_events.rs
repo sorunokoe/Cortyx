@@ -6,7 +6,7 @@
 use super::*;
 use std::path::Path;
 
-pub fn parse_requested_sequence_count(task: &str) -> usize {
+pub(crate) fn parse_requested_sequence_count(task: &str) -> usize {
     let lower = task.to_ascii_lowercase();
     if lower.contains("first, second and third") || lower.contains("first second and third") {
         return 3;
@@ -20,7 +20,7 @@ pub fn parse_requested_sequence_count(task: &str) -> usize {
         .unwrap_or(3)
 }
 
-pub fn parse_temporal_sequence_options(task: &str) -> Option<Vec<ChoiceOption>> {
+pub(crate) fn parse_temporal_sequence_options(task: &str) -> Option<Vec<ChoiceOption>> {
     let trimmed = task.trim().trim_end_matches('?');
     let quoted = extract_all_quoted_spans(trimmed)
         .into_iter()
@@ -67,7 +67,7 @@ fn extract_all_quoted_spans(text: &str) -> Vec<String> {
     spans
 }
 
-pub fn looks_like_completed_temporal_event(text: &str) -> bool {
+pub(crate) fn looks_like_completed_temporal_event(text: &str) -> bool {
     let lower = text.to_ascii_lowercase();
     if lower.starts_with("i'm planning")
         || lower.starts_with("i am planning")
@@ -106,7 +106,7 @@ pub fn looks_like_completed_temporal_event(text: &str) -> bool {
     .any(|marker| lower.contains(marker))
 }
 
-pub fn compact_temporal_event_summary(text: &str) -> String {
+pub(crate) fn compact_temporal_event_summary(text: &str) -> String {
     let lower = text.to_ascii_lowercase();
     if lower.contains("similar to the one i attended") {
         return String::new();
@@ -188,7 +188,7 @@ fn extract_quoted_spans_for(text: &str, quote: char) -> Vec<String> {
     spans
 }
 
-pub fn render_temporal_sequence_answer(items: &[String]) -> Option<String> {
+pub(crate) fn render_temporal_sequence_answer(items: &[String]) -> Option<String> {
     if items.len() < 2 {
         return None;
     }
@@ -208,7 +208,7 @@ pub fn render_temporal_sequence_answer(items: &[String]) -> Option<String> {
     Some(out)
 }
 
-pub fn temporal_candidate_sequence_rank(
+pub(crate) fn temporal_candidate_sequence_rank(
     path: &Path,
     item_index: usize,
     local_index: usize,
@@ -230,7 +230,7 @@ pub fn temporal_candidate_sequence_rank(
     Some(base.saturating_mul(1000) + local_index as i32)
 }
 
-pub fn render_temporal_candidate_answer(
+pub(crate) fn render_temporal_candidate_answer(
     task: &str,
     candidate: &TemporalCandidate,
     task_terms: &[String],
@@ -239,7 +239,11 @@ pub fn render_temporal_candidate_answer(
         .unwrap_or_else(|| summarize_turn_text(&candidate.text, task_terms))
 }
 
-pub fn temporal_event_match_score(line: &str, option: &ChoiceOption, retrieval_score: f32) -> f32 {
+pub(crate) fn temporal_event_match_score(
+    line: &str,
+    option: &ChoiceOption,
+    retrieval_score: f32,
+) -> f32 {
     let lower = line.to_ascii_lowercase();
     let required_tokens = temporal_required_option_tokens(option);
     if !required_tokens.is_empty()
@@ -271,7 +275,7 @@ pub fn temporal_event_match_score(line: &str, option: &ChoiceOption, retrieval_s
     candidate_weight(line, &option.tokens, retrieval_score, false) + overlap * 6.0 + coverage * 10.0
 }
 
-pub fn line_matches_event_token(lower_line: &str, token: &str) -> bool {
+pub(crate) fn line_matches_event_token(lower_line: &str, token: &str) -> bool {
     if lower_line.contains(token) {
         return true;
     }
@@ -301,7 +305,7 @@ fn temporal_required_option_tokens(option: &ChoiceOption) -> Vec<String> {
     required_tail_anchor_tokens(&option.display)
 }
 
-pub fn required_tail_anchor_tokens(text: &str) -> Vec<String> {
+pub(crate) fn required_tail_anchor_tokens(text: &str) -> Vec<String> {
     let display_lower = text.to_ascii_lowercase();
     let mut best_tail = None;
     let mut best_idx = 0usize;

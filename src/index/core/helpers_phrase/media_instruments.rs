@@ -180,10 +180,7 @@ pub fn extract_hour_minute_total_from_text(text: &str) -> Option<i32> {
     None
 }
 
-pub fn extract_marathon_completion_minutes_from_line(
-    line: &str,
-    lower: &str,
-) -> Option<i32> {
+pub fn extract_marathon_completion_minutes_from_line(line: &str, lower: &str) -> Option<i32> {
     if !lower.contains("marathon")
         || !task_contains_any(
             lower,
@@ -208,10 +205,7 @@ pub fn extract_marathon_completion_minutes_from_line(
     None
 }
 
-pub fn extract_marathon_target_minutes_from_line(
-    line: &str,
-    lower: &str,
-) -> Option<i32> {
+pub fn extract_marathon_target_minutes_from_line(line: &str, lower: &str) -> Option<i32> {
     if !lower.contains("marathon") || !lower.contains("target time") {
         return None;
     }
@@ -230,10 +224,7 @@ pub fn extract_marathon_target_minutes_from_line(
     None
 }
 
-pub fn extract_attended_movie_festival_from_line(
-    line: &str,
-    lower: &str,
-) -> Option<String> {
+pub fn extract_attended_movie_festival_from_line(line: &str, lower: &str) -> Option<String> {
     if !task_contains_any(
         lower,
         &[
@@ -277,10 +268,7 @@ pub fn spell_small_cardinal(count: usize) -> Option<&'static str> {
     }
 }
 
-pub fn extract_music_release_signatures_from_line(
-    line: &str,
-    lower: &str,
-) -> Vec<String> {
+pub fn extract_music_release_signatures_from_line(line: &str, lower: &str) -> Vec<String> {
     let mut releases = Vec::new();
     let mut seen = HashSet::new();
 
@@ -606,10 +594,7 @@ pub fn extract_recent_furniture_action_signatures_from_line(
     items
 }
 
-pub fn extract_loyalty_point_goal_total_from_line(
-    line: &str,
-    lower: &str,
-) -> Option<i32> {
+pub fn extract_loyalty_point_goal_total_from_line(line: &str, lower: &str) -> Option<i32> {
     if !lower.contains("point") {
         return None;
     }
@@ -628,10 +613,7 @@ pub fn extract_loyalty_point_goal_total_from_line(
     None
 }
 
-pub fn extract_loyalty_point_current_total_from_line(
-    line: &str,
-    lower: &str,
-) -> Option<i32> {
+pub fn extract_loyalty_point_current_total_from_line(line: &str, lower: &str) -> Option<i32> {
     if !lower.contains("point") {
         return None;
     }
@@ -730,9 +712,7 @@ pub fn collapsed_owned_instrument_count(instruments: &HashSet<String>) -> usize 
     retained_owned_instrument_keys(instruments).len()
 }
 
-pub fn retained_owned_instrument_keys(
-    instruments: &HashSet<String>,
-) -> Vec<String> {
+pub fn retained_owned_instrument_keys(instruments: &HashSet<String>) -> Vec<String> {
     let mut retained = instruments
         .iter()
         .filter(|instrument| {

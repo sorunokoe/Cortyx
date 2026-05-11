@@ -210,11 +210,7 @@ pub fn extract_museum_gallery_visit_venue_from_line(
     })
 }
 
-pub fn line_mentions_candidate_museum_gallery_visit(
-    line: &str,
-    lower: &str,
-    month: &str,
-) -> bool {
+pub fn line_mentions_candidate_museum_gallery_visit(line: &str, lower: &str, month: &str) -> bool {
     line_matches_query_month_or_numeric_date(line, lower, month)
         && line_describes_museum_gallery_visit(lower)
         && task_contains_any(lower, &["museum", "gallery", "art cube"])
@@ -245,10 +241,7 @@ pub fn extract_citrus_fruits_from_line(_line: &str, lower: &str) -> Vec<String> 
     fruits
 }
 
-pub fn extract_food_delivery_service_from_line(
-    _line: &str,
-    lower: &str,
-) -> Option<String> {
+pub fn extract_food_delivery_service_from_line(_line: &str, lower: &str) -> Option<String> {
     let labels = [
         ("fresh fusion", "Fresh Fusion"),
         ("uber eats", "Uber Eats"),
@@ -322,10 +315,7 @@ pub fn trim_trailing_relative_time_phrase(text: &str) -> String {
         .to_string()
 }
 
-pub fn extract_graduation_ceremony_signature_from_line(
-    line: &str,
-    lower: &str,
-) -> Option<String> {
+pub fn extract_graduation_ceremony_signature_from_line(line: &str, lower: &str) -> Option<String> {
     if !lower.contains("graduation")
         || !task_contains_any(lower, &["attended my", "attended our", "attended the"])
         || !line_mentions_recent_three_month_window(lower)
@@ -342,10 +332,7 @@ pub fn extract_graduation_ceremony_signature_from_line(
     Some(format!("{owner}:{event}"))
 }
 
-pub fn extract_health_device_units_from_line(
-    _line: &str,
-    lower: &str,
-) -> Vec<String> {
+pub fn extract_health_device_units_from_line(_line: &str, lower: &str) -> Vec<String> {
     let mut devices = Vec::new();
     let mut seen = HashSet::new();
 
@@ -397,10 +384,7 @@ pub fn extract_health_device_units_from_line(
     devices
 }
 
-pub fn extract_peak_campaign_weekly_hour_delta_from_line(
-    line: &str,
-    lower: &str,
-) -> Option<f32> {
+pub fn extract_peak_campaign_weekly_hour_delta_from_line(line: &str, lower: &str) -> Option<f32> {
     if !lower.contains("peak campaign")
         || !task_contains_any(
             lower,
@@ -419,10 +403,7 @@ pub fn extract_peak_campaign_weekly_hour_delta_from_line(
     .ok()
 }
 
-pub fn extract_typical_weekly_work_hours_from_line(
-    line: &str,
-    lower: &str,
-) -> Option<f32> {
+pub fn extract_typical_weekly_work_hours_from_line(line: &str, lower: &str) -> Option<f32> {
     if !task_contains_any(lower, &["i usually work", "usually work"]) {
         return None;
     }
@@ -434,10 +415,7 @@ pub fn extract_typical_weekly_work_hours_from_line(
         .ok()
 }
 
-pub fn extract_peak_campaign_total_weekly_hours_from_line(
-    line: &str,
-    lower: &str,
-) -> Option<f32> {
+pub fn extract_peak_campaign_total_weekly_hours_from_line(line: &str, lower: &str) -> Option<f32> {
     if !lower.contains("peak campaign") {
         return None;
     }
@@ -451,9 +429,7 @@ pub fn extract_peak_campaign_total_weekly_hours_from_line(
     .ok()
 }
 
-pub fn extract_recent_activity_query_labels(
-    task_lower: &str,
-) -> Vec<&'static str> {
+pub fn extract_recent_activity_query_labels(task_lower: &str) -> Vec<&'static str> {
     let mut labels = Vec::new();
     for (label, needles) in [
         ("jogging", &["jogging", "jog"][..]),
@@ -472,4 +448,3 @@ pub fn extract_recent_activity_query_labels(
     }
     labels
 }
-

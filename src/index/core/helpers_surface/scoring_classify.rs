@@ -139,10 +139,7 @@ pub fn index_answer_surface_score(
     )
 }
 
-pub fn format_index_answer_surface_answer(
-    task_lower: &str,
-    answer: &str,
-) -> String {
+pub fn format_index_answer_surface_answer(task_lower: &str, answer: &str) -> String {
     let answer_lower = answer.to_ascii_lowercase();
     if answer_lower.contains("ally")
         && task_contains_any(
@@ -244,10 +241,7 @@ pub fn answer_surface_evidence_line(
     best.map(|(_, _, _, _, line)| line)
 }
 
-pub fn answer_surface_answer_span_evidence_state(
-    content: &str,
-    answer_span: &str,
-) -> (bool, bool) {
+pub fn answer_surface_answer_span_evidence_state(content: &str, answer_span: &str) -> (bool, bool) {
     let body = strip_query_surface_section(content);
     let answer_lower = answer_span.to_ascii_lowercase();
     let mut has_future = false;
@@ -270,14 +264,8 @@ pub fn answer_surface_answer_span_evidence_state(
     (has_future, has_completed)
 }
 
-pub fn latest_active_kg_value(
-    entity: &kg::KgEntity,
-    predicate: &str,
-) -> Option<String> {
-    pub fn latest_value_for_predicate(
-        entity: &kg::KgEntity,
-        predicate: &str,
-    ) -> Option<String> {
+pub fn latest_active_kg_value(entity: &kg::KgEntity, predicate: &str) -> Option<String> {
+    pub fn latest_value_for_predicate(entity: &kg::KgEntity, predicate: &str) -> Option<String> {
         let mut facts = entity.active_values_for_predicate(predicate, None);
         facts.sort_by(|a, b| a.valid_from.cmp(&b.valid_from));
         if let Some(value) = facts
@@ -809,4 +797,3 @@ pub fn project_assistant_followup_answer_from_context(
     let lower = line.to_ascii_lowercase();
     project_assistant_followup_answer_from_line(task, task_lower, line, &lower)
 }
-

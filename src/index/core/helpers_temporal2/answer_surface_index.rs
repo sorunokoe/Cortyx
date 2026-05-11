@@ -491,9 +491,7 @@ pub fn normalize_temporal_choice_option(option: &str) -> String {
         .to_string()
 }
 
-pub fn extract_temporal_elapsed_phrases(
-    task_lower: &str,
-) -> Option<(String, String)> {
+pub fn extract_temporal_elapsed_phrases(task_lower: &str) -> Option<(String, String)> {
     let trimmed = task_lower.trim().trim_end_matches('?');
     let rest = trimmed.strip_prefix("how long had i been ")?;
     let (subject, event) = rest.split_once(" when ")?;
@@ -516,9 +514,7 @@ pub struct SyntheticFromNowQuery {
     pub append_ago: bool,
 }
 
-pub fn extract_temporal_from_now_query(
-    task_lower: &str,
-) -> Option<SyntheticFromNowQuery> {
+pub fn extract_temporal_from_now_query(task_lower: &str) -> Option<SyntheticFromNowQuery> {
     let trimmed = strip_temporal_reference_prefix(task_lower)
         .trim()
         .trim_end_matches('?');

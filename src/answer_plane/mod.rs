@@ -15,7 +15,7 @@ pub enum AnswerAbstentionReason {
     LowFormConfidence,
 }
 
-mod types;
+pub(crate) mod types;
 use self::types::*;
 
 mod output;
@@ -44,14 +44,14 @@ pub mod temporal;
 #[cfg(test)]
 use self::temporal::select_temporal_employment_duration_answer;
 use self::temporal::*;
-pub use self::temporal::*;
+pub(crate) use self::temporal::*;
 
 mod dialogue;
 use self::dialogue::*;
 pub use self::dialogue::{mine_dialogue_answer_surface_span, mine_dialogue_question_pattern};
 
 mod scoring;
-use self::scoring::*;
+pub(crate) use self::scoring::*;
 
 pub fn render_answer_output(
     index: &NeuronIndex,

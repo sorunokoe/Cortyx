@@ -6,12 +6,12 @@
 use super::*;
 use crate::kg;
 
-pub fn shift_date_by_days(base: (i32, u32, u32), delta_days: i32) -> (i32, u32, u32) {
+pub(crate) fn shift_date_by_days(base: (i32, u32, u32), delta_days: i32) -> (i32, u32, u32) {
     let rank = ymd_to_days(base.0, base.1, base.2) + delta_days;
     days_to_ymd(rank)
 }
 
-pub fn shift_month(year: i32, month: u32, delta_months: i32) -> (i32, u32) {
+pub(crate) fn shift_month(year: i32, month: u32, delta_months: i32) -> (i32, u32) {
     let base = year * 12 + month as i32 - 1 + delta_months;
     let shifted_year = base.div_euclid(12);
     let shifted_month = base.rem_euclid(12) + 1;
@@ -58,7 +58,7 @@ fn is_leap_year(year: i32) -> bool {
     (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
 }
 
-pub fn month_name(month: u32) -> &'static str {
+pub(crate) fn month_name(month: u32) -> &'static str {
     match month {
         1 => "January",
         2 => "February",
@@ -202,7 +202,7 @@ pub(super) fn temporal_state_candidate_score(
     candidate_weight(&combined_context, task_terms, retrieval_score, false) + entity_overlap
 }
 
-pub fn kg_predicate_query_terms(predicate: &str) -> Vec<String> {
+pub(crate) fn kg_predicate_query_terms(predicate: &str) -> Vec<String> {
     let mut terms = predicate
         .split('_')
         .map(str::trim)
@@ -255,7 +255,7 @@ pub fn kg_predicate_query_terms(predicate: &str) -> Vec<String> {
     terms
 }
 
-pub fn kg_entity_query_terms(entity: &str) -> Vec<String> {
+pub(crate) fn kg_entity_query_terms(entity: &str) -> Vec<String> {
     let mut terms = entity
         .split('_')
         .filter(|token| token.len() >= 3)
@@ -283,7 +283,7 @@ pub(super) fn render_temporal_state_kg_answer(
     }
 }
 
-pub fn current_kg_values(entity: &kg::KgEntity, predicate: &str) -> Vec<String> {
+pub(crate) fn current_kg_values(entity: &kg::KgEntity, predicate: &str) -> Vec<String> {
     collect_kg_values(
         entity
             .facts

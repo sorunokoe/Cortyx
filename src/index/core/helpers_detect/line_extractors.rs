@@ -55,10 +55,7 @@ pub fn parse_frequency_count_token(token: &str) -> Option<i32> {
     }
 }
 
-pub fn extract_meetup_count_surface_from_line(
-    line: &str,
-    lower: &str,
-) -> Option<String> {
+pub fn extract_meetup_count_surface_from_line(line: &str, lower: &str) -> Option<String> {
     if !lower.contains("met up")
         || task_contains_any(
             lower,
@@ -164,10 +161,7 @@ pub fn extract_women_count_from_line(line: &str, lower: &str) -> Option<i32> {
     parse_count_token_value(raw)
 }
 
-pub fn extract_weight_loss_answer_from_line(
-    line: &str,
-    lower: &str,
-) -> Option<(i32, String)> {
+pub fn extract_weight_loss_answer_from_line(line: &str, lower: &str) -> Option<(i32, String)> {
     if !lower.contains("lost") || !lower.contains("pound") {
         return None;
     }
@@ -189,10 +183,7 @@ pub fn extract_weight_loss_answer_from_line(
     Some((value, surface))
 }
 
-pub fn extract_frequency_surface_from_line(
-    line: &str,
-    lower: &str,
-) -> Option<String> {
+pub fn extract_frequency_surface_from_line(line: &str, lower: &str) -> Option<String> {
     if lower.contains("every other week") {
         return Some("every other week".to_string());
     }
@@ -314,10 +305,7 @@ pub fn extract_status_answer_from_line(line: &str, lower: &str) -> Option<String
         .map(|m| m.as_str().trim().to_string())
 }
 
-pub fn extract_level_goal_answer_from_line(
-    line: &str,
-    lower: &str,
-) -> Option<String> {
+pub fn extract_level_goal_answer_from_line(line: &str, lower: &str) -> Option<String> {
     if !lower.contains("level")
         || !(line_has_future_goal_marker(lower)
             || lower.contains("determined to reach")
@@ -395,10 +383,7 @@ pub fn extract_purchase_family_item_from_line(
     }
 }
 
-pub fn extract_gadget_purchase_item_from_line(
-    line: &str,
-    lower: &str,
-) -> Option<String> {
+pub fn extract_gadget_purchase_item_from_line(line: &str, lower: &str) -> Option<String> {
     if !task_contains_any(
         lower,
         &[
@@ -423,10 +408,7 @@ pub fn extract_gadget_purchase_item_from_line(
     .last()
 }
 
-pub fn extract_lens_purchase_item_from_line(
-    line: &str,
-    lower: &str,
-) -> Option<String> {
+pub fn extract_lens_purchase_item_from_line(line: &str, lower: &str) -> Option<String> {
     let has_ownership_marker = task_contains_any(
         lower,
         &[
@@ -486,10 +468,7 @@ pub fn extract_trip_destination_from_query(task_lower: &str) -> Option<String> {
     None
 }
 
-pub fn extract_planned_stay_location_from_line(
-    line: &str,
-    lower: &str,
-) -> Option<String> {
+pub fn extract_planned_stay_location_from_line(line: &str, lower: &str) -> Option<String> {
     let value = extract_phrase_after_any_index(
         line,
         lower,

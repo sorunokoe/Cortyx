@@ -16,3 +16,11 @@ tests/fixtures/locomo10.json
 .cortyx/reranker.onnx
 .cortyx/tokenizer.json
 .gitnexus
+
+# Large eval/validation working directories
+.cortyx_eval_work/
+.validation-openqa/
+.validation-openqa-current/
+librust_out.rlib
+lme500_eval_results.json
+lme500_eval_results.public-hypotheses.jsonl

@@ -3,9 +3,7 @@
 use super::super::*;
 use crate::index::compile_regex;
 
-pub fn extract_formal_education_target_stage(
-    task_lower: &str,
-) -> Option<EducationStageKind> {
+pub fn extract_formal_education_target_stage(task_lower: &str) -> Option<EducationStageKind> {
     if !task_lower.contains("formal education") || !task_lower.contains("high school") {
         return None;
     }
@@ -297,9 +295,7 @@ pub fn extract_multi_session_money_focus_terms(task_lower: &str) -> Vec<String> 
     terms
 }
 
-pub fn extract_multi_session_duration_focus_terms(
-    task_lower: &str,
-) -> Vec<String> {
+pub fn extract_multi_session_duration_focus_terms(task_lower: &str) -> Vec<String> {
     const STOP: &[&str] = &[
         "total",
         "combined",
@@ -555,4 +551,3 @@ pub fn extract_sale_total(line: &str) -> Option<f32> {
 
     None
 }
-

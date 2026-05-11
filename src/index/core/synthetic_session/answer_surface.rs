@@ -220,7 +220,7 @@ impl NeuronIndex {
         }
     }
 
-    pub fn compose_index_answer_surface_answer(
+    pub(crate) fn compose_index_answer_surface_answer(
         task_lower: &str,
         profile: &SyntheticAnswerSurfaceQueryProfile,
         buckets: &[IndexAnswerSurfaceBucket],
@@ -325,13 +325,15 @@ impl NeuronIndex {
         (chosen.len() >= min_items).then_some((chosen, evidence))
     }
 
-    pub fn index_answer_surface_composition_rank(bucket: &IndexAnswerSurfaceBucket) -> f32 {
+    pub(crate) fn index_answer_surface_composition_rank(bucket: &IndexAnswerSurfaceBucket) -> f32 {
         bucket.best_score
             + bucket.max_overlap as f32 * 2.0
             + (bucket.paths.len().saturating_sub(1) as f32) * 1.5
     }
 
-    pub fn is_composeable_index_answer_surface_bucket(bucket: &IndexAnswerSurfaceBucket) -> bool {
+    pub(crate) fn is_composeable_index_answer_surface_bucket(
+        bucket: &IndexAnswerSurfaceBucket,
+    ) -> bool {
         let word_count = bucket.answer_span.split_whitespace().count();
         word_count > 0
             && word_count <= 8

@@ -2,7 +2,7 @@
 
 use super::*;
 
-pub fn parse_temporal_gap_query(task: &str) -> Option<TemporalGapQuery> {
+pub(crate) fn parse_temporal_gap_query(task: &str) -> Option<TemporalGapQuery> {
     if task.to_ascii_lowercase().starts_with("how many days") {
         if let Some((start, end)) = parse_temporal_duration_events(task) {
             return Some(TemporalGapQuery {
@@ -240,7 +240,7 @@ fn parse_temporal_how_long_gap_query(task: &str) -> Option<TemporalGapQuery> {
     None
 }
 
-pub fn parse_temporal_duration_events(task: &str) -> Option<(ChoiceOption, ChoiceOption)> {
+pub(crate) fn parse_temporal_duration_events(task: &str) -> Option<(ChoiceOption, ChoiceOption)> {
     let trimmed = task.trim().trim_end_matches('?');
     let lower = trimmed.to_ascii_lowercase();
     if !lower.contains("how many days") {
@@ -288,7 +288,7 @@ pub fn parse_temporal_duration_events(task: &str) -> Option<(ChoiceOption, Choic
     None
 }
 
-pub fn build_temporal_event_option(text: &str) -> Option<ChoiceOption> {
+pub(crate) fn build_temporal_event_option(text: &str) -> Option<ChoiceOption> {
     let display = strip_leading_temporal_actor(text);
     let mut tokens = display
         .split(|c: char| !c.is_alphanumeric() && c != '\'')
@@ -319,7 +319,7 @@ pub fn build_temporal_event_option(text: &str) -> Option<ChoiceOption> {
     Some(ChoiceOption { display, tokens })
 }
 
-pub fn strip_leading_temporal_actor(text: &str) -> String {
+pub(crate) fn strip_leading_temporal_actor(text: &str) -> String {
     let mut clean = sanitize_answer_text(text);
     loop {
         let mut stripped = false;
@@ -357,7 +357,7 @@ pub fn strip_leading_temporal_actor(text: &str) -> String {
     clean
 }
 
-pub fn split_once_case_insensitive<'a>(
+pub(crate) fn split_once_case_insensitive<'a>(
     text: &'a str,
     delimiter: &str,
 ) -> Option<(&'a str, &'a str)> {
@@ -380,7 +380,7 @@ fn strip_prefix_case_insensitive<'a>(text: &'a str, prefix: &str) -> Option<&'a 
     }
 }
 
-pub fn parse_temporal_elapsed_query(task: &str) -> Option<(String, ChoiceOption)> {
+pub(crate) fn parse_temporal_elapsed_query(task: &str) -> Option<(String, ChoiceOption)> {
     let trimmed = task.trim().trim_end_matches('?');
     if !trimmed.to_ascii_lowercase().starts_with("how many ") {
         return None;
@@ -396,7 +396,7 @@ pub fn parse_temporal_elapsed_query(task: &str) -> Option<(String, ChoiceOption)
     None
 }
 
-pub fn parse_temporal_order_direction(task: &str) -> Option<TemporalDirection> {
+pub(crate) fn parse_temporal_order_direction(task: &str) -> Option<TemporalDirection> {
     let lower = task.to_ascii_lowercase();
     if lower.contains(" first")
         || lower.starts_with("first ")

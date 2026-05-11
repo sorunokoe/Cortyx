@@ -151,9 +151,7 @@ pub fn assistant_followup_descriptor_terms(task_lower: &str) -> Vec<String> {
     terms
 }
 
-pub fn assistant_followup_subject_descriptor_clause(
-    task_lower: &str,
-) -> Option<&str> {
+pub fn assistant_followup_subject_descriptor_clause(task_lower: &str) -> Option<&str> {
     for marker in [
         "example you gave of a ",
         "example you gave of an ",
@@ -281,17 +279,12 @@ pub fn extract_website_name_from_line(line: &str) -> Option<String> {
         .map(|m| m.as_str().trim().to_string())
 }
 
-pub fn extract_beer_recommendation_answer_from_line(
-    lower: &str,
-) -> Option<String> {
+pub fn extract_beer_recommendation_answer_from_line(lower: &str) -> Option<String> {
     (lower.contains("beer") && lower.contains("pilsner") && lower.contains("lager"))
         .then_some("I recommended using a Pilsner or Lager for the recipe.".to_string())
 }
 
-pub fn extract_two_factor_method_answer_from_line(
-    line: &str,
-    lower: &str,
-) -> Option<String> {
+pub fn extract_two_factor_method_answer_from_line(line: &str, lower: &str) -> Option<String> {
     if !lower.contains("two-factor authentication") {
         return None;
     }
@@ -308,10 +301,7 @@ pub fn extract_two_factor_method_answer_from_line(
     ))
 }
 
-pub fn extract_session_education_answer(
-    line: &str,
-    lower: &str,
-) -> Option<String> {
+pub fn extract_session_education_answer(line: &str, lower: &str) -> Option<String> {
     let mut answer = extract_phrase_after_any_index(
         line,
         lower,
@@ -598,10 +588,7 @@ pub fn extract_session_location_answer(
     .map(|value| normalize_location_kg_value(&value))
 }
 
-pub fn extract_session_occupation_answer(
-    line: &str,
-    lower: &str,
-) -> Option<String> {
+pub fn extract_session_occupation_answer(line: &str, lower: &str) -> Option<String> {
     extract_phrase_after_any_index(
         line,
         lower,
@@ -625,4 +612,3 @@ pub fn extract_money_answer_from_line(line: &str) -> Option<String> {
         .and_then(|caps| caps.get(1))
         .map(|m| m.as_str().trim().to_string())
 }
-

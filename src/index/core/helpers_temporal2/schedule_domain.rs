@@ -135,10 +135,7 @@ pub fn extract_schedule_shift_from_table(
     None
 }
 
-pub fn extract_served_dish_from_query(
-    task: &str,
-    task_lower: &str,
-) -> Option<String> {
+pub fn extract_served_dish_from_query(task: &str, task_lower: &str) -> Option<String> {
     let marker = if let Some(idx) = task_lower.find("serves ") {
         idx + "serves ".len()
     } else if let Some(idx) = task_lower.find("serve ") {
@@ -324,10 +321,7 @@ pub fn extract_image_subject_body_color(
     None
 }
 
-pub fn extract_issue_after_service_line(
-    line: &str,
-    lower: &str,
-) -> Option<String> {
+pub fn extract_issue_after_service_line(line: &str, lower: &str) -> Option<String> {
     let mut issue = extract_phrase_after_any_index(
         line,
         lower,
@@ -448,10 +442,7 @@ pub fn split_duration_aggregate_segments(line: &str) -> Vec<String> {
     segments
 }
 
-pub fn extract_focused_dollar_amounts(
-    line: &str,
-    focus_terms: &[String],
-) -> Vec<f32> {
+pub fn extract_focused_dollar_amounts(line: &str, focus_terms: &[String]) -> Vec<f32> {
     let amounts = extract_dollar_amounts(line);
     if amounts.len() <= 1 {
         return amounts;
@@ -558,9 +549,7 @@ pub fn format_money_answer(value: f32) -> String {
     format!("${}", format_numeric_answer(value))
 }
 
-pub fn extract_aggregate_duration_value(
-    line: &str,
-) -> Option<SyntheticDurationValue> {
+pub fn extract_aggregate_duration_value(line: &str) -> Option<SyntheticDurationValue> {
     pub fn parse_amount(token: &str) -> Option<f32> {
         match token.to_ascii_lowercase().as_str() {
             "a" | "an" | "one" => Some(1.0),
@@ -641,9 +630,7 @@ pub fn extract_aggregate_duration_value(
     })
 }
 
-pub fn extract_requested_aggregate_duration_unit(
-    task_lower: &str,
-) -> Option<&'static str> {
+pub fn extract_requested_aggregate_duration_unit(task_lower: &str) -> Option<&'static str> {
     let caps = compile_regex(r"(?i)\bhow many\s+(day|days|week|weeks|month|months|year|years|hour|hours|minute|minutes)\b")
         .captures(task_lower)?;
     match caps.get(1)?.as_str().to_ascii_lowercase().as_str() {
@@ -783,4 +770,3 @@ pub struct EducationStageFact {
     pub duration_years: Option<i32>,
     pub evidence: String,
 }
-

@@ -315,10 +315,7 @@ pub fn extract_color_answer_from_line(line: &str) -> Option<String> {
     None
 }
 
-pub fn extract_query_aligned_numeric_answer(
-    task_lower: &str,
-    line: &str,
-) -> Option<String> {
+pub fn extract_query_aligned_numeric_answer(task_lower: &str, line: &str) -> Option<String> {
     let mut terms = synthetic_query_terms(task_lower)
         .into_iter()
         .filter(|term| term.len() >= 4)

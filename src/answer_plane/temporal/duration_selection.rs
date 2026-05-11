@@ -5,7 +5,7 @@
 
 use super::*;
 
-pub fn best_temporal_duration_pair(
+pub(crate) fn best_temporal_duration_pair(
     start: &ChoiceOption,
     end: &ChoiceOption,
     evidence: &[EvidenceItem],
@@ -14,7 +14,7 @@ pub fn best_temporal_duration_pair(
     best_temporal_duration_pair_from_candidates(start, end, &candidates)
 }
 
-pub fn best_temporal_duration_pair_from_candidates(
+pub(crate) fn best_temporal_duration_pair_from_candidates(
     start: &ChoiceOption,
     end: &ChoiceOption,
     candidates: &[TemporalCandidate],
@@ -45,7 +45,7 @@ pub fn best_temporal_duration_pair_from_candidates(
     Some((start_rank.rank, end_rank.rank))
 }
 
-pub fn best_temporal_duration_pair_strict(
+pub(crate) fn best_temporal_duration_pair_strict(
     start: &ChoiceOption,
     end: &ChoiceOption,
     evidence: &[EvidenceItem],
@@ -53,7 +53,7 @@ pub fn best_temporal_duration_pair_strict(
     best_temporal_duration_pair(start, end, evidence)
 }
 
-pub fn temporal_specificity_score(
+pub(crate) fn temporal_specificity_score(
     candidate: &TemporalCandidate,
     target: &ChoiceOption,
     competing: Option<&ChoiceOption>,
@@ -75,7 +75,7 @@ pub fn temporal_specificity_score(
         }
 }
 
-pub fn extract_relative_unit_amount(text: &str, unit: &str) -> Option<i32> {
+pub(crate) fn extract_relative_unit_amount(text: &str, unit: &str) -> Option<i32> {
     let lower = text.to_ascii_lowercase();
     match unit {
         "day" => {
@@ -115,7 +115,7 @@ pub fn extract_relative_unit_amount(text: &str, unit: &str) -> Option<i32> {
     None
 }
 
-pub fn resolve_temporal_reference_rank(
+pub(crate) fn resolve_temporal_reference_rank(
     target: &TemporalCandidate,
     candidates: &[TemporalCandidate],
 ) -> Option<i32> {
@@ -153,7 +153,7 @@ pub fn resolve_temporal_reference_rank(
     best.map(|(_, rank)| rank)
 }
 
-pub fn temporal_reference_terms(text: &str) -> Vec<String> {
+pub(crate) fn temporal_reference_terms(text: &str) -> Vec<String> {
     let mut terms = salient_query_terms(text);
     terms.retain(|term| {
         !matches!(

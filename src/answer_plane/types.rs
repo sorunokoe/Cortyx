@@ -201,14 +201,14 @@ pub(crate) struct ReasoningEnhancement {
 }
 
 #[derive(Debug, Clone)]
-pub(super) struct CandidateLine {
-    pub(super) path: PathBuf,
-    pub(super) text: String,
-    pub(super) weight: f32,
-    pub(super) retrieval_score: f32,
-    pub(super) support_overlap: usize,
-    pub(super) anchor_overlap: usize,
-    pub(super) specific_anchor_overlap: usize,
+pub(crate) struct CandidateLine {
+    pub(crate) path: PathBuf,
+    pub(crate) text: String,
+    pub(crate) weight: f32,
+    pub(crate) retrieval_score: f32,
+    pub(crate) support_overlap: usize,
+    pub(crate) anchor_overlap: usize,
+    pub(crate) specific_anchor_overlap: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -219,73 +219,73 @@ pub(super) struct AnswerSurfaceRow {
 }
 
 #[derive(Debug, Clone)]
-pub(super) struct DialogueTurn {
-    pub(super) speaker: Option<String>,
-    pub(super) text: String,
-    pub(super) session_date: Option<(i32, u32, u32)>,
+pub(crate) struct DialogueTurn {
+    pub(crate) speaker: Option<String>,
+    pub(crate) text: String,
+    pub(crate) session_date: Option<(i32, u32, u32)>,
 }
 
 #[derive(Debug, Clone)]
-pub(super) struct TemporalCandidate {
-    pub(super) text: String,
-    pub(super) base_date: Option<(i32, u32, u32)>,
-    pub(super) retrieval_score: f32,
-    pub(super) user_authored: bool,
-    pub(super) ordinal: usize,
-    pub(super) sequence_rank: Option<i32>,
+pub(crate) struct TemporalCandidate {
+    pub(crate) text: String,
+    pub(crate) base_date: Option<(i32, u32, u32)>,
+    pub(crate) retrieval_score: f32,
+    pub(crate) user_authored: bool,
+    pub(crate) ordinal: usize,
+    pub(crate) sequence_rank: Option<i32>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum TemporalDirection {
+pub(crate) enum TemporalDirection {
     Earlier,
     Later,
 }
 
 #[derive(Debug, Clone)]
-pub(super) struct ChoiceOption {
-    pub(super) display: String,
-    pub(super) tokens: Vec<String>,
+pub(crate) struct ChoiceOption {
+    pub(crate) display: String,
+    pub(crate) tokens: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
-pub(super) enum TemporalStateQuery {
+pub(crate) enum TemporalStateQuery {
     CurrentValue,
     AsOfValue { as_of: String },
     LastChange { target_value: Option<ChoiceOption> },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum TemporalAnswerPoint {
+pub(crate) enum TemporalAnswerPoint {
     Day { year: i32, month: u32, day: u32 },
     Month { year: i32, month: u32 },
     Year { year: i32 },
 }
 
 #[derive(Debug, Clone)]
-pub(super) enum TemporalGapEndpoint {
+pub(crate) enum TemporalGapEndpoint {
     Event(ChoiceOption),
     CurrentMoment,
 }
 
 #[derive(Debug, Clone)]
-pub(super) enum TemporalGapAnswerStyle {
+pub(crate) enum TemporalGapAnswerStyle {
     FixedUnit { unit: String },
     NaturalLanguage,
 }
 
 #[derive(Debug, Clone)]
-pub(super) struct TemporalGapQuery {
-    pub(super) start: ChoiceOption,
-    pub(super) end: TemporalGapEndpoint,
-    pub(super) answer_style: TemporalGapAnswerStyle,
+pub(crate) struct TemporalGapQuery {
+    pub(crate) start: ChoiceOption,
+    pub(crate) end: TemporalGapEndpoint,
+    pub(crate) answer_style: TemporalGapAnswerStyle,
 }
 
 #[derive(Debug, Clone, Copy)]
-pub(super) struct CalendarGroundedRank {
-    pub(super) ordinal: usize,
-    pub(super) rank: i32,
-    pub(super) overlap: usize,
-    pub(super) score: f32,
+pub(crate) struct CalendarGroundedRank {
+    pub(crate) ordinal: usize,
+    pub(crate) rank: i32,
+    pub(crate) overlap: usize,
+    pub(crate) score: f32,
 }
 
 #[derive(Debug, Clone)]
