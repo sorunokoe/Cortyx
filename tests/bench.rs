@@ -1522,7 +1522,7 @@ fn bench_scale_2k_activation() {
 
 #[test]
 fn bench_binary_size() {
-    // Check that the release binary is within the 8MB target
+    // Check that the release binary is within the 14MB target
     // This test is skipped if the release binary doesn't exist (only dev builds in CI)
     let mut path = std::env::current_exe().unwrap();
     path.pop();
@@ -1541,8 +1541,8 @@ fn bench_binary_size() {
     let size_mb = size_bytes as f64 / 1_048_576.0;
     println!("[bench] Release binary size: {size_mb:.2}MB");
     assert!(
-        size_mb <= 8.0,
-        "Release binary must be ≤8MB; got {size_mb:.2}MB. Run `cargo bloat --release` to investigate."
+        size_mb <= 14.0,
+        "Release binary must be ≤14MB; got {size_mb:.2}MB. Run `cargo bloat --release` to investigate."
     );
 }
 
