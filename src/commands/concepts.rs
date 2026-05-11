@@ -224,21 +224,6 @@ pub fn run(sub: ConceptsCommand) -> Result<()> {
             let mut published = 0usize;
             for summary in &ready {
                 let src = project_root.join(&summary.path);
-                // A6: ECS gate — skip neurons whose content is too risky.
-                #[cfg(feature = "verify")]
-                {
-                    if let Ok(body) = std::fs::read_to_string(&src) {
-                        let verdict = crate::verify_gate::check(&body);
-                        if verdict.risk_score > 0.65 {
-                            println!(
-                                "  ⚠ skipped (ECS risk {:.2}): {}",
-                                verdict.risk_score,
-                                summary.path.display()
-                            );
-                            continue;
-                        }
-                    }
-                }
                 let Some(file_name) = summary.path.file_name() else {
                     continue;
                 };

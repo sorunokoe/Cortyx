@@ -58,57 +58,8 @@ pub const DEFAULT_BLOCK_THRESHOLD: f64 = 0.60;
 /// reduced staleness multiplier and a risk annotation in the sidecar JSON).
 pub const DEFAULT_QUARANTINE_THRESHOLD: f64 = 0.35;
 
-// ── Feature-enabled implementation ───────────────────────────────────────────
+// ── No-op stubs (ECS/PureReason integration removed; feature was private) ────
 
-#[cfg(feature = "verify")]
-mod inner {
-    use super::EcsVerdict;
-    use pure_reason_verifier::{ArtifactKind, VerificationRequest, VerifierService};
-
-    /// Thread-local singleton so we pay `VerifierService::new()` only once per
-    /// thread (stateless pipeline — cheap, but avoids repeated allocations on
-    /// hot paths).
-    std::thread_local! {
-        static VERIFIER: VerifierService = VerifierService::new();
-    }
-
-    /// Run the full KantianPipeline on `content` and return an [`EcsVerdict`].
-    ///
-    /// # Errors
-    ///
-    /// Returns `None` on unexpected verifier panics (treated as passing verdict to
-    /// avoid blocking writes due to verifier bugs).
-    pub fn check(content: &str) -> EcsVerdict {
-        VERIFIER.with(|svc| {
-            let req = VerificationRequest {
-                content: content.to_owned(),
-                kind: ArtifactKind::Text,
-                trace_id: None,
-            };
-            match svc.verify(req) {
-                Ok(result) => EcsVerdict {
-                    passed: result.verdict.passed,
-                    risk_score: result.verdict.risk_score,
-                    summary: Some(result.verdict.summary),
-                    regulated_text: result.regulated_text,
-                },
-                Err(_) => {
-                    // Fail open: a verifier error must never silently block writes.
-                    EcsVerdict {
-                        passed: true,
-                        risk_score: 0.0,
-                        summary: None,
-                        regulated_text: None,
-                    }
-                },
-            }
-        })
-    }
-}
-
-// ── No-op stubs when `verify` feature is absent ───────────────────────────────
-
-#[cfg(not(feature = "verify"))]
 mod inner {
     use super::EcsVerdict;
 
@@ -128,11 +79,8 @@ mod inner {
 
 /// Run an ECS verification check on `content`.
 ///
-/// With `--features verify`: calls PureReason's `VerifierService` and returns
-/// a scored verdict.
-///
-/// Without `--features verify`: always returns a passing verdict with zero
-/// overhead — no behaviour change for default builds.
+/// Always returns a passing verdict — the PureReason `verify` feature has been
+/// removed from the published crate (it required a private sibling-crate dep).
 pub use inner::check;
 
 // ── Semantic contradiction detection ─────────────────────────────────────────
@@ -140,34 +88,6 @@ pub use inner::check;
 /// A pair of semantically contradicting claim strings extracted from neuron bodies.
 pub type ContradictionPair = (String, String);
 
-#[cfg(feature = "verify")]
-mod semantic_inner {
-    use super::ContradictionPair;
-    use pure_reason_core::contradiction_detector::{extract_claims, find_contradictions};
-
-    /// Extract claims from each text body and find logical contradictions across them.
-    ///
-    /// Intended for `cortyx_check_consistency` to surface semantic conflicts that have
-    /// no explicit `Contradicts` synapse edge. Only the cross-body pairs are returned
-    /// (within-body self-contradictions are not surfaced here).
-    ///
-    /// Returns at most 20 pairs to avoid flooding the output.
-    pub fn find_semantic_contradictions(bodies: &[&str]) -> Vec<ContradictionPair> {
-        let all_claims: Vec<String> = bodies.iter().flat_map(|b| extract_claims(b)).collect();
-        if all_claims.len() < 2 {
-            return Vec::new();
-        }
-        let analysis = find_contradictions(&all_claims);
-        analysis
-            .contradictions
-            .into_iter()
-            .map(|pair| (pair.claim_a, pair.claim_b))
-            .take(20)
-            .collect()
-    }
-}
-
-#[cfg(not(feature = "verify"))]
 mod semantic_inner {
     use super::ContradictionPair;
 

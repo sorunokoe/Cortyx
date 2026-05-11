@@ -20,11 +20,6 @@ embed = ["dep:fastembed"]
 # Activates only on low-confidence BM25 queries (top_score < LOW_CONFIDENCE_THRESHOLD).
 # ~100× smaller and faster than LLM reranking; no API calls; local/private.
 rerank = ["dep:ort", "dep:tokenizers"]
-# ECS verification gate — PureReason integration.
-# Enables hallucination detection on mine_conversation, kg_add, publish-concept, and
-# the answer plane. Zero overhead when disabled: all gate functions are no-op stubs.
-# Requires PureReason to be checked out at ../../AI/PureReason (sibling directory).
-verify = ["dep:pure-reason-verifier", "dep:pure-reason-core"]
 # Local LLM answer synthesis via Ollama.
 [dependencies]
 anyhow = "1.0.102"
@@ -36,8 +31,6 @@ clap = { version = "4.6.0", features = ["derive"] }
 fastembed = { version = "5", optional = true }
 ort = { version = "=2.0.0-rc.10", optional = true }
 tokenizers = { version = "0.19", optional = true }
-pure-reason-verifier = { path = "../../AI/PureReason/crates/pure-reason-verifier", optional = true }
-pure-reason-core = { path = "../../AI/PureReason/crates/pure-reason-core", optional = true }
 notify = "8.2.0"
 rmcp = { version = "1.4.0", features = ["server", "transport-io"] }
 schemars = "1.2.1"
