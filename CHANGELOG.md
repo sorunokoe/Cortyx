@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [0.2.0] — 2026-05-11
+
 ### Changed
 - Restored meaningful Clippy lints (removed blanket `clippy::all = "allow"`)
 - Fixed `Cargo.toml` repository URL to `https://github.com/sorunokoe/Cortyx`
@@ -25,10 +29,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `tests.rs` (5.5k) → 4 focused test files
 - **`--project` flag** — `cortyx serve --project /path/to/myapp` now loads `.cortyx/` from the
   specified path instead of always using the current directory
+- Removed private `verify`/PureReason feature (path dep; no-op stubs remain in `verify_gate.rs`)
+- Binary size regression guard updated to 14MB (actual stripped Linux binary: ~13MB)
 
----
+### Fixed
+- CI full-proof lane mine timeout: added `--selection-corpus` to limit mine to selected rows
+- Clippy `expect_used` error in `mcp/mod.rs` — replaced with `?` operator
+- 60+ mechanical clippy warnings across 40+ files (clamp, slice::from_ref, enumerate, etc.)
+- `SyncTransportRelation::Diverged` variant boxing (512B → pointer-size)
+- `&PathBuf` → `&Path` in public function signatures (`hooks.rs`, `registration.rs`)
 
-## [0.2.0] — Unreleased
 
 ### Added
 - **Adaptive Reasoner** (`src/reasoner/`) — iterative query expansion and multi-hop BFS graph
