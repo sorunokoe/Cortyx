@@ -959,7 +959,7 @@ impl NeuronIndex {
                 &terms
             };
             let is_dollar_query = is_money_query(task);
-            let use_count_aggregate = should_inject_count_aggregate(task);
+            let _use_count_aggregate = should_inject_count_aggregate(task);
 
             let best_agg = if is_dollar_query {
                 best_matching_arithmetic_aggregate_path(&self.project_root, raw_focus_terms)
