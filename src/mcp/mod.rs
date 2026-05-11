@@ -134,9 +134,10 @@ impl ServerHandler for CortyxServer {
 
 /// Start the MCP server on STDIO (compatible with Claude Code, Cursor, Codex, Windsurf).
 pub async fn serve(project: Option<PathBuf>) -> Result<()> {
-    let project_root = project
-        .map(|p| p.canonicalize().unwrap_or(p))
-        .unwrap_or_else(|| std::env::current_dir().expect("cannot read current dir"));
+    let project_root = match project {
+        Some(p) => p.canonicalize().unwrap_or(p),
+        None => std::env::current_dir()?,
+    };
     tracing::info!("Starting Cortyx MCP server for: {}", project_root.display());
 
     let mut idx = NeuronIndex::load_or_create(&project_root)?;

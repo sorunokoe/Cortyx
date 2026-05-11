@@ -64,6 +64,9 @@ fn eval_lme_emits_structured_answer_proof_report() {
             "1",
             "--timeout-secs",
             "120",
+            // Mine only the 7 selected entries so CI completes in seconds rather than
+            // timing out trying to mine all 500 conversations on a debug binary.
+            "--selection-corpus",
         ],
         "lme_answer_report.json",
     );
