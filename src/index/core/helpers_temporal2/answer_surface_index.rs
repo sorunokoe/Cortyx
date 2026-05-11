@@ -21,7 +21,7 @@ pub fn index_answer_surface_answers_overlap(left: &str, right: &str) -> bool {
 }
 
 pub fn index_answer_surface_bucket_rank(bucket: &IndexAnswerSurfaceBucket) -> f32 {
-    let corroboration = ((bucket.total_score - bucket.best_score).max(0.0)).min(6.0) * 0.15;
+    let corroboration = (bucket.total_score - bucket.best_score).clamp(0.0, 6.0) * 0.15;
     bucket.best_score
         + bucket.max_overlap as f32 * 1.5
         + (bucket.paths.len().saturating_sub(1).min(2) as f32) * 0.75

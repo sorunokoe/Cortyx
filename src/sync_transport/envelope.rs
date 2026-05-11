@@ -110,7 +110,7 @@ pub enum SyncTransportRelation {
     Identical,
     LocalAhead,
     RemoteAhead,
-    Diverged(SyncConflict),
+    Diverged(Box<SyncConflict>),
 }
 
 pub fn compare_sync_transport(
@@ -141,5 +141,5 @@ pub fn compare_sync_transport(
             local: SyncConflictVersion::from(local.headers()),
             remote: SyncConflictVersion::from(remote.headers()),
         });
-    SyncTransportRelation::Diverged(conflict)
+    SyncTransportRelation::Diverged(Box::new(conflict))
 }

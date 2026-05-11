@@ -351,8 +351,7 @@ pub(in crate::index) fn is_cjk_char(c: char) -> bool {
 pub(in crate::index) fn is_arabic_char(c: char) -> bool {
     let cp = c as u32;
     matches!(cp,
-        0x0600..=0x06FF |   // Arabic
-        0x0590..=0x05FF     // Hebrew
+        0x0590..=0x06FF     // Hebrew
     )
 }
 

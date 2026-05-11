@@ -89,7 +89,7 @@ pub(super) fn migrate_v7_to_v8(mut entries_val: serde_json::Value) -> serde_json
                 .unwrap_or(0);
             let fps: Vec<serde_json::Value> =
                 std::iter::once(serde_json::Value::Number(old_fp.into()))
-                    .chain(std::iter::repeat(serde_json::Value::Number(0u64.into())).take(15))
+                    .chain(std::iter::repeat_n(serde_json::Value::Number(0u64.into()), 15))
                     .collect();
             entry["lsh_fingerprints"] = serde_json::Value::Array(fps);
             if let Some(obj) = entry.as_object_mut() {

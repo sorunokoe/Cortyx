@@ -175,8 +175,7 @@ pub(crate) fn extract_ingredient_list(text: &str) -> Option<String> {
         .map(str::trim)
         .filter(|part| {
             let words = part.split_whitespace().count();
-            words >= 1
-                && words <= 4
+            (1..=4).contains(&words)
                 && !part.eq_ignore_ascii_case("and")
                 && !part.eq_ignore_ascii_case("or")
         })

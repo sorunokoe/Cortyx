@@ -306,9 +306,7 @@ fn build_query_focus(surface: &str) -> Option<QueryFocus> {
 
 fn infer_percentage_kind(task: &str) -> PercentageKind {
     let lower = task.to_ascii_lowercase();
-    task_contains_any(&lower, &["price", "cost", "budget", "value"])
-        .then_some(PercentageKind::Money)
-        .unwrap_or(PercentageKind::Count)
+    if task_contains_any(&lower, &["price", "cost", "budget", "value"]) { PercentageKind::Money } else { PercentageKind::Count }
 }
 
 fn focus_overlap(lower: &str, focus: &QueryFocus) -> usize {
@@ -357,7 +355,7 @@ fn weight_descriptor_key(lower: &str, query: &WeightTotalQuery) -> Option<String
                 ""
             }
         })
-        .split(|c: char| c == ',' || c == '.' || c == ';')
+        .split([',', '.', ';'])
         .next()
         .unwrap_or_default()
         .split(" for ")

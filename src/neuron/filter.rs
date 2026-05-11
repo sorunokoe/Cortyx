@@ -45,7 +45,7 @@ pub fn should_skip(rel: &Path) -> bool {
         "sqlite", "sqlite3", "min.js", "min.css", "map",
     ];
     if let Some(ext) = rel.extension().map(|e| e.to_string_lossy().to_lowercase()) {
-        if SKIP_EXT.iter().any(|s| ext.as_str() == *s) {
+        if SKIP_EXT.contains(&ext.as_str()) {
             return true;
         }
     }

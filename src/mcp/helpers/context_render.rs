@@ -420,8 +420,8 @@ pub fn render_focused_excerpt(content: &str, task_terms: &[String]) -> String {
     for (_, idx) in scored.into_iter().take(3) {
         let start = idx.saturating_sub(1);
         let end = (idx + 1).min(lines.len().saturating_sub(1));
-        for line_idx in start..=end {
-            if !lines[line_idx].trim().is_empty() {
+        for (line_idx, line) in lines.iter().enumerate().take(end + 1).skip(start) {
+            if !line.trim().is_empty() {
                 chosen.insert(line_idx);
             }
         }

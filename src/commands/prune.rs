@@ -18,7 +18,7 @@ pub fn run(root: &Path, min_use: u32, older_than: Option<u64>, dry_run: bool) ->
         .into_iter()
         .filter(|(path, use_count)| {
             let too_cold = *use_count <= min_use;
-            let too_old = age_cutoff.map_or(false, |cutoff| {
+            let too_old = age_cutoff.is_some_and(|cutoff| {
                 std::fs::metadata(path)
                     .and_then(|m| m.modified())
                     .map(|mtime| mtime < cutoff)

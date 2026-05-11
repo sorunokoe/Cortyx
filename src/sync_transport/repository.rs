@@ -276,7 +276,7 @@ impl SyncTransportRepository {
                 conflict_path: None,
             }),
             SyncTransportRelation::Diverged(conflict) => {
-                let conflict_path = self.record_conflict(&snapshot, envelope, conflict)?;
+                let conflict_path = self.record_conflict(&snapshot, envelope, *conflict)?;
                 Ok(SyncStageResult {
                     status: SyncStageStatus::ConflictRecorded,
                     snapshot_path,
@@ -337,7 +337,7 @@ impl SyncTransportRepository {
                 })
             },
             SyncTransportRelation::Diverged(conflict) => {
-                let conflict_path = self.record_conflict(&local, envelope, conflict)?;
+                let conflict_path = self.record_conflict(&local, envelope, *conflict)?;
                 Ok(SyncPullResult {
                     status: SyncPullStatus::ConflictRecorded,
                     snapshot_path,

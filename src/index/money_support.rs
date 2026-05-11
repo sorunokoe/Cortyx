@@ -257,7 +257,6 @@ pub(super) fn parse_money_cents(raw: &str) -> Option<i64> {
     let cleaned = raw.trim().trim_start_matches('$').replace(',', "");
     let (whole, fractional) = cleaned
         .split_once('.')
-        .map(|(left, right)| (left, right))
         .unwrap_or((cleaned.as_str(), ""));
     let dollars = whole.parse::<i64>().ok()?;
     let cents = match fractional.len() {

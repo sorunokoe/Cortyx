@@ -109,7 +109,7 @@ const SHADOW_HISTORY_LIMIT: usize = 3;
 
 pub fn push_shadow(shadows: &mut HashMap<String, Vec<String>>, key: &str, value: String) {
     let history = shadows.entry(key.to_string()).or_default();
-    if history.last().map_or(false, |last| last == &value) {
+    if history.last() == Some(&value) {
         return;
     }
     history.push(value);

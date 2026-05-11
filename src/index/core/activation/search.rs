@@ -332,7 +332,7 @@ impl NeuronIndex {
                             NeuronKind::Core | NeuronKind::Project | NeuronKind::Verbatim
                         ),
                     };
-                    kind_ok && module_set.as_ref().map_or(true, |ms| ms.contains(&i))
+                    kind_ok && module_set.as_ref().is_none_or(|ms| ms.contains(&i))
                 })
                 .filter_map(|&i| {
                     let mut s = self.bm25_score(query_terms, &self.entries[i]);
@@ -601,7 +601,7 @@ impl NeuronIndex {
                 if already_scored.contains(&i) {
                     continue;
                 }
-                if module_set.as_ref().map_or(false, |ms| !ms.contains(&i)) {
+                if module_set.as_ref().is_some_and(|ms| !ms.contains(&i)) {
                     continue;
                 }
                 // R18 P1b Sol4: only compare first 4 seeds (previously all 16) — same accuracy
@@ -963,8 +963,6 @@ impl NeuronIndex {
 
             let best_agg = if is_dollar_query {
                 best_matching_arithmetic_aggregate_path(&self.project_root, raw_focus_terms)
-            } else if use_count_aggregate {
-                None
             } else {
                 None
             };
@@ -1090,7 +1088,7 @@ impl NeuronIndex {
                 // S-3: Skip neurons that Contradict any already-selected neuron.
                 // Two neurons holding conflicting information must never co-activate.
                 let contradicts_selected = syn.edge_type == SynapseType::Contradicts
-                    || self.adjacency.get(&syn.target).map_or(false, |nbr_syns| {
+                    || self.adjacency.get(&syn.target).is_some_and(|nbr_syns| {
                         nbr_syns.iter().any(|ns| {
                             ns.edge_type == SynapseType::Contradicts
                                 && selected.contains(&ns.target)

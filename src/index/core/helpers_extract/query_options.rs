@@ -92,7 +92,7 @@ pub(in crate::index) fn synthetic_answer_surface_choice_option(
     let mut affinity_terms = synthetic_query_terms(&display_lower);
     affinity_terms.extend(
         synthetic_answer_surface_choice_affinity_terms(&display_lower)
-            .into_iter()
+            .iter()
             .map(|term| (*term).to_string()),
     );
     let affinity_term_keys = synthetic_answer_surface_term_key_set(&affinity_terms);

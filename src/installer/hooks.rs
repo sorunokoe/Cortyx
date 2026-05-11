@@ -5,7 +5,7 @@ use crate::installer::{
     registration::{ensure_parent_dir, load_json_object_or_default},
     utils::dirs_home,
 };
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 /// Write Claude Code hook scripts for auto-save and hook-side health checks.
 ///
@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 /// - `cortyx-precompact-hook.sh`: called on PreCompact event → incremental compile
 ///
 /// Returns `Ok(true)` if written, `Ok(false)` if already present.
-pub(super) fn write_hook_scripts(hooks_dir: &PathBuf, exe: &PathBuf) -> Result<bool> {
+pub(super) fn write_hook_scripts(hooks_dir: &Path, exe: &Path) -> Result<bool> {
     std::fs::create_dir_all(hooks_dir)?;
 
     let close_hook = hooks_dir.join("cortyx-close-hook.sh");

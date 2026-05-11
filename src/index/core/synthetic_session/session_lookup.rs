@@ -712,7 +712,7 @@ impl NeuronIndex {
                     task_lower,
                     &["what move", "which move", "what was the move"],
                 ) && extract_chess_move_answer_from_line(
-                    &line,
+                    line,
                     extract_expected_chess_reply_move_number(task_lower),
                 )
                 .is_some()

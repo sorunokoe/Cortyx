@@ -207,13 +207,13 @@ impl NeuronIndex {
     pub fn synthetic_answer_surface_target_items(task_lower: &str) -> usize {
         if task_lower.contains(" activities") {
             6
-        } else if task_lower.starts_with("where has ") || task_lower.starts_with("where have ") {
-            4
-        } else if task_lower.contains(" names") {
-            4
-        } else if task_lower.contains(" books") {
-            4
-        } else if task_lower.contains(" events") || task_lower.starts_with("in what ways") {
+        } else if task_lower.starts_with("where has ")
+            || task_lower.starts_with("where have ")
+            || task_lower.contains(" names")
+            || task_lower.contains(" books")
+            || task_lower.contains(" events")
+            || task_lower.starts_with("in what ways")
+        {
             4
         } else {
             3

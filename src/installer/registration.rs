@@ -3,7 +3,7 @@
 use crate::error::Result;
 use crate::installer::client::{ClientConfig, ConfigKind};
 use std::io::ErrorKind;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 /// Load a JSON file or return an empty object if it doesn't exist.
 pub(super) fn load_json_object_or_default(path: &Path, label: &str) -> Result<serde_json::Value> {
@@ -29,7 +29,7 @@ pub(super) fn ensure_parent_dir(path: &Path) -> Result<()> {
 
 /// Write the MCP server entry to a client config.
 /// Returns `Ok(true)` if written, `Ok(false)` if already present, `Err` on failure.
-pub(super) fn register_mcp_server(client: &ClientConfig, exe: &PathBuf) -> Result<bool> {
+pub(super) fn register_mcp_server(client: &ClientConfig, exe: &Path) -> Result<bool> {
     let ConfigKind::McpServersJson = client.kind;
 
     let mut json =

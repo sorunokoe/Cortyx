@@ -492,7 +492,7 @@ fn supplemental_temporal_chunk_evidence(
         }
     }
 
-    discovered.sort_by(|left, right| left.cmp(right));
+    discovered.sort();
     let mut supplemental = Vec::new();
     for (distance, _, path) in discovered {
         let metadata = index.context_metadata_for(&path);

@@ -160,7 +160,7 @@ fn select_age_event_facts(
         }
     }
 
-    best_complete.unwrap_or_else(|| merged)
+    best_complete.unwrap_or(merged)
 }
 
 fn build_age_event_search_terms(subject: &AgeSubjectQuery, extra_terms: &[&str]) -> Vec<String> {

@@ -347,7 +347,7 @@ pub fn extract_query_aligned_numeric_answer(task_lower: &str, line: &str) -> Opt
     for term in &terms {
         let pattern = compile_regex(&format!(
             r"(?i)\b((?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred))\s+{}s?\b",
-            regex::escape(&term)
+            regex::escape(term)
         ));
         for capture in pattern.captures_iter(line) {
             let Some(full_match) = capture.get(0) else {

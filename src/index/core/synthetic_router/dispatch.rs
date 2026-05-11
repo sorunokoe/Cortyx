@@ -372,7 +372,7 @@ impl NeuronIndex {
                     if lower.contains("went with my family for a week") {
                         if let Some(start) = lower.find("going back to ") {
                             let value = line[start + "going back to ".len()..]
-                                .split(|c: char| c == ',' || c == ' ')
+                                .split([',', ' '])
                                 .next()
                                 .unwrap_or_default()
                                 .trim_matches(|c: char| !c.is_ascii_alphabetic())
@@ -546,7 +546,7 @@ impl NeuronIndex {
                             || hawaii_aliases.iter().any(|alias| lower.contains(alias))
                     })
                     .count();
-                if best_rates.as_ref().map_or(true, |(best_hits, best)| {
+                if best_rates.as_ref().is_none_or(|(best_hits, best)| {
                     location_hits > *best_hits
                         || (location_hits == *best_hits && rates.len() > best.len())
                 }) {
@@ -588,7 +588,7 @@ impl NeuronIndex {
                 }
                 if best
                     .as_ref()
-                    .map_or(true, |(best_count, _, _)| totals.len() > *best_count)
+                    .is_none_or(|(best_count, _, _)| totals.len() > *best_count)
                 {
                     best = Some((totals.len(), evidence, totals));
                 }

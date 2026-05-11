@@ -85,7 +85,7 @@ pub(crate) fn generate_query_surface(text: &str) -> Option<String> {
                 for word in after.split_whitespace().take(8) {
                     let clean: String = word.chars().filter(|c| c.is_alphabetic()).collect();
                     if clean.len() >= 3
-                        && clean.chars().next().map_or(false, |c| c.is_uppercase())
+                        && clean.chars().next().is_some_and(|c| c.is_uppercase())
                         && found < 3
                     {
                         extra_tokens.push(clean.to_lowercase());
@@ -128,7 +128,7 @@ pub(crate) fn generate_query_surface(text: &str) -> Option<String> {
                 for word in after.split_whitespace().take(5) {
                     let clean: String = word.chars().filter(|c| c.is_alphabetic()).collect();
                     if clean.len() >= 3
-                        && clean.chars().next().map_or(false, |c| c.is_uppercase())
+                        && clean.chars().next().is_some_and(|c| c.is_uppercase())
                         && found < 3
                     {
                         extra_tokens.push(clean.to_lowercase());
@@ -153,7 +153,7 @@ pub(crate) fn generate_query_surface(text: &str) -> Option<String> {
             let clean: String = word.chars().filter(|c| c.is_alphanumeric()).collect();
             if clean.len() >= 3
                 && i > 0  // skip sentence-start capitals
-                && clean.chars().next().map_or(false, |c| c.is_uppercase())
+                && clean.chars().next().is_some_and(|c| c.is_uppercase())
             {
                 fallback.push(clean.to_lowercase());
             }

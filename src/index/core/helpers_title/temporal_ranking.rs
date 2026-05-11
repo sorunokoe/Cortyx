@@ -15,7 +15,7 @@ pub(in crate::index) fn best_temporal_rank_line_with_min_overlap(
     min_overlap_override: Option<usize>,
 ) -> Option<(i32, usize, String)> {
     let keys = synthetic_answer_surface_term_key_set(terms);
-    let min_overlap = min_overlap_override.unwrap_or_else(|| if keys.len() >= 3 { 2 } else { 1 });
+    let min_overlap = min_overlap_override.unwrap_or(if keys.len() >= 3 { 2 } else { 1 });
     let mut best: Option<(i32, usize, usize, usize, String)> = None;
     for (line_idx, line) in lines.iter().enumerate() {
         let lower = line.to_ascii_lowercase();
@@ -53,7 +53,7 @@ pub(in crate::index) fn best_user_turn_line_with_min_overlap(
     min_overlap_override: Option<usize>,
 ) -> Option<(i32, usize, String)> {
     let keys = synthetic_answer_surface_term_key_set(terms);
-    let min_overlap = min_overlap_override.unwrap_or_else(|| if keys.len() >= 3 { 2 } else { 1 });
+    let min_overlap = min_overlap_override.unwrap_or(if keys.len() >= 3 { 2 } else { 1 });
     let mut best: Option<(i32, usize, usize, String)> = None;
     let mut user_turn = 0i32;
     for line in lines {

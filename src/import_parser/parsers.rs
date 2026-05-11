@@ -22,7 +22,7 @@ pub(super) fn python_imports(content: &str, source_rel: &Path) -> Vec<PathBuf> {
     py_relative_re()
         .captures_iter(content)
         .filter_map(|c| c.get(1))
-        .filter_map(|m| {
+        .map(|m| {
             let raw = m.as_str();
             let dots = raw.chars().take_while(|&c| c == '.').count();
             let module_path = raw.trim_start_matches('.');
@@ -34,9 +34,9 @@ pub(super) fn python_imports(content: &str, source_rel: &Path) -> Vec<PathBuf> {
             }
 
             if module_path.is_empty() {
-                Some(base.join("__init__"))
+                base.join("__init__")
             } else {
-                Some(base.join(module_path.replace('.', "/")))
+                base.join(module_path.replace('.', "/"))
             }
         })
         .collect()
@@ -150,7 +150,7 @@ pub(super) fn elixir_imports(content: &str, _source_rel: &Path) -> Vec<PathBuf> 
         .filter_map(|c| c.get(1))
         .map(|m| {
             // MyApp.Auth.Service → lib/my_app/auth/service.ex
-            let parts: Vec<String> = m.as_str().split('.').map(|s| to_snake_case(s)).collect();
+            let parts: Vec<String> = m.as_str().split('.').map(to_snake_case).collect();
             PathBuf::from("lib")
                 .join(parts.join("/"))
                 .with_extension("ex")

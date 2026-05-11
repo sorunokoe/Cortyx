@@ -1,0 +1,18 @@
+# Clippy configuration for Cortyx
+# Enforces strict quality standards
+
+# Thresholds
+too-many-arguments-threshold = 5
+type-complexity-threshold = 200
+cognitive-complexity-threshold = 15
+
+# Disallowed types (use domain newtypes instead)
+disallowed-types = [
+    # Use NeuronId instead of raw PathBuf for neuron references
+    # Use RepoPath for repository paths
+    # Use FilePath for file system paths
+    # { path = "std::path::PathBuf", reason = "Use NeuronId/RepoPath/FilePath newtypes" },
+]
+
+# Additional strictness
+avoid-breaking-exported-api = true

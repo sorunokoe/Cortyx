@@ -7,7 +7,7 @@
 //! Design (TRIZ P10 + P25 + P6):
 //! - P10: Preliminary action — all registration happens at install time.
 //! - P25: Self-service — uses `std::env::current_exe()` for the absolute binary path;
-//!        no marketplace or external plugin infrastructure needed.
+//!   no marketplace or external plugin infrastructure needed.
 //! - P6: Universality — one command registers Cortyx with every detected client.
 //!
 //! Result: `cargo install cortyx && cortyx install` — matches MemPalace 1-cmd setup.

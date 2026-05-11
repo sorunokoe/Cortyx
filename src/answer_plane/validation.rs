@@ -395,9 +395,7 @@ pub(super) fn is_food_query(task: &str) -> bool {
 }
 
 pub(super) fn normalized_validation_text(text: &str) -> String {
-    text.replace('*', " ")
-        .replace('`', " ")
-        .replace('_', " ")
+    text.replace(['*', '`', '_'], " ")
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ")
@@ -517,7 +515,7 @@ pub(super) fn looks_like_question_echo(
                 .any(|term| query_term_matches_token(term, token))
         })
         .count();
-    overlap >= task_terms.len().min(3).max(2) && novel_tokens == 0
+    overlap >= task_terms.len().clamp(2, 3) && novel_tokens == 0
 }
 
 pub(super) fn looks_like_heading_fragment(original: &str, clean: &str) -> bool {
@@ -525,11 +523,10 @@ pub(super) fn looks_like_heading_fragment(original: &str, clean: &str) -> bool {
     if tokens.is_empty() {
         return true;
     }
-    if original.contains("**") || original.starts_with('#') {
-        if tokens.len() <= 5 {
+    if (original.contains("**") || original.starts_with('#'))
+        && tokens.len() <= 5 {
             return true;
         }
-    }
     let alpha_tokens = tokens
         .iter()
         .filter(|token| token.chars().any(|c| c.is_alphabetic()))
@@ -718,8 +715,7 @@ fn trait_list_answer_confidence(text: &str, lower: &str) -> f32 {
     if parts.len() >= 2
         && parts.iter().all(|part| {
             let words = part.split_whitespace().count();
-            words >= 1
-                && words <= 3
+            (1..=3).contains(&words)
                 && !part.chars().any(|c| c.is_ascii_digit())
                 && !part.contains('?')
         })
@@ -740,8 +736,7 @@ fn suggestion_answer_confidence(task: &str, lower: &str) -> f32 {
     if tokens
         .first()
         .copied()
-        .map(parse_count_token)
-        .flatten()
+        .and_then(parse_count_token)
         .is_some()
     {
         return 0.0;

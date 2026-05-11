@@ -307,9 +307,7 @@ pub fn normalize_location_kg_value(value: &str) -> String {
     if let Some(stripped) = trimmed.strip_suffix(" again") {
         trimmed = stripped.trim();
     }
-    if trimmed.eq_ignore_ascii_case("suburbs") {
-        "the suburbs".to_string()
-    } else if trimmed.eq_ignore_ascii_case("the suburbs") {
+    if trimmed.eq_ignore_ascii_case("suburbs") || trimmed.eq_ignore_ascii_case("the suburbs") {
         "the suburbs".to_string()
     } else {
         trimmed.to_string()

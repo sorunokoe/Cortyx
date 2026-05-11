@@ -583,7 +583,7 @@ pub(crate) fn detect_personal_fact_entity(task: &str) -> Option<String> {
             .filter(|c| c.is_alphabetic() || *c == '\'')
             .collect();
         if clean.len() >= 3
-            && clean.chars().next().map_or(false, |c| c.is_uppercase())
+            && clean.chars().next().is_some_and(|c| c.is_uppercase())
             && !STOPWORDS.contains(&clean.as_str())
         {
             return Some(kg::slugify(&clean));
@@ -664,7 +664,7 @@ pub(crate) fn count_proper_nouns(task: &str) -> usize {
         .filter(|w| {
             let clean: String = w.chars().filter(|c| c.is_alphabetic()).collect();
             clean.len() >= 4
-                && clean.chars().next().map_or(false, |c| c.is_uppercase())
+                && clean.chars().next().is_some_and(|c| c.is_uppercase())
                 && !STOPWORDS.contains(&clean.as_str())
         })
         .count()
@@ -712,7 +712,7 @@ pub(crate) fn content_has_move_residence_evidence(content: &str) -> bool {
 pub(crate) fn parse_iso8601_to_secs(ts: Option<&str>) -> Option<i64> {
     let s = ts?.trim();
     // Accept "YYYY-MM-DDTHH:MM:SS", "YYYY-MM-DD HH:MM:SS", or "YYYY-MM-DD"
-    let date_part = s.split(|c| c == 'T' || c == ' ').next()?;
+    let date_part = s.split(['T', ' ']).next()?;
     let parts: Vec<&str> = date_part.split('-').collect();
     if parts.len() < 3 {
         return None;
@@ -720,7 +720,7 @@ pub(crate) fn parse_iso8601_to_secs(ts: Option<&str>) -> Option<i64> {
     let year: i64 = parts[0].parse().ok()?;
     let month: i64 = parts[1].parse::<i64>().ok()?.clamp(1, 12);
     let day: i64 = parts[2].parse::<i64>().ok()?.clamp(1, 31);
-    if year < 1970 || year > 2200 {
+    if !(1970..=2200).contains(&year) {
         return None;
     }
     // Cumulative days at start of each month (non-leap year)

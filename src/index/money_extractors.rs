@@ -281,9 +281,8 @@ fn explicit_event_participation_score(lower: &str) -> usize {
         10
     } else if lower.contains("volunteered") {
         6
-    } else if lower.contains("completed") {
-        5
-    } else if lower.contains(" just ran ")
+    } else if lower.contains("completed")
+        || lower.contains(" just ran ")
         || lower.contains(" ran 5 kilometers ")
         || lower.contains(" ran 5 kilometres ")
     {

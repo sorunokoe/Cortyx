@@ -528,8 +528,7 @@ pub(super) fn build_collaborator_summary(
             latest_diary.and_then(|record| record.when.clone()),
             agent_kg.and_then(|entity| entity.latest_active_timestamp()),
             latest_sync.and_then(|status| status.latest_activity_at().map(str::to_string)),
-        ]
-        .into_iter(),
+        ],
     );
 
     if focus.is_none()
@@ -660,7 +659,7 @@ pub(super) fn build_module_states(
         entry.evidence.kg_fact_count += kg_fact_count;
         entry.evidence.reasoning_fact_count += reasoning_fact_count;
         entry.evidence.reasoning_node_count +=
-            reasoning_nodes_for_modules(reasoning, &[module.clone()]);
+            reasoning_nodes_for_modules(reasoning, std::slice::from_ref(&module));
 
         let blockers: Vec<String> = entry.blockers.into_iter().collect();
         let (attention, attention_score) = collaboration_attention_score(

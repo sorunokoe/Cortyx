@@ -231,7 +231,7 @@ pub(crate) fn extract_last_number(text: &str) -> Option<i32> {
     text.split(|c: char| !c.is_ascii_digit())
         .filter(|token| !token.is_empty())
         .filter_map(|token| token.parse::<i32>().ok())
-        .last()
+        .next_back()
 }
 
 pub(crate) fn extract_first_number(text: &str) -> Option<i32> {

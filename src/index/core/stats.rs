@@ -227,7 +227,7 @@ impl NeuronIndex {
                 }
             }
 
-            let already_exists = self.adjacency.get(&a).map_or(false, |syns| {
+            let already_exists = self.adjacency.get(&a).is_some_and(|syns| {
                 syns.iter()
                     .any(|s| s.target == b && s.edge_type == SynapseType::SemanticRelated)
             });

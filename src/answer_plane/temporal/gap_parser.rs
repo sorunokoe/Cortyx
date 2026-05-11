@@ -130,7 +130,7 @@ fn parse_temporal_explicit_unit_gap_query(task: &str) -> Option<TemporalGapQuery
             });
         }
 
-        let take_markers = [format!("did it take for "), format!("did it take me to ")];
+        let take_markers = ["did it take for ".to_string(), "did it take me to ".to_string()];
         for marker in take_markers {
             if let Some(idx) = lower.find(&marker) {
                 let rest = &trimmed[idx + marker.len()..];

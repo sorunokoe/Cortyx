@@ -18,7 +18,7 @@ impl NeuronIndex {
         let mut orphaned: Vec<(String, usize)> = Vec::new(); // (neuron_content_hash, entry_idx)
         for (i, entry) in self.entries.iter().enumerate() {
             let source = &entry.source_files.first().cloned();
-            let gone = source.as_ref().map_or(false, |s| !s.exists());
+            let gone = source.as_ref().is_some_and(|s| !s.exists());
             if !gone {
                 continue;
             }

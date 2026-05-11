@@ -38,7 +38,7 @@ pub(super) fn fact_summary_lines(turns: &[Turn]) -> Vec<String> {
 
     for turn in turns {
         for segment in user_disclosure_segments(turn) {
-            for raw_line in segment.split(|c| matches!(c, '\n' | '.' | '!' | '?')) {
+            for raw_line in segment.split(['\n', '.', '!', '?']) {
                 let trimmed = raw_line
                     .trim()
                     .trim_start_matches(|c: char| {
@@ -126,7 +126,7 @@ pub(super) fn assistant_numeric_summary_lines(turns: &[Turn]) -> Vec<String> {
 
     for turn in turns {
         for segment in assistant_segments(turn) {
-            for raw_line in segment.split(|c| matches!(c, '\n' | '.' | '!' | '?')) {
+            for raw_line in segment.split(['\n', '.', '!', '?']) {
                 let trimmed = raw_line.trim();
                 if trimmed.len() < 12 || looks_like_list_item(trimmed) || !is_answer_like(trimmed) {
                     continue;
@@ -252,7 +252,7 @@ pub(super) fn assistant_named_item_summary_lines(turns: &[Turn]) -> Vec<String> 
                 }
             }
 
-            for raw_line in segment.split(|c| matches!(c, '.' | '!' | '?')) {
+            for raw_line in segment.split(['.', '!', '?']) {
                 let trimmed = raw_line.trim();
                 if trimmed.len() < 6 {
                     continue;

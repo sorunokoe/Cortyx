@@ -261,7 +261,7 @@ fn select_temporal_anchor_order_answer(task: &str, evidence: &[EvidenceItem]) ->
             continue;
         }
 
-        let score = temporal_target_score(&candidate, &target_terms);
+        let score = temporal_target_score(candidate, &target_terms);
         if score < 8.0 {
             continue;
         }

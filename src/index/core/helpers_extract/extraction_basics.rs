@@ -61,9 +61,7 @@ pub(in crate::index) fn extract_instagram_current_count_candidate(
         return None;
     }
     let value = extract_line_numbers(line)
-        .into_iter()
-        .filter(|value| *value >= 10)
-        .last()?;
+        .into_iter().rfind(|value| *value >= 10)?;
     let mut strength = 4usize;
     if task_contains_any(
         lower,

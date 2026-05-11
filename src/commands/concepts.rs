@@ -99,7 +99,7 @@ pub fn run(sub: ConceptsCommand) -> Result<()> {
 
             if let Some(ref url) = remote {
                 let add = std::process::Command::new("git")
-                    .args(["remote", "add", "origin", &url])
+                    .args(["remote", "add", "origin", url])
                     .current_dir(&global_dir)
                     .status()?;
                 if add.success() {
@@ -107,7 +107,7 @@ pub fn run(sub: ConceptsCommand) -> Result<()> {
                 } else {
                     // Remote may already exist; update it
                     std::process::Command::new("git")
-                        .args(["remote", "set-url", "origin", &url])
+                        .args(["remote", "set-url", "origin", url])
                         .current_dir(&global_dir)
                         .status()?;
                     println!("Remote 'origin' updated to {url}");
@@ -169,9 +169,7 @@ pub fn run(sub: ConceptsCommand) -> Result<()> {
             min_hit_rate,
             min_quality,
         } => {
-            let project_root = project
-                .as_ref()
-                .map(|p| p.as_path())
+            let project_root = project.as_deref()
                 .unwrap_or_else(|| Path::new("."));
             let ready = collect_ready_concepts(
                 project_root,
@@ -204,9 +202,7 @@ pub fn run(sub: ConceptsCommand) -> Result<()> {
             min_hit_rate,
             min_quality,
         } => {
-            let project_root = project
-                .as_ref()
-                .map(|p| p.as_path())
+            let project_root = project.as_deref()
                 .unwrap_or_else(|| Path::new("."));
             let ready = collect_ready_concepts(
                 project_root,

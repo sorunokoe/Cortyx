@@ -206,7 +206,7 @@ fn canonicalize_dialogue_answer_surface_span(answer_span: &str) -> String {
     let trimmed = cutoff
         .map(|idx| &answer_span[..idx])
         .unwrap_or(answer_span)
-        .trim_end_matches(|c: char| matches!(c, '.' | '!' | '?' | ';' | ',' | ':'));
+        .trim_end_matches(['.', '!', '?', ';', ',', ':']);
     normalize_answer_surface_span(trimmed)
 }
 
@@ -245,7 +245,7 @@ fn extract_dialogue_statement_prefix(answer: &str) -> Option<String> {
     let trimmed = cutoff
         .map(|idx| &answer[..idx])
         .unwrap_or(answer)
-        .trim_end_matches(|c: char| matches!(c, '.' | '!' | '?' | ';' | ',' | ':'));
+        .trim_end_matches(['.', '!', '?', ';', ',', ':']);
     let normalized = normalize_answer_surface_span(trimmed);
     (!normalized.is_empty() && !dialogue_answer_looks_like_question(&normalized))
         .then_some(normalized)

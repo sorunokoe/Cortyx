@@ -147,7 +147,7 @@ pub(super) fn extract_recommended_name_from_line(line: &str, lower: &str) -> Opt
     }
     let tail = line.get(recommend_match.end()..)?.trim();
     let first_clause = tail
-        .split(|c: char| matches!(c, '.' | '!' | '?' | ';'))
+        .split(['.', '!', '?', ';'])
         .next()
         .unwrap_or(tail)
         .trim();

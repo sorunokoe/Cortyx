@@ -50,10 +50,7 @@ pub(in crate::index) fn synthetic_answer_surface_term_key(term: &str) -> String 
         return mapped.to_string();
     }
 
-    if key.len() > 5 && key.ends_with("ied") {
-        key.truncate(key.len() - 3);
-        key.push('y');
-    } else if key.len() > 5 && key.ends_with("ies") {
+    if key.len() > 5 && (key.ends_with("ied") || key.ends_with("ies")) {
         key.truncate(key.len() - 3);
         key.push('y');
     } else if key.len() > 5 && key.ends_with("ing") {

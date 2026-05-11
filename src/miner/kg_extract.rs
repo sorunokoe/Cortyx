@@ -180,7 +180,7 @@ pub(super) fn extract_fact_entity(text: &str, trigger_pos: usize) -> String {
     for word in before.split_whitespace() {
         let clean = word.trim_matches(|c: char| !c.is_alphanumeric() && c != '\'');
         if clean.len() >= 3
-            && clean.chars().next().map_or(false, |c| c.is_uppercase())
+            && clean.chars().next().is_some_and(|c| c.is_uppercase())
             && !STOPWORDS.contains(&clean)
         {
             last_named = Some(crate::kg::slugify(clean));

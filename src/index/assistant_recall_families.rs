@@ -110,7 +110,7 @@ fn resolve_ordinal_list_item(
     for (session_id, session_rank) in candidates {
         let lines = recall_source_lines(idx, session_id, RecallSource::Assistant);
         for (line_idx, line) in lines.iter().enumerate() {
-            let Some((ordinal, value)) = extract_numbered_list_item(&line) else {
+            let Some((ordinal, value)) = extract_numbered_list_item(line) else {
                 continue;
             };
             if ordinal != query.ordinal {
