@@ -83,6 +83,12 @@ pub struct CortyxServer {
     /// Server-side snapshots for delta-mode context emission.
     context_sessions: Arc<Mutex<HashMap<String, ContextSnapshot>>>,
     next_context_handle: Arc<AtomicU64>,
+    /// Session-scoped term frequency vector for vocabulary adaptation (TRIZ Innovation A).
+    /// Accumulates terms from each get_contexts query in the current session.
+    /// After ≥3 uses, terms are injected as soft query boosts (0.3× weight) into
+    /// subsequent BM25 lookups — biasing retrieval toward the session's working vocabulary
+    /// without any persistent storage or LLM calls.
+    session_tf: Arc<Mutex<HashMap<String, u32>>>,
     /// Running sum of bytes currently being processed across all concurrent handlers.
     /// Handlers that build large responses increment this before work and decrement after.
     inflight_bytes: Arc<std::sync::atomic::AtomicUsize>,
@@ -271,6 +277,7 @@ pub async fn serve(project: Option<PathBuf>) -> Result<()> {
         provisional_hits: Arc::clone(&provisional_hits),
         context_sessions,
         next_context_handle,
+        session_tf: Arc::new(Mutex::new(HashMap::new())),
         inflight_bytes: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
         tool_router: CortyxServer::tool_router(),
     };

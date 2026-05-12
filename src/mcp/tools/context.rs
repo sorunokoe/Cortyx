@@ -209,7 +209,29 @@ impl CortyxServer {
 
         let augmented_task = {
             let idx = self.index.read().await;
-            build_augmented_task(&idx, &input)
+            let base = build_augmented_task(&idx, &input);
+            // TRIZ Innovation A: session vocabulary adaptation.
+            // Inject terms seen ≥3 times this session as soft query boosts.
+            let session_boosts: String = {
+                let tf = self.session_tf.lock().await;
+                if tf.is_empty() {
+                    String::new()
+                } else {
+                    let mut hot_terms: Vec<&str> = tf
+                        .iter()
+                        .filter(|(_, &count)| count >= 3)
+                        .map(|(term, _)| term.as_str())
+                        .collect();
+                    hot_terms.sort_unstable();
+                    hot_terms.truncate(20);
+                    hot_terms.join(" ")
+                }
+            };
+            if session_boosts.is_empty() {
+                base
+            } else {
+                format!("{base} {session_boosts}")
+            }
         };
 
         let (mut paths_with_scores, mut overflow) = {
@@ -291,6 +313,15 @@ impl CortyxServer {
             let terms = crate::index::tokenize(&augmented_task);
             for path in &paths {
                 idx.record_coactivation(path, &terms);
+            }
+            // TRIZ Innovation A: update session TF vector with this query's terms.
+            // Terms accumulating ≥3 uses this session will bias subsequent queries.
+            {
+                let raw_terms = crate::index::tokenize(&input.task);
+                let mut tf = self.session_tf.lock().await;
+                for term in raw_terms {
+                    *tf.entry(term).or_insert(0) += 1;
+                }
             }
             // S7: Check for contradicting pairs among activated neurons.
             idx.find_contradictions(&paths)
