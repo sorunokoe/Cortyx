@@ -139,6 +139,10 @@ fn select_answer_internal(
         return select_temporal_duration_answer(task, evidence);
     }
 
+    if let Some(answer) = select_activity_completion_duration_answer(task, evidence) {
+        return Some(answer);
+    }
+
     if let Some(answer) = select_temporal_count_answer(task, evidence) {
         return Some(answer);
     }
@@ -187,6 +191,14 @@ fn select_answer_internal(
     }
 
     if let Some(answer) = select_structured_diary_answer(task, evidence) {
+        return Some(answer);
+    }
+
+    if let Some(answer) = select_simple_count_span_answer(task, evidence) {
+        return Some(answer);
+    }
+
+    if let Some(answer) = select_previous_state_answer(task, evidence) {
         return Some(answer);
     }
 

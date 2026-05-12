@@ -187,3 +187,160 @@ pub(super) fn answer_surface_score(
     let specificity = overlap as f32 / pattern_terms.len().max(1) as f32;
     retrieval_score + overlap as f32 * 4.0 + coverage * 6.0 + specificity * 2.0 + row.confidence
 }
+
+/// Extracts a count answer for "How many X do I have/did I have?" queries.
+///
+/// Scans evidence lines for a digit immediately before the count-target noun,
+/// e.g. "20 playlists" or "I have 20 playlists".
+/// Temporal-unit queries ("how many days") are excluded — those go to the
+/// temporal count extractor.
+pub(super) fn select_simple_count_span_answer(
+    task: &str,
+    evidence: &[EvidenceItem],
+) -> Option<String> {
+    let lower_task = task.to_ascii_lowercase();
+    if !lower_task.starts_with("how many ") {
+        return None;
+    }
+    // Skip temporal units handled by the temporal count extractor
+    for unit in [
+        "days", "weeks", "months", "years", "hours", "minutes", "times", "seconds",
+    ] {
+        if lower_task.contains(&format!("how many {unit}")) {
+            return None;
+        }
+    }
+
+    // Extract count target: words after "how many" up to the first verb
+    let after = &lower_task["how many ".len()..];
+    let target_words: Vec<&str> = after
+        .split_whitespace()
+        .take_while(|w| !matches!(*w, "do" | "did" | "does" | "have" | "has" | "are" | "is"))
+        .collect();
+    if target_words.is_empty() {
+        return None;
+    }
+    let target = target_words.join(" ");
+    let target_singular = target.trim_end_matches('s').to_string();
+
+    let task_terms = salient_query_terms(task);
+    let mut best: Option<(i32, String)> = None; // (score, count_string)
+
+    for item in evidence {
+        let Some(content) = read_context_text(&item.path, "count span answer") else {
+            continue;
+        };
+        for line in content.lines() {
+            let lower_line = line.to_ascii_lowercase();
+            if !lower_line.contains(target.as_str())
+                && !lower_line.contains(target_singular.as_str())
+            {
+                continue;
+            }
+            // Skip question lines and section headings
+            if line.trim().ends_with('?')
+                || line.trim().starts_with('#')
+                || line.trim().starts_with("---")
+            {
+                continue;
+            }
+
+            let tokens: Vec<&str> = lower_line.split_whitespace().collect();
+            let original_tokens: Vec<&str> = line.split_whitespace().collect();
+
+            for (i, tok) in tokens.iter().enumerate() {
+                let is_target = *tok == target.as_str()
+                    || *tok == target_singular.as_str()
+                    || tok.starts_with(target_singular.as_str());
+                if !is_target {
+                    continue;
+                }
+                // Pattern: "N target" — digit immediately before the target noun
+                if i > 0 {
+                    if let Some(n) = parse_count_token(tokens[i - 1]) {
+                        if n > 0 {
+                            let prefix_bonus = if i >= 2
+                                && matches!(tokens[i - 2], "have" | "had" | "with" | "my" | "own")
+                            {
+                                3
+                            } else {
+                                0
+                            };
+                            let term_overlap = task_terms
+                                .iter()
+                                .filter(|t| lower_line.contains(t.as_str()))
+                                .count() as i32;
+                            let score = term_overlap * 5 + prefix_bonus;
+                            let count_str = original_tokens
+                                .get(i - 1)
+                                .map(|t| {
+                                    t.trim_matches(|c: char| !c.is_ascii_alphanumeric())
+                                        .to_string()
+                                })
+                                .unwrap_or_default();
+                            if !count_str.is_empty()
+                                && best.as_ref().map(|(s, _)| score > *s).unwrap_or(true)
+                            {
+                                best = Some((score, count_str));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    best.map(|(_, count)| count)
+}
+
+/// Extracts an answer about a past stance or belief for queries like
+/// "What was my previous stance on X?".
+///
+/// Matches the high-confidence pattern "I used to be Y" on lines that
+/// contain at least one task term. Returns the phrase immediately after
+/// "I used to be".
+pub(super) fn select_previous_state_answer(
+    task: &str,
+    evidence: &[EvidenceItem],
+) -> Option<String> {
+    let lower_task = task.to_ascii_lowercase();
+    let has_previous_cue = lower_task.contains("previous")
+        || lower_task.contains("used to")
+        || (lower_task.contains("before")
+            && (lower_task.contains("stance")
+                || lower_task.contains("opinion")
+                || lower_task.contains("view")));
+    if !has_previous_cue {
+        return None;
+    }
+
+    let task_terms = salient_query_terms(task);
+    if task_terms.is_empty() {
+        return None;
+    }
+
+    for item in evidence {
+        let Some(content) = read_context_text(&item.path, "previous state answer") else {
+            continue;
+        };
+        for line in content.lines() {
+            let lower_line = line.to_ascii_lowercase();
+            let overlap = task_terms
+                .iter()
+                .filter(|t| lower_line.contains(t.as_str()))
+                .count();
+            if overlap == 0 {
+                continue;
+            }
+            const MARKER: &str = "i used to be ";
+            if let Some(idx) = lower_line.find(MARKER) {
+                let tail = &line[idx + MARKER.len()..];
+                let phrase = trim_answer_tail(tail, true);
+                if !phrase.is_empty() && phrase.split_whitespace().count() <= 6 {
+                    return Some(phrase);
+                }
+            }
+        }
+    }
+    None
+}

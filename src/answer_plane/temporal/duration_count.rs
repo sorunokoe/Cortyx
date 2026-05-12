@@ -265,3 +265,87 @@ pub(crate) fn select_temporal_employment_duration_answer(
     let current_months = current_months?;
     (total_months > current_months).then(|| format_duration_months(total_months - current_months))
 }
+
+/// Extracts a completion duration for "How long did it take [me] to X?" queries
+/// that are NOT already handled by the temporal gap parser (i.e., no "after Y"
+/// endpoint is present in the question).
+///
+/// Scans evidence lines for a "N unit" pattern (e.g., "4 hours", "30 minutes")
+/// on lines that overlap with the activity terms from the task.
+/// Lines containing future-tense markers are skipped.
+pub(crate) fn select_activity_completion_duration_answer(
+    task: &str,
+    evidence: &[EvidenceItem],
+) -> Option<String> {
+    let lower_task = task.to_ascii_lowercase();
+    if !lower_task.starts_with("how long did it take") {
+        return None;
+    }
+    // The temporal gap parser already handles "how long … after Y" structures.
+    if parse_temporal_gap_query(task).is_some() {
+        return None;
+    }
+
+    let task_terms = salient_query_terms(task);
+    if task_terms.is_empty() {
+        return None;
+    }
+
+    const DURATION_UNITS: &[&str] = &[
+        "hours", "minutes", "hour", "minute", "days", "day", "weeks", "week",
+    ];
+    const FUTURE_MARKERS: &[&str] = &[
+        " will ",
+        " going to ",
+        " plan to ",
+        " planning to ",
+        " should take ",
+    ];
+
+    let mut best: Option<(usize, String)> = None; // (overlap, "N unit")
+
+    for item in evidence {
+        let Some(content) = read_context_text(&item.path, "activity duration answer") else {
+            continue;
+        };
+        for line in content.lines() {
+            let lower_line = line.to_ascii_lowercase();
+            // Skip future-tense lines
+            if FUTURE_MARKERS.iter().any(|m| lower_line.contains(m)) {
+                continue;
+            }
+            // Must share terms with the task
+            let overlap = task_terms
+                .iter()
+                .filter(|t| lower_line.contains(t.as_str()))
+                .count();
+            if overlap == 0 {
+                continue;
+            }
+
+            let tokens: Vec<&str> = lower_line.split_whitespace().collect();
+            let original_tokens: Vec<&str> = line.split_whitespace().collect();
+
+            for (i, tok) in tokens.iter().enumerate() {
+                if DURATION_UNITS.contains(tok) && i > 0 {
+                    if let Some(n) = parse_count_token(tokens[i - 1]) {
+                        if n > 0 {
+                            let num_str = original_tokens
+                                .get(i - 1)
+                                .copied()
+                                .unwrap_or_default()
+                                .trim_matches(|c: char| !c.is_ascii_alphanumeric());
+                            let unit_str = original_tokens.get(i).copied().unwrap_or_default();
+                            let duration = format!("{num_str} {unit_str}");
+                            if best.as_ref().map(|(s, _)| overlap > *s).unwrap_or(true) {
+                                best = Some((overlap, duration));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    best.map(|(_, dur)| dur)
+}
