@@ -128,7 +128,6 @@ impl NeuronIndex {
         }
     }
 
-
     /// Mine `git log --name-only` to find files co-committed ≥ `min_cochange` times.
     ///
     /// For each qualifying pair, add a `SemanticRelated` auto-synapse to the
@@ -225,7 +224,7 @@ impl NeuronIndex {
                         edge_type: SynapseType::SemanticRelated,
                         weight,
                         reason: reason.clone(),
-                        learned_weight: 0.0,
+                        learned_weight: crate::types::SynapseWeight::ZERO,
                         traversal_count: 0,
                         last_co_activation_day: 0,
                     },
@@ -237,7 +236,7 @@ impl NeuronIndex {
                         edge_type: SynapseType::SemanticRelated,
                         weight,
                         reason,
-                        learned_weight: 0.0,
+                        learned_weight: crate::types::SynapseWeight::ZERO,
                         traversal_count: 0,
                         last_co_activation_day: 0,
                     },
@@ -272,7 +271,6 @@ impl NeuronIndex {
             }
         }
     }
-
 
     /// A2: Peer Template Vocabulary Borrowing.
     ///
@@ -375,9 +373,12 @@ impl NeuronIndex {
         // Apply borrowed vocabulary (avoids borrow conflict — collected above)
         for (cold_idx, terms) in borrowed {
             for (term, weight) in terms {
-                let v = self.entries[cold_idx].term_freq.entry(term).or_insert(0.0);
-                if *v == 0.0 {
-                    *v = weight;
+                let v = self.entries[cold_idx]
+                    .term_freq
+                    .entry(term)
+                    .or_insert(TermFrequency::ZERO);
+                if v.is_zero() {
+                    *v = TermFrequency::new(weight);
                 }
             }
         }

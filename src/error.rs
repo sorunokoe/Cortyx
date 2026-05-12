@@ -121,6 +121,23 @@ pub enum SyncError {
     Io(#[from] io::Error),
 }
 
+/// Errors raised when a security boundary is violated.
+#[non_exhaustive]
+#[derive(Error, Debug)]
+pub enum SecurityError {
+    /// A path component would escape the allowed root directory.
+    #[error("Path traversal denied: {path}")]
+    PathEscape { path: String },
+
+    /// A URL-based remote is not in the configured allowlist.
+    #[error("Remote URL not in allowlist: {url}")]
+    UntrustedRemote { url: String },
+
+    /// Input exceeds a configured size limit.
+    #[error("Input exceeds size limit ({limit} bytes): {context}")]
+    SizeExceeded { limit: usize, context: String },
+}
+
 /// Errors related to query processing.
 #[non_exhaustive]
 #[derive(Error, Debug)]
@@ -186,6 +203,10 @@ pub enum CortyxError {
     /// Sync-related error.
     #[error(transparent)]
     Sync(#[from] SyncError),
+
+    /// Security boundary violation.
+    #[error(transparent)]
+    Security(#[from] SecurityError),
 
     /// Query-related error.
     #[error(transparent)]

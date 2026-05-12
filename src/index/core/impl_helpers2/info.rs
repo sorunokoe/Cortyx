@@ -6,7 +6,6 @@ impl NeuronIndex {
         self.entry_by_path(path).map(|e| e.tokens).unwrap_or(0)
     }
 
-
     /// S-III (R16): Count neurons with quality_score below the curation threshold.
     ///
     /// Used by `cortyx status` to surface "needs curation" count.
@@ -17,7 +16,6 @@ impl NeuronIndex {
             .count()
     }
 
-
     /// Return the number of distinct terms indexed for a neuron.
     ///
     /// Used by S-VIII auto-mine to compute code-block ∩ neuron term overlap ratio.
@@ -26,7 +24,6 @@ impl NeuronIndex {
             .map(|e| e.term_freq.len())
             .unwrap_or(0)
     }
-
 
     /// S-I (R16): Return the pre-computed Tier-1 summary for a neuron.
     ///
@@ -37,12 +34,10 @@ impl NeuronIndex {
             .map(|e| e.summary.as_str())
     }
 
-
     pub fn module_for(&self, path: &Path) -> Option<&str> {
         self.entry_by_path(path)
             .and_then(|entry| entry.module.as_deref())
     }
-
 
     pub fn context_metadata_for(&self, path: &Path) -> Option<ContextMetadata> {
         self.entry_by_path(path).map(|entry| {
@@ -63,7 +58,6 @@ impl NeuronIndex {
             }
         })
     }
-
 
     pub fn derived_answer_path_for_task(&self, task: &str) -> Option<PathBuf> {
         let query = QueryText::new(task).ok()?;

@@ -1,7 +1,6 @@
 use super::*;
 
 impl NeuronIndex {
-
     /// Build a bounded, read-only reasoning report around already-selected evidence paths.
     ///
     /// This intentionally operates after retrieval: callers provide the selected evidence
@@ -67,7 +66,6 @@ impl NeuronIndex {
         )
     }
 
-
     /// S-I (R16): Like `get_contexts_with_overflow` but returns BM25 scores for tiered emission.
     ///
     /// Returns:
@@ -113,7 +111,6 @@ impl NeuronIndex {
         (full_with_scores, overflow)
     }
 
-
     ///
     /// For each file path in `open_files`, looks up the corresponding neuron entry
     /// and returns the top-N most frequent terms as soft expansion tokens.
@@ -140,7 +137,7 @@ impl NeuronIndex {
             if let Some(e) = entry {
                 // Sort by term frequency descending, take top-N
                 let mut term_freq_sorted: Vec<(&String, f32)> =
-                    e.term_freq.iter().map(|(t, f)| (t, *f)).collect();
+                    e.term_freq.iter().map(|(t, f)| (t, f.get())).collect();
                 term_freq_sorted
                     .sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
                 for (term, _freq) in term_freq_sorted.iter().take(max_terms_per_file) {

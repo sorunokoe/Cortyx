@@ -1,7 +1,6 @@
 use super::*;
 
 impl NeuronIndex {
-
     /// S-XI (R16): Detect renamed/moved source files and carry over accumulated signal.
     ///
     /// After a full compile, scans for neurons whose source file no longer exists.
@@ -149,7 +148,6 @@ impl NeuronIndex {
         Some(path)
     }
 
-
     /// Trim a sorted list of paths to fit within `max_tokens`.
     pub(in crate::index) fn trim_to_token_budget(
         &self,
@@ -167,7 +165,6 @@ impl NeuronIndex {
         }
         result
     }
-
 
     /// Auto-create the Project neuron if it doesn't exist yet.
     pub(in crate::index) fn ensure_project_neuron(&mut self, root: &Path) -> Result<()> {
@@ -189,7 +186,6 @@ impl NeuronIndex {
         }
         Ok(())
     }
-
 
     /// S5 (R15 NE4): Generate wake-up context neurons at compile time.
     ///

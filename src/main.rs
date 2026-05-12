@@ -696,7 +696,9 @@ async fn main() -> Result<()> {
             };
             let readiness = IndexReadiness::from_index(&idx);
             let index = std::sync::Arc::new(tokio::sync::RwLock::new(idx));
-            let _w = watcher::start_watcher(root.clone(), std::sync::Arc::clone(&index))?;
+            let dirty_handle = index.read().await.dirty_set_handle();
+            let _w =
+                watcher::start_watcher(root.clone(), std::sync::Arc::clone(&index), dirty_handle)?;
             println!("{}", render_watch_banner(&root, &readiness, bootstrap));
             tokio::signal::ctrl_c().await?;
         },

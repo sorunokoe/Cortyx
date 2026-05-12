@@ -75,7 +75,7 @@ fn test_synapse(target: &str, edge_type: SynapseType, weight: f32, reason: &str)
         edge_type,
         weight: crate::types::SynapseWeight::new(weight),
         reason: reason.to_string(),
-        learned_weight: 0.9,
+        learned_weight: crate::types::SynapseWeight::new(0.9),
         traversal_count: 12,
         last_co_activation_day: 77,
     }

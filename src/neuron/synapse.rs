@@ -83,7 +83,7 @@ pub struct Synapse {
     /// lack this field will deserialize to 0.0, then `effective_weight()` falls back
     /// to `type_multiplier()` so behaviour is identical before any learning occurs.
     #[serde(default)]
-    pub learned_weight: f32,
+    pub learned_weight: SynapseWeight,
     /// Number of times this synapse was evaluated — used to decide when the
     /// learned_weight has enough signal to trust.
     #[serde(default)]
@@ -101,7 +101,7 @@ impl Synapse {
             edge_type,
             weight: SynapseWeight::new(0.5),
             reason,
-            learned_weight: 0.0,
+            learned_weight: SynapseWeight::ZERO,
             traversal_count: 0,
             last_co_activation_day: 0,
         }
@@ -110,17 +110,21 @@ impl Synapse {
     /// Effective traversal weight, blending the static type multiplier with the
     /// learned weight once enough signal has accumulated.
     ///
-    /// Cold-start (traversal_count < 10 or learned_weight == 0.0):
+    /// Blend schedule (blend = min(0.5, traversal_count / 100)):
+    /// - Cold-start (`traversal_count` < 10 or `learned_weight` == 0.0):
     ///   returns `type_multiplier()` — identical to old behaviour.
-    /// Warm (traversal_count ≥ 10):
-    ///   blends 50% static + 50% learned, clamped to [0.1, 1.0].
+    /// - Warm (`traversal_count` ≥ 10):
+    ///   graduated blend from 10 % learned (at count=10) up to 50 % learned
+    ///   (at count ≥ 100), clamped to [0.1, 1.0]. The static type multiplier
+    ///   always contributes at least 50 % so domain knowledge is never
+    ///   fully replaced by empirical signal.
     pub fn effective_weight(&self) -> f32 {
         let base = self.edge_type.type_multiplier();
-        if self.traversal_count < 10 || self.learned_weight <= 0.0 {
+        if self.traversal_count < 10 || self.learned_weight.is_zero() {
             return base;
         }
         let blend = 0.5_f32.min(self.traversal_count as f32 / 100.0);
-        ((1.0 - blend) * base + blend * self.learned_weight).clamp(0.1, 1.0)
+        ((1.0 - blend) * base + blend * self.learned_weight.get()).clamp(0.1, 1.0)
     }
 }
 
@@ -146,7 +150,7 @@ mod tests {
         let s = Synapse::new(PathBuf::from("a.md"), SynapseType::Imports, "test".into());
         assert_eq!(s.weight, SynapseWeight::new(0.5));
         assert_eq!(s.edge_type, SynapseType::Imports);
-        assert_eq!(s.learned_weight, 0.0);
+        assert_eq!(s.learned_weight, SynapseWeight::ZERO);
         assert_eq!(s.traversal_count, 0);
     }
 

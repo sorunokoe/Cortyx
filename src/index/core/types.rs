@@ -118,7 +118,9 @@ pub struct NeuronIndex {
     /// Callers **must not** hold this lock across any `.await` point. All current
     /// call sites release the lock before yielding. If you add a new call site,
     /// enforce this invariant to avoid blocking the async thread pool.
-    pub(in crate::index) co_return_counts: std::sync::Mutex<HashMap<(PathBuf, PathBuf), u32>>,
+    /// Keys are (path_index_a, path_index_b) with a ≤ b — using the usize IDs from
+    /// `path_index` eliminates per-lookup PathBuf hashing (O(path_len) → O(8 bytes)).
+    pub(in crate::index) co_return_counts: std::sync::Mutex<HashMap<(usize, usize), u32>>,
     /// F2: Session token utilization history — last 5 sessions' [tokens_used, tokens_budget].
     ///
     /// Persisted via PersistedIndexRef so budget adaptation accumulates across restarts.
@@ -162,16 +164,23 @@ pub struct NeuronIndex {
     /// rebuild_derived() call.  When true the full rebuild path is taken so that
     /// df_cache / posting_list stay consistent with the changed entries.
     pub(in crate::index) has_pending_updates: bool,
-    /// S4-WAL: entries.len() at last full index.json write.
-    /// Persisted in the activation cache so WAL mode activates on subsequent process starts.
-    /// 0 means no full save yet; the next save() establishes the WAL baseline.
+    /// S4 delta-append: entries.len() at last full index.json write.
+    /// Persisted in the activation cache so delta-append mode activates on subsequent process starts.
+    /// 0 means no full save yet; the next save() establishes the delta baseline.
     pub(in crate::index) wal_base: AtomicUsize,
-    /// S4-WAL: true when any existing entry was updated since the last full save.
+    /// S4 delta-append: true when any existing entry was updated since the last full save.
     /// Forces a full index.json rewrite so in-place mutations are never lost.
     pub(in crate::index) needs_full_save: AtomicBool,
     /// Set when structural derived state changes and the module shards / cache generation
     /// should be refreshed on the next save(). Feedback-only saves leave this false.
     pub(in crate::index) structural_artifacts_dirty: AtomicBool,
+    /// In-memory dirty set: source paths changed by the file watcher and not yet
+    /// compiled into the index.
+    ///
+    /// The watcher inserts into this set; `compile_dirty()` drains it atomically.
+    /// Eliminates the `dirty.json` TOCTOU race: file-system reads/writes are replaced
+    /// by a single mutex-protected in-memory swap.
+    pub(in crate::index) dirty_set: std::sync::Arc<std::sync::Mutex<HashSet<PathBuf>>>,
 }
 
 // ─── Parallel compile helper ──────────────────────────────────────────────────

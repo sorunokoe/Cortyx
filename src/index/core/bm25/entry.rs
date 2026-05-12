@@ -1,20 +1,22 @@
 //! BM25 entry type - per-neuron indexing data.
 
-use crate::neuron::{NeuronKind, Synapse};
+use crate::index::core::config::{DEFAULT_QUALITY_SCORE, DEFAULT_STALENESS};
+use crate::neuron::{NeuronKind, Synapse, DEFAULT_CONFIDENCE};
+use crate::types::TermFrequency;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
 fn default_confidence() -> f32 {
-    1.0
+    DEFAULT_CONFIDENCE
 }
 
 fn default_staleness() -> f32 {
-    1.0
+    DEFAULT_STALENESS
 }
 
 fn default_quality_score() -> f32 {
-    1.0
+    DEFAULT_QUALITY_SCORE
 }
 
 /// Per-neuron data stored in the in-memory BM25 index.
@@ -24,7 +26,7 @@ pub(crate) struct BM25Entry {
     pub kind: NeuronKind,
 
     /// Term → raw frequency within this document
-    pub term_freq: HashMap<String, f32>,
+    pub term_freq: HashMap<String, TermFrequency>,
 
     /// Total number of terms in this document (for BM25 length normalization)
     pub term_count: usize,
@@ -88,7 +90,7 @@ pub(crate) struct BM25Entry {
     /// LSH match: ANY of the 16 fingerprint pairs within Hamming ≤ 14.
     /// Migration from v7: old `lsh_fingerprint: u64` loaded via serde → replicated to [0].
     #[serde(default)]
-    pub lsh_fingerprints: [u64; 16],
+    pub lsh_fingerprints: [u64; 4],
 
     /// S-III (R16): Self-quality score — fraction of neuron terms that overlap with
     /// the corresponding source file's AST terms.
@@ -129,66 +131,4 @@ pub(crate) struct BM25Entry {
     /// siblings are injected as overflow candidates.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub session_id: String,
-}
-
-#[allow(dead_code)]
-impl BM25Entry {
-    /// Accessor for term frequency map.
-    pub fn term_freq(&self) -> &HashMap<String, f32> {
-        &self.term_freq
-    }
-
-    /// Accessor for term count.
-    pub fn term_count(&self) -> usize {
-        self.term_count
-    }
-
-    /// Accessor for neuron kind.
-    pub fn kind(&self) -> &NeuronKind {
-        &self.kind
-    }
-
-    /// Accessor for use count.
-    pub fn use_count(&self) -> u32 {
-        self.use_count
-    }
-
-    /// Accessor for hit count.
-    pub fn hit_count(&self) -> u32 {
-        self.hit_count
-    }
-
-    /// Accessor for confidence score.
-    pub fn confidence_score(&self) -> f32 {
-        self.confidence_score
-    }
-
-    /// Accessor for staleness multiplier.
-    pub fn staleness_multiplier(&self) -> f32 {
-        self.staleness_multiplier
-    }
-
-    /// Accessor for quality score.
-    pub fn quality_score(&self) -> f32 {
-        self.quality_score
-    }
-
-    /// Calculate hit rate (hit_count / use_count).
-    pub fn hit_rate(&self) -> f32 {
-        if self.use_count == 0 {
-            0.0
-        } else {
-            self.hit_count as f32 / self.use_count as f32
-        }
-    }
-
-    /// Check if entry is stale (staleness_multiplier < 1.0).
-    pub fn is_stale(&self) -> bool {
-        self.staleness_multiplier < 1.0
-    }
-
-    /// Check if quality is below penalty threshold.
-    pub fn needs_curation(&self) -> bool {
-        self.quality_score < 0.4
-    }
 }

@@ -36,7 +36,7 @@ pub(super) const BM25_B: f32 = 0.65;
 
 /// Index schema version. Migrations apply the chain from stored version to INDEX_VERSION,
 /// preserving all user-curated `use_count`, `hit_count`, and `staleness_multiplier` data.
-pub(super) const INDEX_VERSION: u32 = 8;
+pub(super) const INDEX_VERSION: u32 = 9;
 
 /// Minimum activations before quarantine decisions are made. Below 5 the Wilson CI is
 /// too wide to be trustworthy (z=1.0 CI lower bound touches 0 even for 4/5 hit rates).
@@ -89,3 +89,11 @@ pub(super) const SUBNEURON_SPLIT_THRESHOLD: usize = 6;
 
 /// Maximum sub-neurons generated per source file (caps index growth on huge files).
 pub(super) const MAX_SUBNEURONS_PER_FILE: usize = 20;
+
+/// Default staleness multiplier for a newly indexed neuron (1.0 = fresh).
+/// Matches the serde default in `BM25Entry` — both must stay in sync.
+pub(crate) const DEFAULT_STALENESS: f32 = 1.0;
+
+/// Default quality score for a newly indexed neuron (1.0 = unknown/neutral).
+/// Matches the serde default in `BM25Entry` — both must stay in sync.
+pub(crate) const DEFAULT_QUALITY_SCORE: f32 = 1.0;

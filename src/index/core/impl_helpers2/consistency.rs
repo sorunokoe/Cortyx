@@ -1,7 +1,6 @@
 use super::*;
 
 impl NeuronIndex {
-
     /// Find all `Contradicts` edges between any pair of activated neurons.
     ///
     /// Used by `get_contexts` to append a warning block when conflicting neurons
@@ -33,7 +32,6 @@ impl NeuronIndex {
         pairs
     }
 
-
     /// Scan all neurons (or a single neuron if `path` is given) for `Contradicts` edges.
     ///
     /// Used by `cortyx_check_consistency` — a proactive scan before task execution.
@@ -63,7 +61,6 @@ impl NeuronIndex {
         }
         pairs
     }
-
 
     /// Load neuron body text for semantic consistency checks.
     ///

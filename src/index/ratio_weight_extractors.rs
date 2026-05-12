@@ -306,7 +306,11 @@ fn build_query_focus(surface: &str) -> Option<QueryFocus> {
 
 fn infer_percentage_kind(task: &str) -> PercentageKind {
     let lower = task.to_ascii_lowercase();
-    if task_contains_any(&lower, &["price", "cost", "budget", "value"]) { PercentageKind::Money } else { PercentageKind::Count }
+    if task_contains_any(&lower, &["price", "cost", "budget", "value"]) {
+        PercentageKind::Money
+    } else {
+        PercentageKind::Count
+    }
 }
 
 fn focus_overlap(lower: &str, focus: &QueryFocus) -> usize {

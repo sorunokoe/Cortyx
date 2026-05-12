@@ -1,7 +1,6 @@
 use super::*;
 
 impl NeuronIndex {
-
     /// Like `get_contexts` but also returns compressed (headline-only) neurons that
     /// exceeded the token budget.
     ///
@@ -136,7 +135,8 @@ impl NeuronIndex {
                 let mut tfidf_best: std::collections::BTreeMap<String, f32> =
                     std::collections::BTreeMap::new();
                 for entry in &seed_entries {
-                    for (t, &f) in &entry.term_freq {
+                    for (t, f) in &entry.term_freq {
+                        let f = f.get();
                         if t.len() >= 4 && !already.contains(t.as_str()) {
                             tfidf_best
                                 .entry(t.clone())

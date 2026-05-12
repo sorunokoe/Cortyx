@@ -1,7 +1,6 @@
 use super::*;
 
 impl NeuronIndex {
-
     /// S-VII (R16): Apply biological LTD (Long-Term Depression) temporal decay to all synapses.
     ///
     /// Called once at `serve` startup and after `compile`. Mimics Hebbian LTD:
@@ -21,18 +20,20 @@ impl NeuronIndex {
         for entry in &mut self.entries {
             let before = entry.synapses.len();
             for syn in &mut entry.synapses {
-                if syn.last_co_activation_day == 0 || syn.learned_weight <= 0.0 {
+                if syn.last_co_activation_day == 0 || syn.learned_weight.is_zero() {
                     continue; // not yet learned — skip
                 }
                 let days_idle = now_days.saturating_sub(syn.last_co_activation_day);
                 if days_idle > 0 {
-                    syn.learned_weight *= f32::exp(-0.01 * days_idle as f32);
+                    syn.learned_weight = SynapseWeight::new(
+                        syn.learned_weight.get() * f32::exp(-0.01 * days_idle as f32),
+                    );
                     decayed += 1;
                 }
             }
             entry
                 .synapses
-                .retain(|s| s.learned_weight > 0.05 || s.learned_weight <= 0.0);
+                .retain(|s| s.learned_weight.get() > 0.05 || s.learned_weight.is_zero());
             pruned += before - entry.synapses.len();
         }
         // Rebuild adjacency cache after pruning
@@ -42,7 +43,6 @@ impl NeuronIndex {
         tracing::info!(decayed, pruned, "S-VII: synapse temporal decay applied");
         (decayed, pruned)
     }
-
 
     /// Update `last_co_activation_day` for all synapses between two co-cited neurons.
     ///
@@ -63,7 +63,6 @@ impl NeuronIndex {
             }
         }
     }
-
 
     /// Propagate staleness to all neurons that import/call/implement the changed one.
     ///
@@ -97,5 +96,4 @@ impl NeuronIndex {
     }
 }
 
-impl NeuronIndex {
-}
+impl NeuronIndex {}

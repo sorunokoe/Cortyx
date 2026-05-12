@@ -1,7 +1,6 @@
 use super::*;
 
 impl NeuronIndex {
-
     /// Expand query terms using the vocabulary bridge (S2) and morphemic trie (B1).
     ///
     /// Phase 1 (S2): For each query term that returns zero BM25 candidates, check if it
@@ -72,7 +71,6 @@ impl NeuronIndex {
         expanded.into_iter().collect()
     }
 
-
     /// BM25 score for a single entry given query terms.
     ///
     /// Uses the precomputed `df_cache` for O(1) IDF lookup.
@@ -98,7 +96,7 @@ impl NeuronIndex {
         let raw: f32 = terms
             .iter()
             .map(|t| {
-                let tf = entry.term_freq.get(t).copied().unwrap_or(0.0);
+                let tf = entry.term_freq.get(t).map(|v| v.get()).unwrap_or(0.0);
                 if tf == 0.0 {
                     return 0.0;
                 }
@@ -134,7 +132,6 @@ impl NeuronIndex {
             * if entry.quality_score < 0.4 { 0.7 } else { 1.0 }
     }
 
-
     /// TF-IDF cosine similarity between query terms and a BM25 entry.
     ///
     /// Reuses `entry.term_freq` (already computed) and `df_cache` — zero new dependencies.
@@ -156,7 +153,7 @@ impl NeuronIndex {
                 ((n + 1.0) / (df_t + 1.0)).ln().max(0.0)
             };
             let q_tf = 1.0f32; // query term frequency is always 1 for bag-of-words queries
-            let d_tf = entry.term_freq.get(term).copied().unwrap_or(0.0);
+            let d_tf = entry.term_freq.get(term).map(|v| v.get()).unwrap_or(0.0);
             let q_w = q_tf * idf;
             let d_w = d_tf * idf;
             dot += q_w * d_w;
@@ -171,12 +168,10 @@ impl NeuronIndex {
         }
     }
 
-
     /// Find an entry by its neuron path — O(1) via precomputed path_index.
     pub(in crate::index) fn entry_by_path(&self, path: &Path) -> Option<&BM25Entry> {
         self.path_index.get(path).map(|&i| &self.entries[i])
     }
-
 
     /// Count how many of the given tokens appear in the BM25 term_freq for `path`.
     ///

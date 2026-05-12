@@ -79,7 +79,7 @@ pub(super) struct PersistedActivationCacheRef<'a> {
 /// (use_count, hit_count, staleness_multiplier etc. survive every upgrade).
 pub(super) type MigrationFn = fn(serde_json::Value) -> serde_json::Value;
 
-/// v7 → v8: rename `lsh_fingerprint: u64` → `lsh_fingerprints: [u64; 16]` (1024-bit LSH).
+/// v7 → v8: rename `lsh_fingerprint: u64` → `lsh_fingerprints: [u64; 16]` (interim 1024-bit LSH).
 pub(super) fn migrate_v7_to_v8(mut entries_val: serde_json::Value) -> serde_json::Value {
     if let Some(arr) = entries_val.as_array_mut() {
         for entry in arr.iter_mut() {
@@ -89,11 +89,30 @@ pub(super) fn migrate_v7_to_v8(mut entries_val: serde_json::Value) -> serde_json
                 .unwrap_or(0);
             let fps: Vec<serde_json::Value> =
                 std::iter::once(serde_json::Value::Number(old_fp.into()))
-                    .chain(std::iter::repeat_n(serde_json::Value::Number(0u64.into()), 15))
+                    .chain(std::iter::repeat_n(
+                        serde_json::Value::Number(0u64.into()),
+                        15,
+                    ))
                     .collect();
             entry["lsh_fingerprints"] = serde_json::Value::Array(fps);
             if let Some(obj) = entry.as_object_mut() {
                 obj.remove("lsh_fingerprint");
+            }
+        }
+    }
+    entries_val
+}
+
+/// v8 → v9: trim `lsh_fingerprints` from 16 elements down to 4.
+///
+/// v8 stored a `[u64; 16]` array where only the first 4 slots were non-zero.
+/// v9 uses a `[u64; 4]` array — take the first 4 elements and discard the rest.
+pub(super) fn migrate_v8_to_v9(mut entries_val: serde_json::Value) -> serde_json::Value {
+    if let Some(arr) = entries_val.as_array_mut() {
+        for entry in arr.iter_mut() {
+            if let Some(fps) = entry.get("lsh_fingerprints").and_then(|v| v.as_array()) {
+                let trimmed: Vec<serde_json::Value> = fps.iter().take(4).cloned().collect();
+                entry["lsh_fingerprints"] = serde_json::Value::Array(trimmed);
             }
         }
     }
@@ -113,6 +132,9 @@ const MIGRATIONS: &[(u32, u32, MigrationFn)] = &[
     (6, 7, |v| v),
     // v7 → v8: rename lsh_fingerprint (u64) → lsh_fingerprints ([u64; 16]).
     (7, 8, migrate_v7_to_v8),
+    // v8 → v9: trim lsh_fingerprints from [u64; 16] to [u64; 4] (first 4 slots were the only
+    // non-zero entries; the remaining 12 were always zero padding).
+    (8, 9, migrate_v8_to_v9),
 ];
 
 /// Apply all migrations from `stored_version` to `INDEX_VERSION` in sequence.
@@ -318,14 +340,22 @@ impl NeuronIndex {
         let structural_dirty = self.structural_artifacts_dirty.load(Ordering::Relaxed);
         let prior_generation = read_index_cache_generation(&path).unwrap_or(0);
 
-        // S4-WAL: determine whether this save can use the delta (WAL) path.
-        // WAL mode skips rewriting the monolithic index.json and instead appends
-        // only new entries to a small delta file, reducing serialisation work from
-        // O(N+n) to O(n) for pure-append mine batches.
+        // S4 delta-append: determine whether this save can use the append-only path.
+        //
+        // When only new entries have been added (no in-place mutations), we skip
+        // rewriting the monolithic index.json and instead write only the new entries
+        // to a small delta file, reducing serialisation work from O(N+n) to O(n)
+        // for pure-append mine batches.
+        //
+        // ⚠ This is NOT a Write-Ahead Log in the crash-safety sense: no checksums are
+        // written, and a crash between the delta write and the next full index.json rewrite
+        // will leave a stale-but-readable delta.  The mechanism provides write optimisation,
+        // not durability guarantees.  For durability, the full save path is taken whenever
+        // `needs_full_save` is set (i.e., whenever an existing entry is mutated).
         let delta_path = cortyx_dir.join("index.delta.json");
         let wal_base = self.wal_base.load(Ordering::Relaxed);
         let delta_len = self.entries.len().saturating_sub(wal_base);
-        // Compact to a full write when delta exceeds 25% of the base — keeps the
+        // Compact to a full write when delta exceeds 25 % of the base — keeps the
         // fallback replay path fast and prevents unbounded delta file growth.
         let over_threshold = wal_base > 0 && delta_len > wal_base / 4;
         let in_wal_mode = wal_base > 0

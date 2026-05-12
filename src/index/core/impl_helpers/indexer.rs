@@ -1,15 +1,14 @@
 use super::*;
 
 impl NeuronIndex {
-
     /// Add or replace a single entry in `self.entries` (does NOT rebuild derived).
     pub fn index_neuron(&mut self, neuron_path: &Path, content: &str, meta: &NeuronMeta) {
         let index_content = content;
 
         let terms = tokenize(index_content);
-        let mut tf: HashMap<String, f32> = HashMap::new();
+        let mut tf: HashMap<String, TermFrequency> = HashMap::new();
         for t in &terms {
-            *tf.entry(t.clone()).or_insert(0.0) += 1.0;
+            *tf.entry(t.clone()).or_insert(TermFrequency::ZERO) += 1.0;
         }
 
         // P3-B: Paraphrase + alias surface boost.
@@ -24,8 +23,8 @@ impl NeuronIndex {
             for section_name in ["paraphrases", "query_surface", "fact_aliases"] {
                 if let Some(section_content) = sections.get(section_name) {
                     for t in tokenize(section_content) {
-                        let v = tf.entry(t).or_insert(0.0);
-                        *v += 0.5; // boost: question vocab is high-signal (kept low to avoid over-boosting generic category tokens)
+                        let v = tf.entry(t).or_insert(TermFrequency::ZERO);
+                        *v += 0.5;
                     }
                 }
             }
@@ -46,7 +45,7 @@ impl NeuronIndex {
                     || lower.starts_with(b"Human:");
                 if is_user && line.len() > 6 {
                     for t in tokenize(line) {
-                        *tf.entry(t).or_insert(0.0) += 1.0;
+                        *tf.entry(t).or_insert(TermFrequency::ZERO) += 1.0;
                     }
                 }
             }
@@ -58,9 +57,9 @@ impl NeuronIndex {
         if let Some(source_abs) = meta.source_files.first() {
             for t in git_extractor::extract_soft_terms(source_abs) {
                 // Only inject when not already present in neuron content — hard terms win.
-                let v = tf.entry(t).or_insert(0.0);
-                if *v == 0.0 {
-                    *v = 0.3;
+                let v = tf.entry(t).or_insert(TermFrequency::ZERO);
+                if v.is_zero() {
+                    *v = TermFrequency::new(0.3);
                 }
             }
         }
@@ -86,9 +85,9 @@ impl NeuronIndex {
             }
             if !names.is_empty() {
                 for t in alias_gen::generate_alias_terms(&names) {
-                    let v = tf.entry(t).or_insert(0.0);
-                    if *v < 0.5 {
-                        *v = 0.5;
+                    let v = tf.entry(t).or_insert(TermFrequency::ZERO);
+                    if v.get() < 0.5 {
+                        *v = TermFrequency::new(0.5);
                     }
                 }
             }
@@ -166,7 +165,7 @@ impl NeuronIndex {
             };
 
         // S-II (R16/R17 Sol4): Compute a 16-seed SimHash ensemble for LSH fallback.
-        let lsh_fingerprints = simhash_1024(&tf);
+        let lsh_fingerprints = simhash_256(&tf);
 
         // S-I (R16): Extract Tier-1 summary from neuron content.
         // Takes: first non-empty line of `## purpose` section + first line of `## pitfalls`.

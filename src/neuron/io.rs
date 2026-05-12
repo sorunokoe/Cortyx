@@ -18,8 +18,25 @@ pub fn neuron_dir(project_root: &Path) -> PathBuf {
 /// flat-file collisions. Only dots in the filename are replaced with `_`.
 ///
 /// Example: `src/engine.rs` → `.cortyx/neurons/src/engine_rs.context.md`
+///
+/// # Security
+/// If `source` is not under `project_root`, falls back to a flat path using
+/// only the filename (`neurons/engine_rs.context.md`). This prevents path
+/// traversal: `PathBuf::join` with an absolute component replaces the entire
+/// path, so keeping the absolute fallback would have allowed writes outside
+/// the neuron store.
 pub fn core_neuron_path(source: &Path, project_root: &Path) -> PathBuf {
-    let rel = source.strip_prefix(project_root).unwrap_or(source);
+    let rel: std::borrow::Cow<Path> = match source.strip_prefix(project_root) {
+        Ok(r) => std::borrow::Cow::Borrowed(r),
+        Err(_) => {
+            // source is outside project_root — use only the filename to keep
+            // the output inside neuron_dir and prevent path traversal.
+            let safe = source
+                .file_name()
+                .unwrap_or(std::ffi::OsStr::new("unknown"));
+            std::borrow::Cow::Owned(PathBuf::from(safe))
+        },
+    };
     let parent = rel.parent().unwrap_or(Path::new(""));
     let stem = rel
         .file_name()
@@ -179,6 +196,23 @@ mod tests {
         let a = core_neuron_path(&root.join("src/engine.rs"), root);
         let b = core_neuron_path(&root.join("src_engine.rs"), root);
         assert_ne!(a, b, "flat-file collision: {a:?} == {b:?}");
+    }
+
+    #[test]
+    fn core_neuron_path_outside_root_stays_inside_neuron_dir() {
+        // source outside project_root must NOT escape the neuron store.
+        let root = Path::new("/project");
+        let source = Path::new("/etc/passwd");
+        let neuron = core_neuron_path(source, root);
+        // Must be inside neuron_dir — no component should be "/etc".
+        assert!(
+            neuron.starts_with("/project/.cortyx/neurons"),
+            "path traversal: {neuron:?} escapes neuron_dir"
+        );
+        assert_eq!(
+            neuron,
+            Path::new("/project/.cortyx/neurons/passwd.context.md")
+        );
     }
 
     #[test]

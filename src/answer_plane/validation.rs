@@ -523,10 +523,9 @@ pub(super) fn looks_like_heading_fragment(original: &str, clean: &str) -> bool {
     if tokens.is_empty() {
         return true;
     }
-    if (original.contains("**") || original.starts_with('#'))
-        && tokens.len() <= 5 {
-            return true;
-        }
+    if (original.contains("**") || original.starts_with('#')) && tokens.len() <= 5 {
+        return true;
+    }
     let alpha_tokens = tokens
         .iter()
         .filter(|token| token.chars().any(|c| c.is_alphabetic()))

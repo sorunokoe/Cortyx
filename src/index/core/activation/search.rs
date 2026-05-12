@@ -587,15 +587,15 @@ impl NeuronIndex {
         // Injected at score 0.5 (below any real BM25 hit) so they never displace genuine
         // keyword matches — they supplement only.
         if bm25_scored.len() < 2 && !scoring_terms.is_empty() {
-            let query_tf: HashMap<String, f32> = {
+            let query_tf: HashMap<String, TermFrequency> = {
                 let mut m = HashMap::new();
                 for t in scoring_terms {
-                    *m.entry(t.clone()).or_insert(0.0) += 1.0;
+                    *m.entry(t.clone()).or_insert(TermFrequency::ZERO) += 1.0;
                 }
                 m
             };
-            let query_fps = simhash_1024(&query_tf);
-            let lsh_threshold = 14u32; // R17 Sol4: relaxed slightly for 1024-bit (ε ≈ 0.09)
+            let query_fps = simhash_256(&query_tf);
+            let lsh_threshold = 14u32;
             let already_scored: HashSet<usize> = bm25_scored.iter().map(|(_, i)| *i).collect();
             for (i, entry) in self.entries.iter().enumerate() {
                 if already_scored.contains(&i) {
@@ -604,14 +604,12 @@ impl NeuronIndex {
                 if module_set.as_ref().is_some_and(|ms| !ms.contains(&i)) {
                     continue;
                 }
-                // R18 P1b Sol4: only compare first 4 seeds (previously all 16) — same accuracy
-                // benefit vs original 1 seed, but 75% less comparison overhead.
-                if entry.lsh_fingerprints[..4].iter().all(|&fp| fp == 0) {
+                if entry.lsh_fingerprints.iter().all(|&fp| fp == 0) {
                     continue;
                 }
-                let matched = query_fps[..4]
+                let matched = query_fps
                     .iter()
-                    .zip(entry.lsh_fingerprints[..4].iter())
+                    .zip(entry.lsh_fingerprints.iter())
                     .any(|(&qfp, &efp)| hamming_distance(qfp, efp) <= lsh_threshold);
                 if matched {
                     bm25_scored.push((0.5, i));
@@ -1134,34 +1132,31 @@ impl NeuronIndex {
         // Pairs are stored in canonical (lex-min, lex-max) order to avoid double-counting.
         // The Mutex lock is uncontended in the single-threaded MCP server; negligible cost.
         {
-            let verbatim_results: Vec<PathBuf> = local_results
+            let verbatim_ids: Vec<usize> = local_results
                 .iter()
-                .filter(|p| {
-                    self.path_index
-                        .get(*p)
-                        .map(|&i| matches!(self.entries[i].kind, NeuronKind::Verbatim))
-                        .unwrap_or(false)
+                .filter_map(|p| {
+                    let &i = self.path_index.get(p)?;
+                    matches!(self.entries[i].kind, NeuronKind::Verbatim).then_some(i)
                 })
-                .cloned()
                 .collect();
 
-            if verbatim_results.len() >= 2 {
+            if verbatim_ids.len() >= 2 {
                 if let Ok(mut counts) = self.co_return_counts.lock() {
                     // Hebbian synapse threshold: require ≥10 co-returns before firing.
                     // 2 was far too low — any niche query pair would co-occur twice
                     // by chance over a session, polluting the adjacency graph with
                     // spurious SemanticRelated edges.
                     const HEBBIAN_THRESHOLD: u32 = 10;
-                    let n = verbatim_results.len();
+                    let n = verbatim_ids.len();
                     for i in 0..n {
                         for j in (i + 1)..n {
-                            let (a, b) = if verbatim_results[i] <= verbatim_results[j] {
-                                (verbatim_results[i].clone(), verbatim_results[j].clone())
+                            // Canonical order: smaller ID first (replaces lex PathBuf ordering).
+                            let (a, b) = if verbatim_ids[i] <= verbatim_ids[j] {
+                                (verbatim_ids[i], verbatim_ids[j])
                             } else {
-                                (verbatim_results[j].clone(), verbatim_results[i].clone())
+                                (verbatim_ids[j], verbatim_ids[i])
                             };
-                            let key = (a.clone(), b.clone());
-                            let count = counts.entry(key).or_insert(0);
+                            let count = counts.entry((a, b)).or_insert(0);
                             *count += 1;
                             if *count == HEBBIAN_THRESHOLD {
                                 // Fire: create SemanticRelated synapse in both directions.
@@ -1170,8 +1165,8 @@ impl NeuronIndex {
                                 // For now, log the event — synapse creation happens via
                                 // `record_coactivation()` on the next &mut self call.
                                 tracing::debug!(
-                                    a = %a.display(),
-                                    b = %b.display(),
+                                    a = %self.entries[a].neuron_path.display(),
+                                    b = %self.entries[b].neuron_path.display(),
                                     "C-2 Hebbian threshold reached: SemanticRelated synapse queued"
                                 );
                             }

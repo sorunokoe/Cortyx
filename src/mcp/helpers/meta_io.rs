@@ -1,6 +1,8 @@
 //! Neuron metadata I/O: loading, saving, and syncing structured diary entries to KG.
 
 use super::super::*;
+use crate::error::Result;
+use crate::{cortyx_bail, cortyx_err};
 
 /// Load existing metadata or create a fresh stub.
 pub fn load_or_new_meta(meta_file: &Path, source: &Path, kind: NeuronKind) -> NeuronMeta {
@@ -61,7 +63,7 @@ pub fn finalize_mutation_message(message: String, provenance_result: Result<()>)
 pub fn resolve_neuron_store_path(raw_path: &str, project_root: &Path) -> Result<PathBuf> {
     let neuron_root = neuron_dir(project_root)
         .canonicalize()
-        .map_err(|err| anyhow::anyhow!("cannot access neuron directory: {err}"))?;
+        .map_err(|err| cortyx_err!("cannot access neuron directory: {err}"))?;
     let candidate = Path::new(raw_path);
     let resolved = if candidate.is_absolute() {
         candidate.to_path_buf()
@@ -70,16 +72,16 @@ pub fn resolve_neuron_store_path(raw_path: &str, project_root: &Path) -> Result<
     };
     let canonical = resolved
         .canonicalize()
-        .map_err(|err| anyhow::anyhow!("cannot access neuron path: {err}"))?;
+        .map_err(|err| cortyx_err!("cannot access neuron path: {err}"))?;
     if !canonical.starts_with(&neuron_root) {
-        anyhow::bail!(
+        cortyx_bail!(
             "path {} is outside neuron directory {}",
             canonical.display(),
             neuron_root.display()
         );
     }
     if canonical.is_dir() {
-        anyhow::bail!(
+        cortyx_bail!(
             "path {} is a directory, not a neuron file",
             canonical.display()
         );
@@ -125,7 +127,7 @@ pub fn build_augmented_task(index: &NeuronIndex, input: &GetContextsInput) -> St
 
 pub fn index_kg_entity_path(index: &mut NeuronIndex, path: &Path) -> Result<()> {
     let content = std::fs::read_to_string(path)
-        .map_err(|err| anyhow::anyhow!("reload KG entity {}: {err}", path.display()))?;
+        .map_err(|err| cortyx_err!("reload KG entity {}: {err}", path.display()))?;
     let mut meta = NeuronMeta::new_stub(path, NeuronKind::Concept);
     meta.module = Some("@kg".to_string());
     meta.tokens = estimate_context_tokens(&content).get();

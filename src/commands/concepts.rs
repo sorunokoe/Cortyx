@@ -169,8 +169,7 @@ pub fn run(sub: ConceptsCommand) -> Result<()> {
             min_hit_rate,
             min_quality,
         } => {
-            let project_root = project.as_deref()
-                .unwrap_or_else(|| Path::new("."));
+            let project_root = project.as_deref().unwrap_or_else(|| Path::new("."));
             let ready = collect_ready_concepts(
                 project_root,
                 &global_idx,
@@ -202,8 +201,7 @@ pub fn run(sub: ConceptsCommand) -> Result<()> {
             min_hit_rate,
             min_quality,
         } => {
-            let project_root = project.as_deref()
-                .unwrap_or_else(|| Path::new("."));
+            let project_root = project.as_deref().unwrap_or_else(|| Path::new("."));
             let ready = collect_ready_concepts(
                 project_root,
                 &global_idx,

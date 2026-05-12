@@ -74,6 +74,7 @@ impl CortyxServer {
             provisional_hits,
             context_sessions,
             next_context_handle,
+            inflight_bytes: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
             tool_router: CortyxServer::tool_router(),
         }
     }

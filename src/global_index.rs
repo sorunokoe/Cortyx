@@ -19,6 +19,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use crate::error::Result;
+use crate::types::TermFrequency;
 use serde::{Deserialize, Serialize};
 
 /// Default global concept directory.
@@ -47,7 +48,7 @@ pub struct GlobalEntry {
     /// Source project root (for attribution only).
     pub source_project: String,
     /// Simplified term-frequency map (term → count, normalized).
-    pub term_freq: HashMap<String, f32>,
+    pub term_freq: HashMap<String, TermFrequency>,
     /// Total term count (for BM25 length normalization).
     pub term_count: usize,
     /// BLAKE3 fingerprint of the top-20 BM25 terms (for D2 deduplication).
@@ -146,7 +147,11 @@ impl GlobalIndex {
                 let score: f32 = terms
                     .iter()
                     .map(|t| {
-                        let tf = entry.term_freq.get(t.as_str()).copied().unwrap_or(0.0);
+                        let tf = entry
+                            .term_freq
+                            .get(t.as_str())
+                            .map(|v| v.get())
+                            .unwrap_or(0.0);
                         if tf == 0.0 {
                             return 0.0;
                         }
@@ -250,23 +255,23 @@ impl Default for GlobalIndex {
 }
 
 /// Build a term-frequency map from neuron content.
-fn build_term_freq(content: &str) -> (HashMap<String, f32>, usize) {
-    let mut tf: HashMap<String, f32> = HashMap::new();
+fn build_term_freq(content: &str) -> (HashMap<String, TermFrequency>, usize) {
+    let mut tf: HashMap<String, TermFrequency> = HashMap::new();
     let mut count = 0usize;
     for raw in content.split(|c: char| !c.is_alphanumeric() && c != '_') {
         if raw.len() < 3 {
             continue;
         }
         let t = raw.to_lowercase();
-        *tf.entry(t).or_insert(0.0) += 1.0;
+        *tf.entry(t).or_insert(TermFrequency::ZERO) += 1.0;
         count += 1;
     }
     (tf, count)
 }
 
 /// Compute a BLAKE3 fingerprint from the top-20 terms by frequency.
-fn compute_fingerprint(tf: &HashMap<String, f32>) -> String {
-    let mut sorted: Vec<(&String, &f32)> = tf.iter().collect();
+fn compute_fingerprint(tf: &HashMap<String, TermFrequency>) -> String {
+    let mut sorted: Vec<(&String, &TermFrequency)> = tf.iter().collect();
     sorted.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap_or(std::cmp::Ordering::Equal));
     let top20: Vec<&str> = sorted.iter().take(20).map(|(t, _)| t.as_str()).collect();
     let mut terms_sorted = top20.clone();
@@ -293,8 +298,8 @@ mod tests {
     use std::collections::HashMap;
     use std::hash::{Hash, Hasher};
 
-    fn legacy_fingerprint(tf: &HashMap<String, f32>) -> String {
-        let mut sorted: Vec<(&String, &f32)> = tf.iter().collect();
+    fn legacy_fingerprint(tf: &HashMap<String, TermFrequency>) -> String {
+        let mut sorted: Vec<(&String, &TermFrequency)> = tf.iter().collect();
         sorted.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap_or(std::cmp::Ordering::Equal));
         let top20: Vec<&str> = sorted.iter().take(20).map(|(t, _)| t.as_str()).collect();
         let mut terms_sorted = top20.clone();
@@ -307,9 +312,9 @@ mod tests {
     #[test]
     fn test_fingerprint_deterministic() {
         let mut tf = HashMap::new();
-        tf.insert("auth".to_string(), 5.0);
-        tf.insert("token".to_string(), 3.0);
-        tf.insert("validate".to_string(), 2.0);
+        tf.insert("auth".to_string(), TermFrequency::new(5.0));
+        tf.insert("token".to_string(), TermFrequency::new(3.0));
+        tf.insert("validate".to_string(), TermFrequency::new(2.0));
         let fp1 = compute_fingerprint(&tf);
         let fp2 = compute_fingerprint(&tf);
         assert_eq!(fp1, fp2);
@@ -318,9 +323,9 @@ mod tests {
     #[test]
     fn test_fingerprint_different_for_different_terms() {
         let mut tf1 = HashMap::new();
-        tf1.insert("auth".to_string(), 5.0);
+        tf1.insert("auth".to_string(), TermFrequency::new(5.0));
         let mut tf2 = HashMap::new();
-        tf2.insert("database".to_string(), 5.0);
+        tf2.insert("database".to_string(), TermFrequency::new(5.0));
         assert_ne!(compute_fingerprint(&tf1), compute_fingerprint(&tf2));
     }
 
@@ -341,8 +346,8 @@ mod tests {
     #[test]
     fn test_upgrade_legacy_fingerprints_recomputes_blake3() {
         let mut tf = HashMap::new();
-        tf.insert("auth".to_string(), 5.0);
-        tf.insert("token".to_string(), 3.0);
+        tf.insert("auth".to_string(), TermFrequency::new(5.0));
+        tf.insert("token".to_string(), TermFrequency::new(3.0));
 
         let mut idx = GlobalIndex {
             version: 1,
@@ -364,8 +369,8 @@ mod tests {
     #[test]
     fn test_contains_content_matches_existing_fingerprint() {
         let mut tf = HashMap::new();
-        tf.insert("auth".to_string(), 5.0);
-        tf.insert("token".to_string(), 3.0);
+        tf.insert("auth".to_string(), TermFrequency::new(5.0));
+        tf.insert("token".to_string(), TermFrequency::new(3.0));
         let idx = GlobalIndex {
             version: GlobalIndex::VERSION,
             entries: vec![GlobalEntry {

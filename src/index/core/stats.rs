@@ -205,27 +205,42 @@ impl NeuronIndex {
         self.apply_pending_hebbian_synapses();
     }
 
-    /// Drain pending Hebbian synapse pairs and create SemanticRelated edges in adjacency.
+    /// Drain pending co-return synapse pairs and create SemanticRelated edges in adjacency.
+    ///
+    /// # "Hebbian" as metaphor
+    /// This mechanism borrows Hebb's rule ("neurons that fire together wire together") as an
+    /// analogy: *neurons that are **returned** together wire together*. The underlying signal is
+    /// co-return co-occurrence — two neurons appearing in the same query result ≥10 times —
+    /// not simultaneous neural activation in the biological sense. The label is evocative, not
+    /// mechanistically literal.
     pub(in crate::index) fn apply_pending_hebbian_synapses(&mut self) {
         const HEBBIAN_THRESHOLD: u32 = 10;
-        let pairs_to_wire: Vec<(PathBuf, PathBuf)> = {
+        let pairs_to_wire: Vec<(usize, usize)> = {
             let Ok(counts) = self.co_return_counts.lock() else {
                 return;
             };
             counts
                 .iter()
                 .filter(|(_, &c)| c == HEBBIAN_THRESHOLD) // exactly at threshold — fire once
-                .map(|(k, _)| k.clone())
+                .map(|(&k, _)| k)
                 .collect()
         };
 
-        for (a, b) in pairs_to_wire {
+        for (a_idx, b_idx) in pairs_to_wire {
             // Mark as wired (sentinel = HEBBIAN_THRESHOLD + 1) so we don't re-fire on future calls
             if let Ok(mut counts) = self.co_return_counts.lock() {
-                if let Some(c) = counts.get_mut(&(a.clone(), b.clone())) {
+                if let Some(c) = counts.get_mut(&(a_idx, b_idx)) {
                     *c = HEBBIAN_THRESHOLD + 1;
                 }
             }
+
+            // Decode IDs to paths only at the point of adjacency mutation.
+            let (Some(a_entry), Some(b_entry)) = (self.entries.get(a_idx), self.entries.get(b_idx))
+            else {
+                continue; // entry removed since count was recorded — skip
+            };
+            let a = a_entry.neuron_path.clone();
+            let b = b_entry.neuron_path.clone();
 
             let already_exists = self.adjacency.get(&a).is_some_and(|syns| {
                 syns.iter()
@@ -460,10 +475,12 @@ impl NeuronIndex {
                 if syn.target == target_path {
                     // Cold-start init: seed from type multiplier so EMA starts at a
                     // sensible baseline rather than decaying from 0.
-                    if syn.learned_weight <= 0.0 {
-                        syn.learned_weight = syn.edge_type.type_multiplier();
+                    if syn.learned_weight.is_zero() {
+                        syn.learned_weight = SynapseWeight::new(syn.edge_type.type_multiplier());
                     }
-                    syn.learned_weight = ALPHA * signal + (1.0 - ALPHA) * syn.learned_weight;
+                    syn.learned_weight = SynapseWeight::new(
+                        ALPHA * signal + (1.0 - ALPHA) * syn.learned_weight.get(),
+                    );
                     syn.traversal_count = syn.traversal_count.saturating_add(1);
                 }
             }

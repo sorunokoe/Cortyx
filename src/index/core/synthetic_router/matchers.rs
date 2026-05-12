@@ -1,7 +1,6 @@
 use super::*;
 
 impl NeuronIndex {
-
     pub(in crate::index) fn matching_verbatim_texts(
         &self,
         required_terms: &[&str],

@@ -523,13 +523,11 @@ pub(super) fn build_collaborator_summary(
         evidence.integrity_issue_count,
         evidence.untrusted_handoff_count,
     );
-    let last_updated = max_optional_strings(
-        [
-            latest_diary.and_then(|record| record.when.clone()),
-            agent_kg.and_then(|entity| entity.latest_active_timestamp()),
-            latest_sync.and_then(|status| status.latest_activity_at().map(str::to_string)),
-        ],
-    );
+    let last_updated = max_optional_strings([
+        latest_diary.and_then(|record| record.when.clone()),
+        agent_kg.and_then(|entity| entity.latest_active_timestamp()),
+        latest_sync.and_then(|status| status.latest_activity_at().map(str::to_string)),
+    ]);
 
     if focus.is_none()
         && status.is_none()

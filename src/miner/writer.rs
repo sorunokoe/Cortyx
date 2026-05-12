@@ -116,7 +116,7 @@ pub(super) fn write_verbatim_neurons_staged(
                     edge_type: SynapseType::TemporalFollows,
                     weight: crate::types::SynapseWeight::new(0.6),
                     reason: "consecutive turn".to_string(),
-                    learned_weight: 0.0,
+                    learned_weight: crate::types::SynapseWeight::ZERO,
                     traversal_count: 0,
                     last_co_activation_day: 0,
                 });

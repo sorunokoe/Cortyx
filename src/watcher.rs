@@ -3,6 +3,7 @@
 //! Monitors project files for changes and automatically updates the index.
 
 use crate::error::Result;
+use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -10,15 +11,15 @@ use std::time::Duration;
 use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use tokio::sync::{mpsc, RwLock};
 
-use crate::index::{dirty_path, NeuronIndex};
-use crate::neuron::{atomic_write, should_skip};
+use crate::index::NeuronIndex;
+use crate::neuron::should_skip;
 
 /// Debounce window — events within this interval are coalesced into a single batch.
 ///
 /// A 50ms window absorbs editor "atomic save" sequences (write tmp → rename) that
 /// arrive as two events in ~1ms, preventing duplicate invalidations per save.
 const DEBOUNCE_MS: u64 = 50;
-pub const HOT_PATCH_WATCH_SUMMARY: &str = "dirty-file hot patching is active";
+pub const HOT_PATCH_WATCH_SUMMARY: &str = "in-memory dirty-set hot patching is active";
 
 /// Starts a background file watcher that marks neurons stale when source files change.
 ///
@@ -26,9 +27,15 @@ pub const HOT_PATCH_WATCH_SUMMARY: &str = "dirty-file hot patching is active";
 /// single invalidation pass. An overflow buffer ensures no event is ever silently
 /// dropped when the primary channel fills during burst saves (e.g. `cargo fmt`,
 /// `git checkout`). Returns the watcher handle — keep alive for server lifetime.
+///
+/// Changed paths are inserted into `dirty_handle` (obtained via
+/// `NeuronIndex::dirty_set_handle()`).  `compile_dirty()` drains that set atomically,
+/// which eliminates the TOCTOU race that existed when the watcher wrote to `dirty.json`
+/// and `compile_dirty()` simultaneously read, wrote, and deleted the same file.
 pub fn start_watcher(
     project_root: PathBuf,
     index: Arc<RwLock<NeuronIndex>>,
+    dirty_handle: Arc<Mutex<HashSet<PathBuf>>>,
 ) -> Result<RecommendedWatcher> {
     let (tx, mut rx) = mpsc::channel::<PathBuf>(256);
     // Overflow buffer: when the primary channel is full, events are queued here
@@ -36,7 +43,6 @@ pub fn start_watcher(
     let overflow: Arc<Mutex<Vec<PathBuf>>> = Arc::new(Mutex::new(Vec::new()));
     let overflow_for_task = Arc::clone(&overflow);
     let root_for_task = project_root.clone();
-    let root_for_dirty = project_root.clone();
 
     tokio::spawn(async move {
         let mut batch: Vec<PathBuf> = Vec::new();
@@ -72,68 +78,44 @@ pub fn start_watcher(
                 continue;
             }
 
-            // Deduplicate paths within the batch before acquiring the write lock.
+            // Deduplicate paths within the batch before any work.
             batch.sort_unstable();
             batch.dedup();
 
-            // Write changed source paths to dirty.json for incremental compile.
-            // Append to any existing dirty set — multiple watcher cycles accumulate.
-            let dirty_file = dirty_path(&root_for_dirty);
-            let existing_dirty: Vec<PathBuf> = match std::fs::read_to_string(&dirty_file) {
-                Ok(raw) => match serde_json::from_str(&raw) {
-                    Ok(paths) => paths,
-                    Err(err) => {
-                        tracing::warn!(
-                            "Failed to parse dirty-file state {}: {}",
-                            dirty_file.display(),
-                            err
-                        );
-                        Vec::new()
-                    },
-                },
-                Err(err) if err.kind() == std::io::ErrorKind::NotFound => Vec::new(),
-                Err(err) => {
-                    tracing::warn!(
-                        "Failed to read dirty-file state {}: {}",
-                        dirty_file.display(),
-                        err
-                    );
-                    Vec::new()
-                },
-            };
-            let mut merged: Vec<PathBuf> = existing_dirty;
-            merged.extend(batch.iter().cloned());
-            merged.sort_unstable();
-            merged.dedup();
-            if let Ok(json) = serde_json::to_string(&merged) {
-                if let Err(e) = std::fs::create_dir_all(
-                    dirty_file.parent().unwrap_or(std::path::Path::new(".")),
-                ) {
-                    tracing::warn!("Failed to create dirty-file directory: {e}");
-                } else if let Err(e) = atomic_write(&dirty_file, json.as_bytes()) {
-                    tracing::warn!("Failed to persist dirty.json: {e}");
-                }
+            // Insert changed paths into the in-memory dirty set.
+            // The set is protected by a Mutex so insertions from this task and drains
+            // from compile_dirty() never race — no file I/O, no TOCTOU window.
+            {
+                let mut set = dirty_handle.lock().unwrap_or_else(|e| e.into_inner());
+                set.extend(batch.iter().cloned());
             }
 
-            let mut idx = index.write().await;
-            for path in batch.drain(..) {
-                if let Err(e) = idx.invalidate(&path) {
-                    tracing::warn!("Failed to invalidate {}: {e}", path.display());
-                } else {
-                    tracing::debug!("Marked stale: {}", path.display());
+            // Invalidate (mark stale) — fast, holds write lock for μs per path.
+            {
+                let mut idx = index.write().await;
+                for path in &batch {
+                    if let Err(e) = idx.invalidate(path) {
+                        tracing::warn!("Failed to invalidate {}: {e}", path.display());
+                    } else {
+                        tracing::debug!("Marked stale: {}", path.display());
+                    }
                 }
             }
+            batch.clear();
 
             // Hot-patch: re-index the changed files in-memory so the MCP server
             // immediately returns fresh content without a restart.
             //
-            // compile_dirty() reads dirty.json (written above), re-processes only
-            // changed files (O(changed) not O(all)), then clears dirty.json.
-            // The write lock is held for ≤100 ms; queued reads resume normally.
-            match idx.compile_dirty() {
-                Ok(n) if n > 0 => tracing::info!("Hot-patched {n} neuron(s) in-memory."),
-                Ok(_) => {},
-                Err(e) => tracing::warn!("Hot-patch compile_dirty failed: {e}"),
+            // compile_dirty() drains the in-memory dirty set (atomically via Mutex swap)
+            // and re-processes only changed files — O(changed) not O(all).
+            // The write lock is re-acquired only for the fast insertion phase.
+            {
+                let mut idx = index.write().await;
+                match idx.compile_dirty() {
+                    Ok(n) if n > 0 => tracing::info!("Hot-patched {n} neuron(s) in-memory."),
+                    Ok(_) => {},
+                    Err(e) => tracing::warn!("Hot-patch compile_dirty failed: {e}"),
+                }
             }
         }
     });

@@ -1,7 +1,6 @@
 use super::*;
 
 impl NeuronIndex {
-
     /// Build the vocabulary bridge map: module_fragment → term set.
     ///
     /// Aggregates all terms from neurons tagged with a module into a single set
@@ -104,7 +103,6 @@ impl NeuronIndex {
         }
     }
 
-
     /// R17 Sol2: Merge co-occurrence ontology into vocab_bridge.
     ///
     /// Loads `.cortyx/cooccurrence.json` (written by `miner::build_and_save_cooccurrence`)
@@ -151,7 +149,6 @@ impl NeuronIndex {
         );
     }
 
-
     /// P1-A: Load PMI semantic neighbors from cooccurrence.json without a global cap.
     ///
     /// Unlike merge_cooccurrence_into_vocab_bridge (which adds to the substring-matched
@@ -190,7 +187,6 @@ impl NeuronIndex {
         }
         tracing::debug!(terms = loaded, "P1-A: PMI neighbors loaded (no global cap)");
     }
-
 
     ///
     /// Splits all identifier tokens across all neurons on `_` boundaries (snake_case)
@@ -251,7 +247,6 @@ impl NeuronIndex {
 
         self.morpheme_map = map;
     }
-
 
     /// Build per-neuron concept clouds from 1-hop structural synapse neighbours (TRIZ R12-S1).
     ///

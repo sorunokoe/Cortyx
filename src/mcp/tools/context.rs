@@ -94,6 +94,28 @@ impl CortyxServer {
                 return format!("ERROR: previous_response exceeds {MAX_CONTENT_BYTES} byte limit");
             }
         }
+
+        // Guard total in-flight bytes across concurrent handlers.
+        let estimated = input.task.len() + input.previous_response.as_deref().map_or(0, str::len);
+        let prev = self
+            .inflight_bytes
+            .fetch_add(estimated, std::sync::atomic::Ordering::Relaxed);
+        if prev + estimated > MAX_INFLIGHT_BYTES {
+            self.inflight_bytes
+                .fetch_sub(estimated, std::sync::atomic::Ordering::Relaxed);
+            return format!(
+                "ERROR: server busy — in-flight payload exceeds {MAX_INFLIGHT_BYTES} byte limit"
+            );
+        }
+        // RAII decrement: use a guard so the counter is released even on early returns.
+        struct InflightGuard<'a>(&'a std::sync::atomic::AtomicUsize, usize);
+        impl Drop for InflightGuard<'_> {
+            fn drop(&mut self) {
+                self.0
+                    .fetch_sub(self.1, std::sync::atomic::Ordering::Relaxed);
+            }
+        }
+        let _guard = InflightGuard(&self.inflight_bytes, estimated);
         input.task = match QueryText::new(std::mem::take(&mut input.task)) {
             Ok(task) => task.into_string(),
             Err(err) => return format!("ERROR: {err}"),
@@ -473,12 +495,7 @@ impl CortyxServer {
         let neuron_path = core_neuron_path(&source, &self.project_root);
         let existed_before = neuron_path.exists();
 
-        if let Err(e) = std::fs::create_dir_all(
-            neuron_path
-                .parent()
-                .ok_or_else(|| anyhow::anyhow!("bad path"))
-                .unwrap_or(Path::new(".")),
-        ) {
+        if let Err(e) = std::fs::create_dir_all(neuron_path.parent().unwrap_or(Path::new("."))) {
             return format!("ERROR: Failed to create neuron dir: {e}");
         }
 

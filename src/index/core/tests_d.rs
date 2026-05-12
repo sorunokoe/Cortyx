@@ -3,6 +3,7 @@
 
 use super::*;
 use crate::neuron::{NeuronKind, NeuronMeta, NeuronStatus, Synapse, SynapseType};
+use crate::types::{SynapseWeight, TermFrequency};
 use tempfile::TempDir;
 
 fn make_index(dir: &TempDir) -> NeuronIndex {
@@ -130,7 +131,7 @@ fn save_writes_module_capsule_for_named_module() {
         edge_type: SynapseType::Calls,
         weight: crate::types::SynapseWeight::new(0.8),
         reason: "loads user token state".to_string(),
-        learned_weight: 0.0,
+        learned_weight: SynapseWeight::ZERO,
         traversal_count: 0,
         last_co_activation_day: 0,
     }];
@@ -184,7 +185,7 @@ fn synapse_traversal_pulls_related_neuron() {
         edge_type: SynapseType::Calls,
         weight: crate::types::SynapseWeight::new(0.8),
         reason: "render pipeline".to_string(),
-        learned_weight: 0.0,
+        learned_weight: SynapseWeight::ZERO,
         traversal_count: 0,
         last_co_activation_day: 0,
     }];
@@ -546,7 +547,7 @@ fn relative_synapse_targets_resolved_in_adjacency() {
         edge_type: SynapseType::Calls,
         weight: crate::types::SynapseWeight::new(0.9),
         reason: "calls render".to_string(),
-        learned_weight: 0.0,
+        learned_weight: SynapseWeight::ZERO,
         traversal_count: 0,
         last_co_activation_day: 0,
     }];
@@ -1126,7 +1127,7 @@ fn concept_cloud_populated_from_structural_neighbours() {
         edge_type: crate::neuron::SynapseType::Calls,
         weight: crate::types::SynapseWeight::new(0.8),
         reason: "calls validate_user".to_string(),
-        learned_weight: 0.0,
+        learned_weight: SynapseWeight::ZERO,
         traversal_count: 0,
         last_co_activation_day: 0,
     });
@@ -1168,7 +1169,7 @@ fn concept_cloud_enables_retrieval_via_graph() {
         edge_type: crate::neuron::SynapseType::Calls,
         weight: crate::types::SynapseWeight::new(0.8),
         reason: "calls hash function".to_string(),
-        learned_weight: 0.0,
+        learned_weight: SynapseWeight::ZERO,
         traversal_count: 0,
         last_co_activation_day: 0,
     });
@@ -1222,7 +1223,7 @@ fn concept_cloud_excludes_semantic_related_edges() {
         edge_type: crate::neuron::SynapseType::SemanticRelated,
         weight: crate::types::SynapseWeight::new(0.5),
         reason: "related".to_string(),
-        learned_weight: 0.0,
+        learned_weight: SynapseWeight::ZERO,
         traversal_count: 0,
         last_co_activation_day: 0,
     });
@@ -1245,18 +1246,20 @@ fn concept_cloud_excludes_semantic_related_edges() {
 #[test]
 fn simhash_same_terms_identical_fingerprint() {
     // Identical content should always yield the same fingerprint (deterministic)
-    let mut tf1: std::collections::HashMap<String, f32> = std::collections::HashMap::new();
-    tf1.insert("auth".to_string(), 1.0);
-    tf1.insert("token".to_string(), 2.0);
+    let mut tf1: std::collections::HashMap<String, TermFrequency> =
+        std::collections::HashMap::new();
+    tf1.insert("auth".to_string(), TermFrequency::new(1.0));
+    tf1.insert("token".to_string(), TermFrequency::new(2.0));
     let fp1 = simhash_with_seed(&tf1, LSH_SEEDS[0]);
     let fp2 = simhash_with_seed(&tf1, LSH_SEEDS[0]);
     assert_eq!(fp1, fp2, "same terms → same fingerprint (deterministic)");
     // Highly divergent content should produce different fingerprints with overwhelming probability
-    let mut tf_other: std::collections::HashMap<String, f32> = std::collections::HashMap::new();
-    tf_other.insert("xyzzy".to_string(), 100.0);
-    tf_other.insert("quux".to_string(), 100.0);
-    tf_other.insert("plonk".to_string(), 100.0);
-    tf_other.insert("zork".to_string(), 100.0);
+    let mut tf_other: std::collections::HashMap<String, TermFrequency> =
+        std::collections::HashMap::new();
+    tf_other.insert("xyzzy".to_string(), TermFrequency::new(100.0));
+    tf_other.insert("quux".to_string(), TermFrequency::new(100.0));
+    tf_other.insert("plonk".to_string(), TermFrequency::new(100.0));
+    tf_other.insert("zork".to_string(), TermFrequency::new(100.0));
     let fp_other = simhash_with_seed(&tf_other, LSH_SEEDS[0]);
     assert_ne!(
         fp1, fp_other,
@@ -1266,9 +1269,9 @@ fn simhash_same_terms_identical_fingerprint() {
 
 #[test]
 fn simhash_identical_content_identical_fingerprint() {
-    let mut tf: std::collections::HashMap<String, f32> = std::collections::HashMap::new();
-    tf.insert("validate".to_string(), 1.5);
-    tf.insert("password".to_string(), 3.0);
+    let mut tf: std::collections::HashMap<String, TermFrequency> = std::collections::HashMap::new();
+    tf.insert("validate".to_string(), TermFrequency::new(1.5));
+    tf.insert("password".to_string(), TermFrequency::new(3.0));
     let fp1 = simhash_with_seed(&tf, LSH_SEEDS[0]);
     let fp2 = simhash_with_seed(&tf, LSH_SEEDS[0]);
     assert_eq!(fp1, fp2, "same terms → same fingerprint (deterministic)");
@@ -1301,7 +1304,7 @@ fn lsh_fingerprint_stored_in_entry() {
             .lsh_fingerprints
             .iter()
             .any(|&fp| fp != 0),
-        "non-empty term set should produce non-zero 1024-bit SimHash"
+        "non-empty term set should produce non-zero 256-bit SimHash"
     );
 }
 

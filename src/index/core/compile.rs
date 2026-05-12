@@ -63,34 +63,44 @@ impl NeuronIndex {
         Ok(new_count)
     }
 
-    /// Incremental compile — processes only files listed in `.cortyx/dirty.json`.
+    /// Incremental compile — processes only paths currently in the in-memory dirty set.
     ///
-    /// The file watcher writes changed source paths to dirty.json after each batch.
-    /// On next server start (or `cortyx compile --incremental`), only those files
-    /// are re-indexed instead of walking the entire tree — O(changed) not O(all).
+    /// The file watcher inserts changed source paths into `self.dirty_set` after each
+    /// debounce batch.  On next server start (or `cortyx compile --incremental`), only
+    /// those files are re-indexed instead of walking the entire tree — O(changed) not O(all).
     ///
-    /// Falls back to a full `compile()` if dirty.json is absent or unparseable.
-    /// Clears dirty.json after successful processing.
+    /// Migration: if the dirty set is empty and a legacy `.cortyx/dirty.json` file exists,
+    /// its paths are loaded into the dirty set first (one-time on-disk → in-memory upgrade).
+    ///
+    /// Falls back to a full `compile()` when the dirty set is empty and no legacy file exists.
     pub fn compile_dirty(&mut self) -> Result<usize> {
+        // Migration: pull any legacy dirty.json paths into the in-memory set before draining.
         let dirty_file = dirty_path(&self.project_root);
-
-        if !dirty_file.exists() {
-            tracing::debug!("No dirty.json — falling back to full compile.");
-            return self.compile();
-        }
-
-        let dirty_paths: Vec<PathBuf> = std::fs::read_to_string(&dirty_file)
-            .ok()
-            .and_then(|s| serde_json::from_str(&s).ok())
-            .unwrap_or_default();
-
-        if dirty_paths.is_empty() {
-            if let Err(e) = std::fs::remove_file(&dirty_file) {
-                if e.kind() != std::io::ErrorKind::NotFound {
-                    tracing::warn!("Failed to clear empty dirty.json: {e}");
+        if dirty_file.exists() {
+            if let Ok(raw) = std::fs::read_to_string(&dirty_file) {
+                if let Ok(paths) = serde_json::from_str::<Vec<PathBuf>>(&raw) {
+                    if !paths.is_empty() {
+                        let mut set = self.dirty_set.lock().unwrap_or_else(|e| e.into_inner());
+                        set.extend(paths);
+                    }
                 }
             }
-            return Ok(0);
+            // Remove the legacy file regardless — the in-memory set is now authoritative.
+            let _ = std::fs::remove_file(&dirty_file);
+        }
+
+        // Atomically drain the dirty set (swap with an empty one so the watcher can
+        // continue inserting into the new empty set while we compile).
+        let dirty_paths: Vec<PathBuf> = {
+            let mut set = self.dirty_set.lock().unwrap_or_else(|e| e.into_inner());
+            let drained: HashSet<PathBuf> = std::mem::take(&mut *set);
+            drained.into_iter().collect()
+            // Lock is released here before any self.* call.
+        };
+
+        if dirty_paths.is_empty() {
+            tracing::debug!("dirty_set empty — falling back to full compile.");
+            return self.compile();
         }
 
         tracing::info!(
@@ -107,12 +117,15 @@ impl NeuronIndex {
 
         let new_count = self.index_compiled_files(compiled, true);
         self.finalize_compile_pass(&root)?;
-        if let Err(e) = std::fs::remove_file(&dirty_file) {
-            if e.kind() != std::io::ErrorKind::NotFound {
-                tracing::warn!("Failed to clear dirty.json after compile_dirty: {e}");
-            }
-        }
         Ok(new_count)
+    }
+
+    /// Returns a cloned handle to the in-memory dirty set.
+    ///
+    /// The file watcher holds this handle to insert changed paths without going through
+    /// the index write lock.  This breaks the previous "lock held during compile" pattern.
+    pub fn dirty_set_handle(&self) -> std::sync::Arc<std::sync::Mutex<HashSet<PathBuf>>> {
+        std::sync::Arc::clone(&self.dirty_set)
     }
 
     /// Add/update a single entry in the in-memory index without rebuilding derived structures.

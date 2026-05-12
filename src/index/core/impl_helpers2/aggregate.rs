@@ -1,7 +1,6 @@
 use super::*;
 
 impl NeuronIndex {
-
     /// CountNeuron (TRIZ NE-5): Pre-aggregate cross-session occurrence counts at mine time.
     ///
     /// Scans all `NeuronKind::Verbatim` entries, groups them by `session_id`, and builds
@@ -257,7 +256,6 @@ impl NeuronIndex {
 
         Ok(staged > 0)
     }
-
 
     /// TRIZ Sol-A: Pre-compute arithmetic aggregates (dollar/numeric sums) at mine time.
     ///

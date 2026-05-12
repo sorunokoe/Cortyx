@@ -84,7 +84,7 @@ impl NeuronIndex {
             return Vec::new();
         }
 
-        let has_current_marker_terms = |terms: &HashMap<String, f32>| {
+        let has_current_marker_terms = |terms: &HashMap<String, TermFrequency>| {
             terms.contains_key("today")
                 || terms.contains_key("currently")
                 || terms.contains_key("now")

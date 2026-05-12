@@ -1,4 +1,4 @@
-use crate::error::Result;
+use crate::error::{Result, SecurityError};
 use std::path::{Path, PathBuf};
 
 /// Returns `true` for paths that should not get neurons.
@@ -79,7 +79,10 @@ pub fn should_skip(rel: &Path) -> bool {
 pub fn validate_relative_path(raw: &str) -> Result<PathBuf> {
     let path = PathBuf::from(raw);
     if path.is_absolute() {
-        crate::cortyx_bail!("path must be relative, got absolute: {raw}");
+        return Err(SecurityError::PathEscape {
+            path: raw.to_string(),
+        }
+        .into());
     }
     for component in path.components() {
         use std::path::Component;
@@ -87,10 +90,18 @@ pub fn validate_relative_path(raw: &str) -> Result<PathBuf> {
             Component::Normal(s) => {
                 let s = s.to_string_lossy();
                 if s.starts_with('.') {
-                    crate::cortyx_bail!("hidden component not allowed: {s} in {raw}");
+                    return Err(SecurityError::PathEscape {
+                        path: raw.to_string(),
+                    }
+                    .into());
                 }
             },
-            other => crate::cortyx_bail!("unsafe path component {:?} in: {raw}", other),
+            _ => {
+                return Err(SecurityError::PathEscape {
+                    path: raw.to_string(),
+                }
+                .into())
+            },
         }
     }
     Ok(path)
@@ -103,32 +114,48 @@ pub fn validate_relative_path(raw: &str) -> Result<PathBuf> {
 pub fn validate_synapse_path(raw: &str) -> Result<PathBuf> {
     let path = PathBuf::from(raw);
     if path.is_absolute() {
-        crate::cortyx_bail!("synapse target must be relative, got absolute: {raw}");
+        return Err(SecurityError::PathEscape {
+            path: raw.to_string(),
+        }
+        .into());
     }
     let mut parts = Vec::new();
     for component in path.components() {
         use std::path::Component;
         match component {
             Component::Normal(part) => parts.push(part.to_string_lossy().into_owned()),
-            other => {
-                crate::cortyx_bail!("unsafe path component {:?} in synapse target: {raw}", other)
+            _ => {
+                return Err(SecurityError::PathEscape {
+                    path: raw.to_string(),
+                }
+                .into())
             },
         }
     }
     if parts.is_empty() {
-        crate::cortyx_bail!("synapse target must not be empty");
+        return Err(SecurityError::PathEscape {
+            path: raw.to_string(),
+        }
+        .into());
     }
     if parts[0].starts_with('.') {
         if parts[0] != ".cortyx" || parts.get(1).map(String::as_str) != Some("neurons") {
-            crate::cortyx_bail!(
-                "hidden synapse target paths must stay under .cortyx/neurons: {raw}"
-            );
+            return Err(SecurityError::PathEscape {
+                path: raw.to_string(),
+            }
+            .into());
         }
         if parts.iter().skip(2).any(|part| part.starts_with('.')) {
-            crate::cortyx_bail!("hidden component not allowed in synapse target: {raw}");
+            return Err(SecurityError::PathEscape {
+                path: raw.to_string(),
+            }
+            .into());
         }
     } else if parts.iter().any(|part| part.starts_with('.')) {
-        crate::cortyx_bail!("hidden component not allowed in synapse target: {raw}");
+        return Err(SecurityError::PathEscape {
+            path: raw.to_string(),
+        }
+        .into());
     }
     Ok(path)
 }

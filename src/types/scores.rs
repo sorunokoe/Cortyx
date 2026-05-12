@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// Combines the static `type_multiplier` (from `SynapseType`) and the
 /// EMA-learned `learned_weight`. Values are clamped on construction.
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct SynapseWeight(f32);
 
 impl SynapseWeight {

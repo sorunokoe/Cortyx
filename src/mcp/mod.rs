@@ -63,6 +63,12 @@ const MAX_CONTENT_BYTES: usize = 1_048_576; // 1 MB
 /// Maximum byte length for task/query strings.
 const MAX_TASK_BYTES: usize = 4_096;
 
+/// Maximum total in-flight bytes across all concurrent tool-handler executions.
+///
+/// Bounds aggregate memory when multiple LLM agents share a single Cortyx process.
+/// The check is advisory — it guards response-building work, not input deserialization.
+const MAX_INFLIGHT_BYTES: usize = 64 * 1_048_576; // 64 MB
+
 #[derive(Clone)]
 pub struct CortyxServer {
     project_root: PathBuf,
@@ -77,6 +83,9 @@ pub struct CortyxServer {
     /// Server-side snapshots for delta-mode context emission.
     context_sessions: Arc<Mutex<HashMap<String, ContextSnapshot>>>,
     next_context_handle: Arc<AtomicU64>,
+    /// Running sum of bytes currently being processed across all concurrent handlers.
+    /// Handlers that build large responses increment this before work and decrement after.
+    inflight_bytes: Arc<std::sync::atomic::AtomicUsize>,
     // Kept for the rmcp macro-generated dispatch table; not called directly.
     #[allow(dead_code)]
     tool_router: ToolRouter<Self>,
@@ -182,14 +191,33 @@ pub async fn serve(project: Option<PathBuf>) -> Result<()> {
                     return;
                 }
 
-                let remote_ok = tokio::process::Command::new("git")
+                let remote_url = tokio::process::Command::new("git")
                     .args(["remote", "get-url", "origin"])
                     .current_dir(&global_dir)
                     .output()
                     .await
-                    .map(|o| o.status.success())
-                    .unwrap_or(false);
-                if !remote_ok {
+                    .ok()
+                    .filter(|o| o.status.success())
+                    .and_then(|o| String::from_utf8(o.stdout).ok());
+
+                let Some(url) = remote_url else { return };
+                let url = url.trim();
+
+                // Allowlist: only pull from trusted HTTPS hosts.
+                // SSH git@ URLs from these same hosts are also accepted.
+                // This prevents a compromised or user-misconfigured global-concepts
+                // directory from silently pulling from an arbitrary server.
+                let trusted = [
+                    "https://github.com/",
+                    "https://gitlab.com/",
+                    "git@github.com:",
+                    "git@gitlab.com:",
+                ];
+                if !trusted.iter().any(|prefix| url.starts_with(prefix)) {
+                    tracing::warn!(
+                        remote_url = url,
+                        "S-IV: global concepts auto-fetch skipped — remote URL not in allowlist"
+                    );
                     return;
                 }
 
@@ -233,7 +261,8 @@ pub async fn serve(project: Option<PathBuf>) -> Result<()> {
     let context_sessions = Arc::new(Mutex::new(HashMap::new()));
     let next_context_handle = Arc::new(AtomicU64::new(0));
 
-    let _watcher = watcher::start_watcher(project_root.clone(), Arc::clone(&index))?;
+    let dirty_handle = index.read().await.dirty_set_handle();
+    let _watcher = watcher::start_watcher(project_root.clone(), Arc::clone(&index), dirty_handle)?;
 
     let server = CortyxServer {
         project_root,
@@ -242,6 +271,7 @@ pub async fn serve(project: Option<PathBuf>) -> Result<()> {
         provisional_hits: Arc::clone(&provisional_hits),
         context_sessions,
         next_context_handle,
+        inflight_bytes: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
         tool_router: CortyxServer::tool_router(),
     };
 

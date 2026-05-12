@@ -2,6 +2,7 @@
 use crate::embedder::{load_embeddings, EmbeddingStore};
 
 use crate::error::Result;
+use crate::types::TermFrequency;
 use rayon::prelude::*;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -72,7 +73,7 @@ mod impl_helpers;
 mod impl_helpers2;
 mod invalidation;
 mod lsh;
-use lsh::{hamming_distance, simhash_1024, simhash_with_seed, LSH_SEEDS};
+use lsh::{hamming_distance, simhash_256, simhash_with_seed, LSH_SEEDS};
 
 mod persistence;
 use persistence::*;

@@ -4,8 +4,8 @@
 use super::*;
 use crate::types::{QueryText, SynapseWeight};
 
-pub mod search;
 pub mod overflow;
+pub mod search;
 
-pub(super) use self::search::*;
 pub(super) use self::overflow::*;
+pub(super) use self::search::*;

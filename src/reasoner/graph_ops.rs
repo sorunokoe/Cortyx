@@ -66,7 +66,7 @@ pub(super) fn build_adjacency(
                             synapse.weight.get() * REVERSE_EDGE_WEIGHT_FACTOR,
                         ),
                         reason: format!("← {}", synapse.reason),
-                        learned_weight: 0.0,
+                        learned_weight: crate::types::SynapseWeight::ZERO,
                         traversal_count: 0,
                         last_co_activation_day: 0,
                     },

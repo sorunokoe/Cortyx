@@ -63,12 +63,5 @@ missing_docs = "allow"
 unused_imports = "allow"
 
 [lints.clippy]
-# Noisy/impractical lints suppressed codebase-wide.
-# Reviewed 2026-05-08: each suppression is intentional.
-unwrap_used = "allow"       # index/core paths use unwrap where panics are bugs-not-errors
-expect_used = "allow"       # same rationale as unwrap_used
-panic = "allow"             # explicit panics used as unreachable guards
-indexing_slicing = "allow"  # BM25 hot paths use slice indexing for performance
-
 # Code quality
 too_many_arguments = "warn"

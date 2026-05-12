@@ -350,8 +350,9 @@ pub(in crate::index) fn is_cjk_char(c: char) -> bool {
 #[inline]
 pub(in crate::index) fn is_arabic_char(c: char) -> bool {
     let cp = c as u32;
-    matches!(cp,
-        0x0590..=0x06FF     // Hebrew
+    matches!(
+        cp,
+        0x0590..=0x06FF // Hebrew
     )
 }
 
@@ -638,7 +639,7 @@ pub(in crate::index) fn build_module_capsule_content(
     for entry in &stable_entries {
         for (term, weight) in &entry.term_freq {
             if is_capsule_glossary_term(term, &module_tokens) {
-                *glossary_weights.entry(term.clone()).or_insert(0.0) += *weight;
+                *glossary_weights.entry(term.clone()).or_insert(0.0) += weight.get();
             }
         }
         for term in entry.concept_cloud.iter().chain(entry.synonym_cloud.iter()) {

@@ -47,7 +47,7 @@ mod tests {
             edge_type,
             weight: crate::types::SynapseWeight::new(weight),
             reason: reason.to_string(),
-            learned_weight: 0.9,
+            learned_weight: crate::types::SynapseWeight::new(0.9),
             traversal_count: 12,
             last_co_activation_day: 77,
         }
@@ -132,10 +132,10 @@ mod tests {
         let mut meta_b = meta_a.clone();
         meta_b.source_files.reverse();
         meta_b.synapses.reverse();
-        meta_b.synapses[0].learned_weight = 0.0;
+        meta_b.synapses[0].learned_weight = crate::types::SynapseWeight::ZERO;
         meta_b.synapses[0].traversal_count = 999;
         meta_b.synapses[0].last_co_activation_day = 1;
-        meta_b.synapses[1].learned_weight = 1.0;
+        meta_b.synapses[1].learned_weight = crate::types::SynapseWeight::ONE;
         meta_b.synapses[1].traversal_count = 0;
         meta_b.synapses[1].last_co_activation_day = 2048;
 

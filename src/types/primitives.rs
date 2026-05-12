@@ -170,7 +170,7 @@ impl TryFrom<&str> for QueryText {
 ///
 /// Used in BM25 scoring. Prevents negative frequencies which would be
 /// nonsensical.
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct TermFrequency(f32);
 
 impl TermFrequency {
@@ -186,6 +186,12 @@ impl TermFrequency {
 
     pub fn is_zero(self) -> bool {
         self.0 == 0.0
+    }
+}
+
+impl std::ops::AddAssign<f32> for TermFrequency {
+    fn add_assign(&mut self, rhs: f32) {
+        self.0 = (self.0 + rhs).max(0.0);
     }
 }
 

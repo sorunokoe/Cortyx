@@ -1,7 +1,6 @@
 use super::*;
 
 impl NeuronIndex {
-
     /// Rebuild all derived structures — public entry point for `cortyx prune`.
     ///
     /// Prune evicts entries individually then calls this once to reconstruct
@@ -16,7 +15,6 @@ impl NeuronIndex {
         self.needs_full_save.store(true, Ordering::Relaxed);
         self.rebuild_derived();
     }
-
 
     /// Rebuild all derived structures in a single O(n) pass.
     ///
@@ -68,7 +66,7 @@ impl NeuronIndex {
                         edge_type: syn.edge_type.inverse(),
                         weight: SynapseWeight::new(syn.weight.get() * 0.7),
                         reason: format!("← {}", syn.reason),
-                        learned_weight: 0.0,
+                        learned_weight: crate::types::SynapseWeight::ZERO,
                         traversal_count: 0,
                         last_co_activation_day: 0,
                     });
@@ -140,7 +138,6 @@ impl NeuronIndex {
         self.has_pending_updates = false;
     }
 
-
     /// Incremental derived-structure update for pure-append batches (S7).
     ///
     /// When only new entries were appended (no existing entries were modified), we
@@ -177,7 +174,7 @@ impl NeuronIndex {
                         edge_type: syn.edge_type.inverse(),
                         weight: SynapseWeight::new(syn.weight.get() * 0.7),
                         reason: format!("← {}", syn.reason),
-                        learned_weight: 0.0,
+                        learned_weight: crate::types::SynapseWeight::ZERO,
                         traversal_count: 0,
                         last_co_activation_day: 0,
                     });

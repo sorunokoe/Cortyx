@@ -4,6 +4,7 @@
 //! SimHash finds neurons within Hamming distance ≤14 and injects them as overflow
 //! candidates. False positives are filtered by downstream BM25 re-ranking.
 
+use crate::types::TermFrequency;
 use std::collections::HashMap;
 
 /// 16 compile-time seeds for 1024-bit random projection (Sol4 R17).
@@ -36,16 +37,16 @@ pub(super) const LSH_SEEDS: [u64; 16] = [
 /// Hamming distance between two SimHashes approximates cosine distance over
 /// the original TF-IDF vectors; neurons within distance ≤12 bits are likely
 /// semantically related.
-pub(super) fn simhash_with_seed(term_freq: &HashMap<String, f32>, seed: u64) -> u64 {
+pub(super) fn simhash_with_seed(term_freq: &HashMap<String, TermFrequency>, seed: u64) -> u64 {
     let mut v = [0.0f64; 64];
-    for (term, &weight) in term_freq {
+    for (term, weight) in term_freq {
         // FNV-1a seeded: XOR seed into the offset basis for independent hash family
         let mut h: u64 = seed;
         for byte in term.as_bytes() {
             h ^= *byte as u64;
             h = h.wrapping_mul(0x100000001b3);
         }
-        let w = weight as f64;
+        let w = weight.get() as f64;
         for bit in 0..64u32 {
             if (h >> bit) & 1 == 1 {
                 v[bit as usize] += w;
@@ -63,13 +64,13 @@ pub(super) fn simhash_with_seed(term_freq: &HashMap<String, f32>, seed: u64) -> 
     fingerprint
 }
 
-/// Compute SimHash fingerprints using the first 4 of 16 seed slots (R18 P1b Sol4).
+/// Compute four independent 64-bit SimHash fingerprints from a term→weight map
+/// (256 effective bits).
 ///
 /// # Ensemble design and limitations
 /// Four independent 64-bit planes yield 256 effective bits, providing the same
 /// Johnson-Lindenstrauss accuracy improvement over a single-seed SimHash while
-/// eliminating 75% of the seed-iteration overhead of the original 16-seed design.
-/// Slots 4–15 are left as zero for serialization-format compatibility.
+/// eliminating 75% of the seed-iteration overhead of a 16-seed design.
 ///
 /// **Limitation:** SimHash approximates cosine distance over TF-weighted term
 /// vectors — it is a good proxy for lexical overlap but is not semantic.
@@ -78,8 +79,8 @@ pub(super) fn simhash_with_seed(term_freq: &HashMap<String, f32>, seed: u64) -> 
 /// when BM25 returns fewer than 2 candidates; it is never the primary retrieval
 /// path, so false-positive candidates from LSH are filtered by downstream BM25
 /// re-ranking before reaching the caller.
-pub(super) fn simhash_1024(term_freq: &HashMap<String, f32>) -> [u64; 16] {
-    let mut fps = [0u64; 16];
+pub(super) fn simhash_256(term_freq: &HashMap<String, TermFrequency>) -> [u64; 4] {
+    let mut fps = [0u64; 4];
     for (i, &seed) in LSH_SEEDS[..4].iter().enumerate() {
         fps[i] = simhash_with_seed(term_freq, seed);
     }
