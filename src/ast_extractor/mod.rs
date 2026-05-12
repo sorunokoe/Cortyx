@@ -154,5 +154,163 @@ pub fn format_extra_vocab_for_stub(summary: &AstSummary) -> String {
     )
 }
 
+/// Generate a `## Relevant For` section populated with natural-language task descriptions.
+///
+/// Derived purely from the AST summary and source path — zero LLM calls. Gives BM25
+/// rich task vocabulary from session 0, resolving the cold-start contradiction (TRIZ R5).
+///
+/// Examples of generated phrases:
+/// - "authenticating users with JWT tokens"
+/// - "validating request credentials"
+/// - "parsing configuration from environment"
+pub fn format_relevant_for_stub(summary: &AstSummary, source_rel: &str) -> String {
+    let mut phrases: Vec<String> = Vec::new();
+
+    // 1. Phrases from function names (verb + noun pairs from snake_case)
+    for fn_name in summary.functions.iter().take(12) {
+        // Strip type prefix (e.g. "fn " or "async fn ")
+        let bare = fn_name
+            .trim_start_matches("async ")
+            .trim_start_matches("fn ")
+            .split('(')
+            .next()
+            .unwrap_or(fn_name)
+            .trim();
+        let words = split_identifier(bare);
+        if words.len() >= 2 {
+            phrases.push(words.join(" "));
+        }
+    }
+
+    // 2. Phrases from type names (decomposed CamelCase → words)
+    for type_name in summary.types.iter().take(6) {
+        let bare = type_name
+            .trim_start_matches("struct ")
+            .trim_start_matches("enum ")
+            .trim_start_matches("trait ")
+            .trim_start_matches("class ")
+            .trim_start_matches("interface ")
+            .split('<')
+            .next()
+            .unwrap_or(type_name)
+            .trim();
+        let words = split_camel_case(bare);
+        if words.len() >= 2 {
+            phrases.push(words.join(" ").to_lowercase());
+        }
+    }
+
+    // 3. Phrases from module path segments
+    let path_phrases = path_task_hints(source_rel);
+    phrases.extend(path_phrases);
+
+    // 4. First doc line as a direct phrase
+    if let Some(first_doc) = summary.doc_lines.first() {
+        let cleaned = first_doc
+            .trim_start_matches("///")
+            .trim_start_matches("//!")
+            .trim_start_matches('#')
+            .trim();
+        if cleaned.len() > 10 {
+            phrases.push(cleaned.to_string());
+        }
+    }
+
+    // Deduplicate while preserving order, cap at 10 phrases
+    let mut seen = std::collections::HashSet::new();
+    let phrases: Vec<String> = phrases
+        .into_iter()
+        .filter(|p| p.len() > 4 && seen.insert(p.to_lowercase()))
+        .take(10)
+        .collect();
+
+    if phrases.is_empty() {
+        return String::new();
+    }
+
+    let body: String = phrases
+        .iter()
+        .map(|p| format!("- {p}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    format!("\n<!-- SECTION: relevant_for -->\n{body}\n<!-- /SECTION -->\n")
+}
+
+/// Split a snake_case identifier into words (handles digits as word breaks too).
+fn split_identifier(s: &str) -> Vec<String> {
+    s.split(|c: char| c == '_' || c == '-')
+        .filter(|w| !w.is_empty() && w.len() > 1)
+        .map(|w| w.to_lowercase())
+        .collect()
+}
+
+/// Split a CamelCase or PascalCase identifier into words.
+fn split_camel_case(s: &str) -> Vec<String> {
+    let mut words = Vec::new();
+    let mut current = String::new();
+    for (i, ch) in s.chars().enumerate() {
+        if ch.is_uppercase() && i > 0 && !current.is_empty() {
+            words.push(current.clone());
+            current.clear();
+        }
+        current.push(ch.to_ascii_lowercase());
+    }
+    if !current.is_empty() {
+        words.push(current);
+    }
+    words.into_iter().filter(|w| w.len() > 1).collect()
+}
+
+/// Derive task hint phrases from path segments (e.g. "src/auth/mod.rs" → ["authentication", "auth"]).
+fn path_task_hints(source_rel: &str) -> Vec<String> {
+    // Common path segment → expanded meanings
+    let expansions: &[(&str, &[&str])] = &[
+        ("auth", &["authentication", "authorization", "auth"]),
+        ("login", &["user login", "sign in"]),
+        ("token", &["token handling", "JWT"]),
+        ("config", &["configuration", "settings"]),
+        ("db", &["database access", "persistence"]),
+        ("api", &["API endpoint", "REST"]),
+        ("parse", &["parsing", "deserialization"]),
+        ("index", &["indexing", "search index"]),
+        ("cache", &["caching", "memoization"]),
+        ("error", &["error handling", "error types"]),
+        ("util", &["utilities", "helpers"]),
+        ("test", &["testing", "test fixtures"]),
+        ("compile", &["compilation", "code generation"]),
+        ("sync", &["synchronization", "sync"]),
+        ("transport", &["data transport", "serialization"]),
+        ("server", &["server setup", "request handling"]),
+        ("client", &["client connection", "HTTP client"]),
+        ("model", &["data model", "domain model"]),
+        ("migrate", &["migration", "schema migration"]),
+        ("render", &["rendering", "output formatting"]),
+        ("search", &["search", "full text search"]),
+        ("neuron", &["neuron management", "context storage"]),
+        ("memory", &["memory", "episodic memory"]),
+        ("mcp", &["MCP tools", "MCP server"]),
+        ("graph", &["graph traversal", "knowledge graph"]),
+    ];
+
+    let mut hints = Vec::new();
+    let lower = source_rel.to_lowercase();
+    let segments: Vec<&str> = lower
+        .split(['/', '\\', '_', '-', '.'])
+        .filter(|s| !s.is_empty() && *s != "rs" && *s != "ts" && *s != "py")
+        .collect();
+
+    for seg in &segments {
+        for (key, expanded) in expansions {
+            if seg.contains(key) {
+                for &phrase in *expanded {
+                    hints.push(phrase.to_string());
+                }
+                break;
+            }
+        }
+    }
+    hints
+}
+
 #[cfg(test)]
 mod tests;

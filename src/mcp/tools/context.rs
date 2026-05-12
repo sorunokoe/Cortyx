@@ -2,6 +2,28 @@ use super::super::*;
 use crate::types::QueryText;
 use rmcp::{handler::server::wrapper::Parameters, tool, tool_router};
 
+/// Read the `purpose` SECTION from a neuron file and return the first 2 sentences.
+/// Returns an empty string if the file can't be read or the section is absent.
+fn purpose_snippet(path: &std::path::Path) -> String {
+    let content = match std::fs::read_to_string(path) {
+        Ok(c) => c,
+        Err(_) => return String::new(),
+    };
+    let sections = crate::neuron::parse_sections(&content);
+    let body = match sections.get("purpose") {
+        Some(b) => b.clone(),
+        None => return String::new(),
+    };
+    // Take the first 2 non-empty, non-comment lines as the snippet
+    let snippet: String = body
+        .lines()
+        .filter(|l| !l.trim().is_empty() && !l.trim_start().starts_with("<!--"))
+        .take(2)
+        .collect::<Vec<_>>()
+        .join(" ");
+    snippet
+}
+
 #[tool_router(router = context_tool_router, vis = "pub(super)")]
 impl CortyxServer {
     #[tool(
@@ -46,6 +68,7 @@ impl CortyxServer {
                     answer_mode: Some(route.kind == CortyxRouteKind::Answer),
                     min_answer_confidence: input.min_answer_confidence,
                     provenance_mode: input.provenance_mode,
+                    depth: None,
                 }))
                 .await
             },
@@ -53,6 +76,7 @@ impl CortyxServer {
                 self.wake_up(Parameters(WakeUpInput {
                     person: input.person,
                     agent: route.agent,
+                    prefetch: None,
                 }))
                 .await
             },
@@ -377,14 +401,21 @@ impl CortyxServer {
 
         // S-I (R16): Tiered emission — full body for Tier 2 (score ≥ 5.0),
         // summary for Tier 1 (1.5 ≤ score < 5.0), already handled as overflow for Tier 0.
+        // TRIZ depth override: when depth is set, use fixed-level rendering instead.
         let render_terms = tokenize(&input.task);
         let idx_read = self.index.read().await;
         let mut rendered_chunks = capsule_items;
-        rendered_chunks.extend(
-            paths_with_scores
-                .iter()
-                .map(|(path, score)| render_context_item(path, *score, &render_terms, &idx_read)),
-        );
+        if let Some(depth) = input.depth {
+            rendered_chunks.extend(paths_with_scores.iter().map(|(path, score)| {
+                render_context_item_at_depth(path, *score, depth, &render_terms, &idx_read)
+            }));
+        } else {
+            rendered_chunks.extend(
+                paths_with_scores.iter().map(|(path, score)| {
+                    render_context_item(path, *score, &render_terms, &idx_read)
+                }),
+            );
+        }
         drop(idx_read);
         let rendered_overflow: Vec<RenderedContextItem> = overflow
             .iter()
@@ -796,19 +827,433 @@ impl CortyxServer {
                     .unwrap_or_default()
             );
         }
+        let summarize = input.summarize.unwrap_or(false);
         let rows: Vec<serde_json::Value> = neurons
             .iter()
             .map(|n| {
-                serde_json::json!({
+                let mut entry = serde_json::json!({
                     "path": self.rel_display(&n.path).as_ref().to_string(),
                     "kind": format!("{:?}", n.kind),
                     "staleness": format!("{:.1}", n.staleness_multiplier),
                     "hit_rate": format!("{:.2}", n.hit_rate),
                     "use_count": n.use_count,
-                })
+                });
+                if summarize {
+                    entry["purpose"] = serde_json::Value::String(purpose_snippet(&n.path));
+                }
+                entry
             })
             .collect();
         serde_json::to_string_pretty(&rows)
+            .unwrap_or_else(|_| "ERROR: serialization failed".to_string())
+    }
+
+    // ── DCI: composable search primitives ─────────────────────────────────────
+
+    /// Read one named section of a neuron without loading the full body.
+    ///
+    /// Enables PageIndex-style triage: agents load capsules first, then drill into
+    /// only the sections they actually need. Use `section="_full"` for the whole body.
+    #[tool(
+        name = "cortyx_read_section",
+        description = "Read a single named section (e.g. 'purpose', 'api', 'pitfalls') from a \
+                       neuron file without loading the full body. Use section='_full' to read \
+                       the entire neuron. Path is the full neuron path as returned by \
+                       cortyx_list_neurons. Enables token-efficient drill-down: load the \
+                       'purpose' section first, then request 'api' only if needed."
+    )]
+    pub(in crate::mcp) async fn read_section(
+        &self,
+        Parameters(input): Parameters<ReadSectionInput>,
+    ) -> String {
+        let path = match resolve_neuron_store_path(&input.path, &self.project_root) {
+            Ok(p) => p,
+            Err(err) => return format!("ERROR: Invalid neuron path: {err}"),
+        };
+        let content = match std::fs::read_to_string(&path) {
+            Ok(c) => c,
+            Err(e) => return format!("ERROR: Cannot read neuron: {e}"),
+        };
+        if input.section == "_full" {
+            return content;
+        }
+        let key = input.section.to_lowercase();
+        let sections = parse_sections(&content);
+        match sections.get(&key) {
+            Some(body) => body.clone(),
+            None => {
+                let available: Vec<&str> = sections.keys().map(String::as_str).collect();
+                format!(
+                    "ERROR: Section '{}' not found. Available sections: [{}]",
+                    input.section,
+                    available.join(", ")
+                )
+            },
+        }
+    }
+
+    /// Exact string search across all neuron bodies.
+    ///
+    /// Returns `(neuron_path, line_number, matched_line)` tuples — the same composable
+    /// primitives DCI uses on raw corpora, applied to Cortyx's indexed neuron store.
+    #[tool(
+        name = "cortyx_search_literal",
+        description = "Exact string search across all neuron bodies. Returns matched lines with \
+                       neuron path and line number. Use for precise lookups that BM25 cannot \
+                       express: exact function names, error messages, specific constants. \
+                       Optionally scope to a module and/or enable case-insensitive matching."
+    )]
+    pub(in crate::mcp) async fn search_neurons_literal(
+        &self,
+        Parameters(input): Parameters<SearchNeuronsInput>,
+    ) -> String {
+        let ndir = neuron_dir(&self.project_root);
+        let case_insensitive = input.case_insensitive.unwrap_or(false);
+        let needle_owned;
+        let needle: &str = if case_insensitive {
+            needle_owned = input.term.to_lowercase();
+            &needle_owned
+        } else {
+            &input.term
+        };
+
+        let mut matches: Vec<serde_json::Value> = Vec::new();
+        let walker = walkdir::WalkDir::new(&ndir)
+            .follow_links(false)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|e| {
+                e.file_type().is_file()
+                    && e.path()
+                        .extension()
+                        .and_then(|s| s.to_str())
+                        .map(|ext| ext == "md")
+                        .unwrap_or(false)
+            });
+
+        for entry in walker {
+            let path = entry.path();
+            let rel = match path.strip_prefix(&ndir) {
+                Ok(r) => r.to_string_lossy().to_string(),
+                Err(_) => path.to_string_lossy().to_string(),
+            };
+            if let Some(ref scope) = input.scope {
+                if !rel.contains(scope.as_str()) {
+                    continue;
+                }
+            }
+            let content = match std::fs::read_to_string(path) {
+                Ok(c) => c,
+                Err(_) => continue,
+            };
+            for (lineno, line) in content.lines().enumerate() {
+                let haystack = if case_insensitive {
+                    line.to_lowercase()
+                } else {
+                    line.to_string()
+                };
+                if haystack.contains(needle) {
+                    matches.push(serde_json::json!({
+                        "neuron": rel,
+                        "line": lineno + 1,
+                        "text": line,
+                    }));
+                    if matches.len() >= 200 {
+                        break;
+                    }
+                }
+            }
+            if matches.len() >= 200 {
+                break;
+            }
+        }
+
+        if matches.is_empty() {
+            return format!("No matches for {:?}", input.term);
+        }
+        serde_json::to_string_pretty(&matches)
+            .unwrap_or_else(|_| "ERROR: serialization failed".to_string())
+    }
+
+    /// Regex search across all neuron bodies.
+    #[tool(
+        name = "cortyx_search_regex",
+        description = "Regex search across all neuron bodies. Returns matched lines with neuron \
+                       path and line number. Use for pattern-based searches that BM25 cannot \
+                       express: identifiers with common prefixes, versioned symbols, structured \
+                       values. Optionally scope to a module."
+    )]
+    pub(in crate::mcp) async fn search_neurons_regex(
+        &self,
+        Parameters(input): Parameters<SearchNeuronsRegexInput>,
+    ) -> String {
+        use regex::Regex;
+        let re = match Regex::new(&input.pattern) {
+            Ok(r) => r,
+            Err(e) => return format!("ERROR: Invalid regex: {e}"),
+        };
+        let ndir = neuron_dir(&self.project_root);
+        let mut matches: Vec<serde_json::Value> = Vec::new();
+
+        let walker = walkdir::WalkDir::new(&ndir)
+            .follow_links(false)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|e| {
+                e.file_type().is_file()
+                    && e.path()
+                        .extension()
+                        .and_then(|s| s.to_str())
+                        .map(|ext| ext == "md")
+                        .unwrap_or(false)
+            });
+
+        for entry in walker {
+            let path = entry.path();
+            let rel = match path.strip_prefix(&ndir) {
+                Ok(r) => r.to_string_lossy().to_string(),
+                Err(_) => path.to_string_lossy().to_string(),
+            };
+            if let Some(ref scope) = input.scope {
+                if !rel.contains(scope.as_str()) {
+                    continue;
+                }
+            }
+            let content = match std::fs::read_to_string(path) {
+                Ok(c) => c,
+                Err(_) => continue,
+            };
+            for (lineno, line) in content.lines().enumerate() {
+                if re.is_match(line) {
+                    matches.push(serde_json::json!({
+                        "neuron": rel,
+                        "line": lineno + 1,
+                        "text": line,
+                    }));
+                    if matches.len() >= 200 {
+                        break;
+                    }
+                }
+            }
+            if matches.len() >= 200 {
+                break;
+            }
+        }
+
+        if matches.is_empty() {
+            return format!("No matches for pattern {:?}", input.pattern);
+        }
+        serde_json::to_string_pretty(&matches)
+            .unwrap_or_else(|_| "ERROR: serialization failed".to_string())
+    }
+
+    /// Hierarchical tree navigation (PageIndex-style in-context index).
+    ///
+    /// Returns a compact JSON tree the agent uses to reason about where to drill in.
+    /// No node → root module list. Module name → its neurons. Neuron path → its sections.
+    #[tool(
+        name = "cortyx_explore_tree",
+        description = "Navigate the project's neuron hierarchy like a table of contents. \
+                       No argument → list all modules with neuron counts. \
+                       node='<module>' → list neurons in that module with Purpose snippets. \
+                       node='<neuron_path>' → list named sections inside that neuron. \
+                       Use this for PageIndex-style top-down navigation: read the ToC, \
+                       pick a module, pick a neuron, then use cortyx_read_section to drill in."
+    )]
+    pub(in crate::mcp) async fn explore_tree(
+        &self,
+        Parameters(input): Parameters<ExploreTreeInput>,
+    ) -> String {
+        let idx = self.index.read().await;
+
+        match &input.node {
+            None => {
+                // Root: list all modules with neuron counts
+                let modules = idx.list_modules();
+                if modules.is_empty() {
+                    return "No modules found. Run `cortyx compile .` first.".to_string();
+                }
+                let rows: Vec<serde_json::Value> = modules
+                    .iter()
+                    .map(|m| {
+                        serde_json::json!({
+                            "module": m.name,
+                            "neuron_count": m.neuron_count,
+                            "hint": "call cortyx_explore_tree(node='<module>') to expand",
+                        })
+                    })
+                    .collect();
+                serde_json::to_string_pretty(&rows)
+                    .unwrap_or_else(|_| "ERROR: serialization failed".to_string())
+            },
+            Some(node) => {
+                // Try to resolve as a neuron path first
+                let ndir = neuron_dir(&self.project_root);
+                let as_path = ndir.join(node);
+                if as_path.exists() && as_path.is_file() {
+                    // Node is a neuron — list its sections
+                    let content = match std::fs::read_to_string(&as_path) {
+                        Ok(c) => c,
+                        Err(e) => return format!("ERROR: Cannot read neuron: {e}"),
+                    };
+                    let sections = parse_sections(&content);
+                    if sections.is_empty() {
+                        return format!("No named sections found in {node}. Use cortyx_read_section(path='{node}', section='_full') to read the full body.");
+                    }
+                    let mut rows: Vec<serde_json::Value> = sections
+                        .iter()
+                        .map(|(name, body)| {
+                            let snippet: String = body.lines().take(2).collect::<Vec<_>>().join(" ");
+                            serde_json::json!({
+                                "section": name,
+                                "snippet": snippet,
+                                "hint": format!("call cortyx_read_section(path='{node}', section='{name}') to read"),
+                            })
+                        })
+                        .collect();
+                    rows.sort_by(|a, b| {
+                        a["section"]
+                            .as_str()
+                            .unwrap_or("")
+                            .cmp(b["section"].as_str().unwrap_or(""))
+                    });
+                    serde_json::to_string_pretty(&rows)
+                        .unwrap_or_else(|_| "ERROR: serialization failed".to_string())
+                } else {
+                    // Node is a module name — list its neurons with Purpose snippets
+                    let neurons = idx.list_neurons(Some(node));
+                    if neurons.is_empty() {
+                        return format!("No neurons found in module '{node}'. Use cortyx_explore_tree() with no argument to see available modules.");
+                    }
+                    let rows: Vec<serde_json::Value> = neurons
+                        .iter()
+                        .map(|n| {
+                            let rel = self.rel_display(&n.path).as_ref().to_string();
+                            let snippet = purpose_snippet(&n.path);
+                            serde_json::json!({
+                                "neuron": rel,
+                                "purpose": snippet,
+                                "hint": format!("call cortyx_explore_tree(node='{rel}') to see sections"),
+                            })
+                        })
+                        .collect();
+                    serde_json::to_string_pretty(&rows)
+                        .unwrap_or_else(|_| "ERROR: serialization failed".to_string())
+                }
+            },
+        }
+    }
+
+    /// Raw-corpus search across source files (DCI fallback for unindexed content).
+    ///
+    /// Walks actual source files — not neuron bodies. Use when BM25 coverage is incomplete,
+    /// for new files not yet compiled, or to discover what to index next.
+    #[tool(
+        name = "cortyx_search_raw",
+        description = "Search raw source files directly (not neuron bodies). Returns \
+                       (file_path, line_number, matched_line) tuples. Use for: files not yet \
+                       compiled into the neuron index, cross-project searches, discovering \
+                       what to index next. Set regex=true to treat pattern as a regex. \
+                       Optionally scope by path or filetype (e.g. 'rs', 'ts')."
+    )]
+    pub(in crate::mcp) async fn search_raw(
+        &self,
+        Parameters(input): Parameters<SearchRawInput>,
+    ) -> String {
+        use regex::Regex;
+
+        let search_root = if let Some(ref p) = input.path {
+            let candidate = std::path::Path::new(p);
+            if candidate.is_absolute() {
+                candidate.to_path_buf()
+            } else {
+                self.project_root.join(p)
+            }
+        } else {
+            self.project_root.clone()
+        };
+
+        // Skip hidden dirs and the neuron store itself
+        let ndir = neuron_dir(&self.project_root);
+
+        let use_regex = input.regex.unwrap_or(false);
+        let re_opt: Option<Regex> = if use_regex {
+            match Regex::new(&input.pattern) {
+                Ok(r) => Some(r),
+                Err(e) => return format!("ERROR: Invalid regex: {e}"),
+            }
+        } else {
+            None
+        };
+        let literal = &input.pattern;
+
+        let mut matches: Vec<serde_json::Value> = Vec::new();
+
+        let walker = walkdir::WalkDir::new(&search_root)
+            .follow_links(false)
+            .into_iter()
+            .filter_entry(|e| {
+                // Skip hidden directories and the neuron store
+                let name = e.file_name().to_string_lossy();
+                if e.file_type().is_dir() {
+                    if name.starts_with('.') {
+                        return false;
+                    }
+                    if e.path() == ndir {
+                        return false;
+                    }
+                }
+                true
+            })
+            .filter_map(|e| e.ok())
+            .filter(|e| {
+                if !e.file_type().is_file() {
+                    return false;
+                }
+                if let Some(ref ft) = input.filetype {
+                    e.path()
+                        .extension()
+                        .and_then(|s| s.to_str())
+                        .map(|ext| ext == ft.as_str())
+                        .unwrap_or(false)
+                } else {
+                    true
+                }
+            });
+
+        'outer: for entry in walker {
+            let path = entry.path();
+            let rel = match path.strip_prefix(&self.project_root) {
+                Ok(r) => r.to_string_lossy().to_string(),
+                Err(_) => path.to_string_lossy().to_string(),
+            };
+            let content = match std::fs::read_to_string(path) {
+                Ok(c) => c,
+                Err(_) => continue,
+            };
+            for (lineno, line) in content.lines().enumerate() {
+                let hit = if let Some(ref re) = re_opt {
+                    re.is_match(line)
+                } else {
+                    line.contains(literal.as_str())
+                };
+                if hit {
+                    matches.push(serde_json::json!({
+                        "file": rel,
+                        "line": lineno + 1,
+                        "text": line,
+                    }));
+                    if matches.len() >= 200 {
+                        break 'outer;
+                    }
+                }
+            }
+        }
+
+        if matches.is_empty() {
+            return format!("No matches for {:?} in raw source files.", input.pattern);
+        }
+        serde_json::to_string_pretty(&matches)
             .unwrap_or_else(|_| "ERROR: serialization failed".to_string())
     }
 

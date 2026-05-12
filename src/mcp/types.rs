@@ -61,6 +61,13 @@ pub struct GetContextsInput {
     /// Optional: include lightweight provenance/explanation metadata for the
     /// selected contexts or derived answer output.
     pub provenance_mode: Option<bool>,
+    /// Optional context depth level (0, 1, or 2).
+    /// - Level 0 (~80 tokens): `purpose` section only + synapses. Best for initial triage.
+    /// - Level 1 (~400 tokens): `purpose` + `api` + `pitfalls` sections. Default for strong matches.
+    /// - Level 2 (~3000 tokens): Full neuron body. For decisive matches (BM25 ≥ 8.0).
+    /// When omitted, Cortyx selects depth per-neuron based on BM25 confidence score.
+    /// After scanning Level-0 capsules, request deeper levels with `cortyx_read_section`.
+    pub depth: Option<u8>,
 }
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
@@ -167,6 +174,56 @@ pub struct InvalidateInput {
 pub struct ListNeuronsInput {
     /// Optional module name to filter by (e.g. "auth" or "@alice"). Omit for all neurons.
     pub module: Option<String>,
+    /// When true, include a 2-sentence Purpose snippet alongside each neuron entry.
+    /// Enables PageIndex-style triage: scan summaries, then load only the neurons you need.
+    pub summarize: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, Serialize, JsonSchema)]
+pub struct ReadSectionInput {
+    /// Full path to the neuron file (as returned by cortyx_list_neurons)
+    pub path: String,
+    /// Section name to read (e.g. "purpose", "api", "pitfalls").
+    /// Use "_full" to read the entire neuron body.
+    pub section: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, JsonSchema)]
+pub struct SearchNeuronsInput {
+    /// Search term (literal string match, case-sensitive by default).
+    pub term: String,
+    /// Optional module scope — restricts search to neurons in this module.
+    pub scope: Option<String>,
+    /// When true, perform case-insensitive matching. Default: false.
+    pub case_insensitive: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, Serialize, JsonSchema)]
+pub struct SearchNeuronsRegexInput {
+    /// Regex pattern to match against neuron body content.
+    pub pattern: String,
+    /// Optional module scope — restricts search to neurons in this module.
+    pub scope: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize, JsonSchema)]
+pub struct ExploreTreeInput {
+    /// Optional node to expand: a module name (e.g. "auth"), a neuron path
+    /// (e.g. "src_auth_rs.context.md"), or omit for the root module list.
+    pub node: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize, JsonSchema)]
+pub struct SearchRawInput {
+    /// Literal string or regex pattern to search for in source files.
+    pub pattern: String,
+    /// Optional path to search (absolute or relative to project root).
+    /// Defaults to the entire project root.
+    pub path: Option<String>,
+    /// Optional file extension filter (e.g. "rs", "ts", "py"). Omit for all files.
+    pub filetype: Option<String>,
+    /// When true, treat pattern as a regex. Default: false (literal match).
+    pub regex: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
@@ -273,6 +330,10 @@ pub struct WakeUpInput {
     pub person: Option<String>,
     /// Optional agent to include recent structured agent memories (~3 recent summaries).
     pub agent: Option<String>,
+    /// When true, read `git diff --name-only` and pre-include Level-0 (Purpose only)
+    /// capsules for neurons mapped to recently changed files. Eliminates the orientation
+    /// tax at session start for files currently being worked on. Default: false.
+    pub prefetch: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]

@@ -192,6 +192,7 @@ pub(in crate::index) fn process_source_file(
     // Full stub (re)generation — real API change (sig_hash changed) or new file.
     let prefilled = ast_extractor::format_for_stub(&ast_summary);
     let purpose_hint = ast_extractor::format_purpose_hint(&ast_summary);
+    let relevant_for = ast_extractor::format_relevant_for_stub(&ast_summary, &source_rel);
     let extra_vocab = ast_extractor::format_extra_vocab_for_stub(&ast_summary);
     let content = stub_core_neuron(
         &source_rel,
@@ -199,7 +200,7 @@ pub(in crate::index) fn process_source_file(
         &now,
         &prefilled,
         &purpose_hint,
-        &extra_vocab,
+        &format!("{relevant_for}{extra_vocab}"),
     );
 
     if let Some(parent) = neuron_path.parent() {

@@ -574,9 +574,99 @@ impl CortyxServer {
             }
         }
 
+        // Optional git-prefetch: pre-include Level-0 (Purpose only) capsules for neurons
+        // mapped to recently changed files, eliminating the orientation tax at session start.
+        if input.prefetch.unwrap_or(false) {
+            if let Some(prefetch_block) = self.build_git_prefetch_block().await {
+                out.push_str("\n<!-- CORTYX WAKE-UP: git-prefetch capsules -->\n");
+                out.push_str(&prefetch_block);
+            }
+        }
+
         if out.is_empty() {
             out.push_str("No wake-up neurons found. Run `cortyx compile .` to generate them.");
         }
         out
+    }
+}
+
+impl CortyxServer {
+    /// Run `git diff --name-only` and return Level-0 (Purpose section only) capsules
+    /// for neurons that correspond to recently changed files. Returns None if git is
+    /// unavailable or no relevant neurons are found.
+    pub(super) async fn build_git_prefetch_block(&self) -> Option<String> {
+        use tokio::process::Command;
+
+        let output = Command::new("git")
+            .args(["diff", "--name-only", "HEAD"])
+            .current_dir(&self.project_root)
+            .output()
+            .await
+            .ok()?;
+
+        if !output.status.success() || output.stdout.is_empty() {
+            return None;
+        }
+
+        let changed_files: Vec<String> = String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .map(|l| l.to_string())
+            .filter(|l| !l.is_empty())
+            .collect();
+
+        if changed_files.is_empty() {
+            return None;
+        }
+
+        // Map changed source files to their neuron counterparts:
+        // e.g. "src/auth/mod.rs" → ".cortyx/neurons/src_auth_mod_rs.context.md"
+        // The index stores the source path in each neuron's metadata; we use the
+        // index's list to find neurons whose `source` field matches a changed file.
+        let idx = self.index.read().await;
+        let all_neurons = idx.list_neurons(None);
+
+        let ndir = crate::neuron::neuron_dir(&self.project_root);
+        let mut capsules = String::new();
+        let mut count = 0;
+
+        for neuron in &all_neurons {
+            let neuron_rel = match neuron.path.strip_prefix(&ndir) {
+                Ok(r) => r.to_string_lossy().to_string(),
+                Err(_) => continue,
+            };
+            // Check if this neuron's source path matches any changed file
+            let is_relevant = changed_files.iter().any(|changed| {
+                // Neuron path is typically derived by replacing path separators with '_'
+                // and appending ".context.md" — match either direction
+                neuron_rel.contains(changed.replace('/', "_").trim_end_matches(".rs"))
+                    || changed.contains(neuron_rel.trim_end_matches(".context.md"))
+            });
+
+            if !is_relevant {
+                continue;
+            }
+
+            // Read Purpose section only (Level-0 capsule, ~80 tokens)
+            let content = match std::fs::read_to_string(&neuron.path) {
+                Ok(c) => c,
+                Err(_) => continue,
+            };
+            let sections = crate::neuron::parse_sections(&content);
+            if let Some(purpose) = sections.get("purpose") {
+                capsules.push_str(&format!("### {neuron_rel}\n{purpose}\n\n"));
+                count += 1;
+                if count >= 5 {
+                    break;
+                }
+            }
+        }
+
+        if capsules.is_empty() {
+            None
+        } else {
+            Some(format!(
+                "<!-- {count} neurons prefetched from git diff -->\n{capsules}"
+            ))
+        }
     }
 }

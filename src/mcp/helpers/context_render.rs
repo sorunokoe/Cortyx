@@ -289,6 +289,93 @@ pub(super) fn select_emission_tier(score: f32, content: &str) -> EmissionTier {
     }
 }
 
+/// Render a neuron at a fixed depth level instead of score-based tier selection.
+///
+/// - depth 0: `purpose` section only (~80 tokens). PageIndex-style capsule for triage.
+/// - depth 1: `purpose` + `api` + `pitfalls` sections (~400 tokens).
+/// - depth 2+: full neuron body.
+///
+/// Falls back to score-based rendering when the content has no named sections.
+pub fn render_context_item_at_depth(
+    path: &Path,
+    score: f32,
+    depth: u8,
+    task_terms: &[String],
+    _index: &NeuronIndex,
+) -> RenderedContextItem {
+    let rendered = match std::fs::read_to_string(path) {
+        Ok(content) => {
+            let content = strip_render_only_sections(&content);
+            let label = path.file_name().unwrap_or_default().to_string_lossy();
+            match depth {
+                0 => {
+                    // Level 0: Purpose section only
+                    let sections = crate::neuron::parse_sections(&content);
+                    let purpose =
+                        sections
+                            .get("purpose")
+                            .map(|s| s.as_str())
+                            .unwrap_or_else(|| {
+                                // No SECTION tags — emit first 3 lines as capsule
+                                content
+                                    .lines()
+                                    .take(3)
+                                    .collect::<Vec<_>>()
+                                    .join("\n")
+                                    .leak()
+                            });
+                    format!(
+                        "<!-- === NEURON (capsule L0, score={score:.1}): {label} === -->\n{purpose}\n\n"
+                    )
+                },
+                1 => {
+                    // Level 1: purpose + api + pitfalls
+                    let sections = crate::neuron::parse_sections(&content);
+                    if sections.is_empty() {
+                        // No sections — fall back to focused excerpt
+                        let focused = build_focused_context(&content, task_terms);
+                        format!(
+                            "<!-- === NEURON (summary L1, score={score:.1}): {label} === -->\n{focused}\n\n"
+                        )
+                    } else {
+                        let mut parts = Vec::new();
+                        for key in &["purpose", "api", "pitfalls"] {
+                            if let Some(body) = sections.get(*key) {
+                                if !body.trim().is_empty() {
+                                    parts.push(format!(
+                                        "<!-- SECTION: {key} -->\n{body}\n<!-- /SECTION -->"
+                                    ));
+                                }
+                            }
+                        }
+                        let joined = if parts.is_empty() {
+                            build_focused_context(&content, task_terms)
+                        } else {
+                            parts.join("\n\n")
+                        };
+                        format!(
+                            "<!-- === NEURON (summary L1, score={score:.1}): {label} === -->\n{joined}\n\n"
+                        )
+                    }
+                },
+                _ => {
+                    // Level 2+: full body
+                    format!("<!-- === NEURON (full L2, score={score:.1}): {label} === -->\n{content}\n\n")
+                },
+            }
+        },
+        Err(err) => {
+            format!("<!-- NEURON {} — read error: {err} -->\n\n", path.display())
+        },
+    };
+
+    RenderedContextItem {
+        path: path.to_path_buf(),
+        fingerprint: fingerprint_rendered_context(&rendered),
+        rendered,
+    }
+}
+
 pub fn build_focused_context(content: &str, task_terms: &[String]) -> String {
     if let Some(sectioned) = render_focused_sections(content, task_terms) {
         return sectioned;
