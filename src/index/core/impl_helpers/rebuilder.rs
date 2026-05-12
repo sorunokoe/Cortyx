@@ -36,6 +36,12 @@ impl NeuronIndex {
         self.posting_list.clear();
         self.module_index.clear();
         self.session_index.clear(); // R21 T6
+                                    // Full rebuild reassigns all path_index positions, so usize keys in
+                                    // co_return_counts would point to wrong entries. Reset to avoid
+                                    // spurious Hebbian synapse formation.
+        if let Ok(mut counts) = self.co_return_counts.lock() {
+            counts.clear();
+        }
         self.idf_n = 0;
 
         let mut non_agg_total_terms = 0usize;

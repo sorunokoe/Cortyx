@@ -52,6 +52,12 @@ impl NeuronIndex {
                 .insert(self.entries[idx].neuron_path.clone(), idx);
         }
         self.path_index.remove(neuron_path);
+        // swap_remove reorders entries, so any usize indices stored in
+        // co_return_counts are now stale. Clear them to prevent silently
+        // wiring synapses between the wrong neurons.
+        if let Ok(mut counts) = self.co_return_counts.lock() {
+            counts.clear();
+        }
         // Rebuild derived structures — eviction happens in bulk during prune,
         // so the caller calls rebuild_derived() once after all evictions.
         true
