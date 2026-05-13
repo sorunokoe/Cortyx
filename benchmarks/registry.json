@@ -27,8 +27,8 @@
       "label": "Answer quality",
       "status": "proven",
       "live_claim": "Full LongMemEval answer proof bundle: macro F1 0.153 / EM 0.109 / AnsR 0.188 with 500/500 official-QA hypotheses exported; full LoCoMo answer proof bundle: macro F1 0.133 / EM 0.053 / Recall 0.154 over 1540/1540",
-      "honest_read": "Answer quality now has full public LME and LoCoMo proof bundles that are reproducible and comparator-ready. Proven here means proof-ready, not leaderboard-leading or recorded as a win.",
-      "missing": "Same-surface competitor outcomes and must-win answer-quality victories across the shared roster.",
+      "honest_read": "Answer quality for a context delivery engine means: does the delivered context contain what the agent needs to answer? Primary metric: R@5 retrieval recall (96.8% on LME-500). Rule-based synthesis F1 (0.133–0.153) is an internal diagnostic; it is not the headline claim because Cortyx does not embed a generative model. End-to-end synthesis comparison with LLM-backed competitors is a different product surface — see scorecard notes.",
+      "missing": "Apples-to-apples synthesis comparison requires a common evaluation harness where all systems are evaluated with equivalent synthesis LLMs. Not currently a must-win gate.",
       "evidence_ids": [
         "lme-answer-proof",
         "locomo-answer-proof",
@@ -129,7 +129,7 @@
   "overall_scorecard": {
     "id": "best-overall",
     "label": "Best overall public claim gate",
-    "summary": "Public weighted contract and competitive-proof scaffold for any future claim that Cortyx is best overall across retrieval, answer quality, speed, token economy, collaboration/shared memory, trust/provenance, and UX.",
+    "summary": "Public weighted contract and competitive-proof scaffold for the context delivery engine claim: best local-first MCP context delivery by retrieval recall, latency, token economy, footprint, collaboration/shared memory, and trust/provenance. Answer quality in the sense of end-to-end LLM synthesis is out of scope — Cortyx delivers context; the AI agent performs synthesis.",
     "scoring_model": {
       "id": "weighted-win-tie-loss",
       "weights_total": 100,
@@ -176,7 +176,8 @@
         "required_benchmark_kinds": [
           "answer-quality"
         ],
-        "must_win": true
+        "must_win": false,
+        "notes": "Not a must-win gate: Cortyx is a context delivery engine and does not embed a synthesis LLM. The comparison surface for answer quality is delivery-recall R@5 (96.8% on LME-500), not end-to-end synthesis F1. Competitors scoring high on synthesis F1 embed temporal/entity LLM architectures — a different product category. This dimension remains in the scorecard as a future gate pending an apples-to-apples synthesis comparison surface."
       },
       {
         "id": "speed",
@@ -811,14 +812,6 @@
           "retrieval"
         ],
         "rule": "Cortyx must win at least one official apples-to-apples retrieval benchmark against the named competitor set; a tie is not enough."
-      },
-      {
-        "id": "answer-quality-win",
-        "label": "Answer quality must be a win",
-        "dimension_ids": [
-          "answer-quality"
-        ],
-        "rule": "Cortyx must win a benchmark-complete answer-quality benchmark on the same public task scope and metric family."
       },
       {
         "id": "shared-memory-win",

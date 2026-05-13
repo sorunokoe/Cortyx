@@ -61,5 +61,17 @@ jobs:
           cp -r stubs/pure-reason-core ../../AI/PureReason/crates/
           cp -r stubs/pure-reason-verifier ../../AI/PureReason/crates/
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Run full proof lane
         run: bash scripts/test-full-proof.sh
+
+      - name: Registry scorecard (visibility)
+        run: python3 scripts/benchmark_registry.py scorecard
+
+      - name: Write scorecard to step summary
+        if: always()
+        run: python3 scripts/benchmark_registry.py scorecard >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true

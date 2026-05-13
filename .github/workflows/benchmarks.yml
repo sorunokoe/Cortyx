@@ -1,0 +1,115 @@
+name: Benchmarks
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  extended-benchmarks:
+    name: Extended benchmarks (LME-500 + LoCoMo)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: benchmarks
+
+      - name: Stub private PureReason deps (not available in CI)
+        run: |
+          mkdir -p ../../AI/PureReason/crates
+          cp -r stubs/pure-reason-core ../../AI/PureReason/crates/
+          cp -r stubs/pure-reason-verifier ../../AI/PureReason/crates/
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run extended cargo benchmarks (LME-500 + LoCoMo)
+        run: |
+          cargo test --test bench bench_retrieval_accuracy_500q bench_locomo -- --ignored --nocapture
+
+      - name: Run LME-500 eval harness
+        env:
+          CORTYX_BIN: target/release/cortyx
+        run: python3 scripts/eval_lme.py --fresh-corpus
+
+      - name: Run LoCoMo eval harness
+        env:
+          CORTYX_BIN: target/release/cortyx
+        run: python3 scripts/eval_locomo.py --fresh-corpus
+
+      - name: Registry scorecard
+        run: python3 scripts/benchmark_registry.py scorecard
+
+      - name: Registry validate
+        run: python3 scripts/benchmark_registry.py validate
+
+      - name: Write step summary
+        if: always()
+        run: |
+          {
+            echo "## Benchmark Results — $(date -u +%Y-%m-%d)"
+            echo ""
+            echo "### Registry Scorecard"
+            echo '```'
+            python3 scripts/benchmark_registry.py scorecard 2>/dev/null || echo "(scorecard unavailable)"
+            echo '```'
+            echo ""
+            echo "### LME-500 Eval"
+            python3 - <<'PYEOF'
+          import json, pathlib, sys
+          p = pathlib.Path("lme500_eval_results.json")
+          if not p.exists():
+              print("(results not written)")
+              sys.exit(0)
+          d = json.loads(p.read_text())
+          o = d.get("overall", {})
+          run = d.get("run", {})
+          git = run.get("git", {})
+          print(f"- commit: {git.get('commit', 'n/a')[:12]}")
+          print(f"- macro F1: {o.get('macro_f1', 'n/a')}")
+          print(f"- macro EM: {o.get('macro_em', 'n/a')}")
+          print(f"- answer recall: {o.get('macro_answer_recall', 'n/a')}")
+          print(f"- abstention accuracy: {o.get('macro_abstention_accuracy', 'n/a')}")
+          PYEOF
+            echo ""
+            echo "### LoCoMo Eval"
+            python3 - <<'PYEOF'
+          import json, pathlib, sys
+          p = pathlib.Path("locomo_eval_results.json")
+          if not p.exists():
+              print("(results not written)")
+              sys.exit(0)
+          d = json.loads(p.read_text())
+          o = d.get("overall", {})
+          print(f"- macro F1: {o.get('macro_f1', 'n/a')}")
+          print(f"- macro EM: {o.get('macro_em', 'n/a')}")
+          print(f"- recall: {o.get('macro_answer_recall', o.get('macro_recall', 'n/a'))}")
+          PYEOF
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results-${{ github.run_id }}
+          path: |
+            lme500_eval_results.json
+            locomo_eval_results.json
+          retention-days: 90
+          if-no-files-found: warn

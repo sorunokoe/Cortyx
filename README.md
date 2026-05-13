@@ -1,5 +1,8 @@
 # Cortyx
 
+[![CI](https://github.com/sorunokoe/Cortyx/actions/workflows/ci.yml/badge.svg)](https://github.com/sorunokoe/Cortyx/actions/workflows/ci.yml)
+[![Benchmarks](https://github.com/sorunokoe/Cortyx/actions/workflows/benchmarks.yml/badge.svg)](https://github.com/sorunokoe/Cortyx/actions/workflows/benchmarks.yml)
+
 > **MCP-native context delivery engine for coding agents and long-lived conversations.**
 > Cortyx caches the stable part of the prompt, delivers only the most relevant context for the current task, keeps long-term memory local as git-tracked neurons, temporal facts, and agent diaries, and can share proven reusable concepts through a git-federated library.
 

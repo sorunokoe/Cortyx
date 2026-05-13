@@ -1,0 +1,130 @@
+name: Answer Quality (LLM synthesis)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ollama_url:
+        description: 'Ollama server URL (e.g. http://your-host:11434)'
+        required: true
+        default: 'http://localhost:11434'
+      answer_model:
+        description: 'Ollama model to use for synthesis'
+        required: false
+        default: 'qwen3:8b'
+      profile:
+        description: 'Eval profile'
+        required: false
+        default: 'quick'
+        type: choice
+        options:
+          - quick
+          - full
+
+permissions:
+  contents: read
+
+# This workflow is manual-only (workflow_dispatch). It requires an external
+# Ollama server — standard GitHub Actions runners do not include Ollama.
+#
+# Run this periodically before releases to measure end-to-end answer quality:
+#   Cortyx retrieves context → Ollama synthesises → token-level F1
+#
+# Results should NOT be compared directly to competitors' synthesis F1 numbers
+# (which use embedded specialized architectures). They are useful for:
+#   - Tracking synthesis quality over time as retrieval improves
+#   - Validating that retrieved context is sufficient for synthesis
+#   - Internal calibration before public claims
+
+jobs:
+  answer-quality:
+    name: LLM synthesis benchmark (Ollama)
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: benchmarks
+
+      - name: Stub private PureReason deps (not available in CI)
+        run: |
+          mkdir -p ../../AI/PureReason/crates
+          cp -r stubs/pure-reason-core ../../AI/PureReason/crates/
+          cp -r stubs/pure-reason-verifier ../../AI/PureReason/crates/
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run LME-500 LLM-answer eval
+        env:
+          CORTYX_BIN: target/release/cortyx
+          CORTYX_OLLAMA_URL: ${{ github.event.inputs.ollama_url }}
+          CORTYX_ANSWER_MODEL: ${{ github.event.inputs.answer_model }}
+        run: |
+          python3 scripts/eval_lme.py \
+            --fresh-corpus \
+            --llm-answer \
+            --profile ${{ github.event.inputs.profile }}
+
+      - name: Run LoCoMo LLM-answer eval
+        env:
+          CORTYX_BIN: target/release/cortyx
+          CORTYX_OLLAMA_URL: ${{ github.event.inputs.ollama_url }}
+          CORTYX_ANSWER_MODEL: ${{ github.event.inputs.answer_model }}
+        run: |
+          python3 scripts/eval_locomo.py \
+            --fresh-corpus \
+            --llm-answer \
+            --profile ${{ github.event.inputs.profile }}
+
+      - name: Write step summary
+        if: always()
+        run: |
+          {
+            echo "## LLM Answer Quality Results"
+            echo ""
+            echo "Model: ${{ github.event.inputs.answer_model }}"
+            echo ""
+            echo "### LME-500"
+            python3 - <<'PYEOF'
+          import json, pathlib, sys
+          p = pathlib.Path("lme500_eval_results.json")
+          if not p.exists():
+              print("(results not written)")
+              sys.exit(0)
+          d = json.loads(p.read_text())
+          o = d.get("overall", {})
+          run = d.get("run", {})
+          print(f"- llm_answer: {run.get('llm_answer', False)}")
+          print(f"- llm_answer_model: {run.get('llm_answer_model', 'n/a')}")
+          print(f"- macro F1: {o.get('macro_f1', 'n/a')}")
+          print(f"- macro EM: {o.get('macro_em', 'n/a')}")
+          print(f"- answer recall: {o.get('macro_answer_recall', 'n/a')}")
+          PYEOF
+            echo ""
+            echo "> Note: these synthesis F1 numbers are internal calibration."
+            echo "> Cortyx is a context delivery engine; end-to-end synthesis F1"
+            echo "> is not the primary claim metric (primary: R@5 retrieval recall)."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: answer-quality-${{ github.run_id }}
+          path: |
+            lme500_eval_results.json
+            locomo_eval_results.json
+          retention-days: 90
+          if-no-files-found: warn
