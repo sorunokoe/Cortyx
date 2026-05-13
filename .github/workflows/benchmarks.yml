@@ -12,7 +12,7 @@ jobs:
   extended-benchmarks:
     name: Extended benchmarks (LME-500 + LoCoMo)
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
 
     steps:
       - uses: actions/checkout@v4
@@ -40,10 +40,10 @@ jobs:
           python-version: '3.11'
 
       - name: Run LME-500 extended cargo benchmark
-        run: cargo test --test bench bench_retrieval_accuracy_500q -- --ignored --nocapture
+        run: cargo test --release --test bench bench_retrieval_accuracy_500q -- --ignored --nocapture
 
       - name: Run LoCoMo extended cargo benchmark
-        run: cargo test --test bench bench_locomo -- --ignored --nocapture
+        run: cargo test --release --test bench bench_locomo -- --ignored --nocapture
 
       - name: Run LME-500 eval harness
         env:
