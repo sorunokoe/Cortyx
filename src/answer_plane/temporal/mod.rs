@@ -24,7 +24,6 @@ pub(crate) use self::gap_parser::*;
 pub(crate) use self::kg_temporal::*;
 pub(crate) use self::query_classify::*;
 pub(crate) use self::ranking::*;
-pub(super) use self::selectors::*;
 pub(crate) use self::state_dialogue::*;
 
 // Re-export items from the parent answer_plane module so all submodules can access via `use super::*`

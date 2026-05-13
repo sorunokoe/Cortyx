@@ -19,8 +19,9 @@ pub(crate) mod types;
 use self::types::*;
 
 mod output;
-pub(crate) use self::output::collect_evidence_with_reasoning;
-use self::output::{answer_candidate_lines, read_context_text, should_defer_precomputed_answer};
+use self::output::{answer_candidate_lines, read_context_text};
+
+pub(crate) mod surface_enricher;
 
 mod multihop;
 use self::multihop::*;
@@ -43,7 +44,6 @@ use self::relation::*;
 pub mod temporal;
 #[cfg(test)]
 use self::temporal::select_temporal_employment_duration_answer;
-use self::temporal::*;
 pub(crate) use self::temporal::*;
 
 mod dialogue;

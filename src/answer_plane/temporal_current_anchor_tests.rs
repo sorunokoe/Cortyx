@@ -1,4 +1,5 @@
 use super::*;
+use crate::answer_plane::output::should_defer_precomputed_answer;
 use crate::index::NeuronIndex;
 use crate::neuron::{neuron_dir, NeuronMeta};
 use std::{fs, path::PathBuf};

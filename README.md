@@ -226,6 +226,10 @@ cortyx concepts ready              # List local neurons ready for sharing (quali
 cortyx concepts publish-ready      # Batch-publish share-ready neurons and auto-commit local library updates
 cortyx concepts push               # Push local concepts to remote
 cortyx concepts status             # Show concept library git status + neuron count
+cortyx fleet register <path> [--alias <name>]  # Register a peer project as a fleet node
+cortyx fleet deregister <alias-or-path>        # Remove a node from the fleet
+cortyx fleet list                              # Show all registered fleet nodes
+cortyx fleet status                            # Fleet health summary (node count, modules)
 cortyx install                     # Auto-configure all detected LLM clients
 ```
 
@@ -257,6 +261,8 @@ cortyx install                     # Auto-configure all detected LLM clients
 | `cortyx_diary_read(agent, last_n?)` | Read recent diary entries for an agent, with structured agent-state memories summarized by status, blockers, next steps, outcomes, dependencies, and entities |
 | `cortyx_agent_status(agent, include_timeline?)` | Show the latest structured agent-state snapshot for an agent, combining recent diary entries with the mirrored temporal KG facts |
 | `cortyx_check_consistency(path?)` | Scan for contradicting neurons (all or one path) — surfaces `Contradicts` synapse pairs |
+| `cortyx_fleet_query(task, module?, max_tokens?)` | Query registered fleet nodes for supplementary cross-project context. Called automatically by `cortyx_get_contexts` when local confidence is low; also available for explicit cross-project lookups. |
+| `cortyx_fleet_status` | List all registered fleet nodes with alias, path, module count, and last registration time. |
 | `cortyx_kg_add(entity, predicate, value, valid_from?)` | Add a temporal fact to a KG entity neuron (git-tracked, BM25-indexed Markdown) |
 | `cortyx_kg_query(entity, as_of?)` | Query active facts for a KG entity as of an optional ISO-8601 date |
 | `cortyx_kg_invalidate(entity, predicate, ended)` | End/supersede an active KG fact by setting its `ended` date |
@@ -380,6 +386,37 @@ Result: vocabulary gap rate drops from ~15% to ~3% — pure Rust, O(1) map looku
 **Synonym cloud (R14 B2):** Terms that co-activate the same neuron ≥30 times across sessions are promoted to per-neuron synonyms (`synonym_cloud`). Promoted synonyms are stored in `index.json`, while the raw coactivation counters persist in `.cortyx/coactivation.json` so learning survives restarts. Applied at query time before the S2/B1 phases. Self-building: zero configuration; improves automatically with usage.
 
 **Truthful feedback boundary (R12-S2):** Cortyx no longer treats control-plane actions as citations. `cortyx_evolve_context`, `cortyx_evolve_section`, `cortyx_create_synapse`, `cortyx_extract_from_raw`, preview tools, and rollback tools update content/state only. A provisional activation buffer is kept only to scope the next `cortyx_close_task` call to the latest retrieval set; it is cleared rather than auto-promoted into ranking feedback.
+
+### Fleet: Local-First Cross-Project Context (TRIZ Resolution)
+
+When Cortyx has low local confidence (BM25 top-score < 4.0) for a query, it can
+automatically supplement the response with context from registered peer projects —
+no server, no daemon, no network.
+
+```bash
+# Register a peer project as a fleet node
+cortyx fleet register ../api-service --alias api
+
+# Register the current project
+cortyx fleet register .
+
+# List all fleet nodes
+cortyx fleet list
+
+# Fleet status summary
+cortyx fleet status
+
+# Deregister a node
+cortyx fleet deregister api
+```
+
+- **Zero overhead:** if `~/.cortyx/fleet/nodes.json` is absent, no fleet code runs.
+- **Parallel dispatch:** each registered node is queried concurrently on tokio `spawn_blocking` tasks with a 200ms wall-clock deadline — fleet never delays local context delivery.
+- **Module-manifest routing:** nodes whose module list does not intersect the active `module` filter are skipped — avoids irrelevant fan-out.
+- **Supplementary output:** fleet context appended after local context as tagged HTML comment blocks (local weight 0.7, fleet weight 0.3).
+- **Registry:** plain JSON at `~/.cortyx/fleet/nodes.json` — inspectable, git-trackable.
+
+**MCP tools:** `cortyx_fleet_query(task, module?, max_tokens?)` and `cortyx_fleet_status` are available for explicit cross-project lookups from within agent sessions.
 
 ### Global Concept Library (R14 D1+D2, R16 S-IV)
 

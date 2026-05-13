@@ -90,7 +90,7 @@ pub fn validate_relative_path(raw: &str) -> Result<PathBuf> {
             Component::Normal(s) => {
                 let s = s.to_string_lossy();
                 if s.starts_with('.') {
-                    return Err(SecurityError::PathEscape {
+                    return Err(SecurityError::HiddenPath {
                         path: raw.to_string(),
                     }
                     .into());
@@ -140,19 +140,19 @@ pub fn validate_synapse_path(raw: &str) -> Result<PathBuf> {
     }
     if parts[0].starts_with('.') {
         if parts[0] != ".cortyx" || parts.get(1).map(String::as_str) != Some("neurons") {
-            return Err(SecurityError::PathEscape {
+            return Err(SecurityError::HiddenPath {
                 path: raw.to_string(),
             }
             .into());
         }
         if parts.iter().skip(2).any(|part| part.starts_with('.')) {
-            return Err(SecurityError::PathEscape {
+            return Err(SecurityError::HiddenPath {
                 path: raw.to_string(),
             }
             .into());
         }
     } else if parts.iter().any(|part| part.starts_with('.')) {
-        return Err(SecurityError::PathEscape {
+        return Err(SecurityError::HiddenPath {
             path: raw.to_string(),
         }
         .into());
@@ -160,9 +160,46 @@ pub fn validate_synapse_path(raw: &str) -> Result<PathBuf> {
     Ok(path)
 }
 
+/// Confirm that `rel`, when joined with `root`, does not escape `root` via symlinks.
+///
+/// Call this after [`validate_relative_path`] in any write/read path where the joined
+/// path must physically reside within `root`. The lexical check in `validate_relative_path`
+/// is necessary but not sufficient when `root` contains symlinks.
+///
+/// Returns:
+/// - `Ok(canonical)` if the path exists and resolves within `root`
+/// - `Ok(joined)` (non-canonical) if the path does not yet exist (new neuron) —
+///   creation is safe because the lexical check already rejected traversal components
+/// - `Err(SecurityError::PathEscape)` if the canonicalized path escapes `root`
+/// - `Err(CortyxError::Io)` for unexpected IO errors
+pub fn validate_within_root(
+    root: &std::path::Path,
+    rel: &std::path::Path,
+) -> crate::error::Result<std::path::PathBuf> {
+    // Canonicalize root first to handle symlinks (e.g. /tmp → /private/tmp on macOS)
+    let canonical_root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+    let joined = canonical_root.join(rel);
+    match joined.canonicalize() {
+        Ok(canonical) => {
+            if canonical.starts_with(&canonical_root) {
+                Ok(canonical)
+            } else {
+                Err(crate::error::SecurityError::PathEscape {
+                    path: rel.to_string_lossy().into_owned(),
+                }
+                .into())
+            }
+        },
+        // Path doesn't exist yet (new neuron write) — lexical validation is sufficient
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(joined),
+        Err(e) => Err(crate::error::CortyxError::Io(e)),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempfile::NamedTempFile;
 
     #[test]
     fn should_skip_target_dir() {
@@ -228,7 +265,15 @@ mod tests {
 
     #[test]
     fn validate_relative_path_rejects_hidden() {
-        assert!(validate_relative_path(".hidden/file").is_err());
+        let result = validate_relative_path(".hidden/file");
+        assert!(result.is_err());
+        assert!(
+            matches!(
+                result.unwrap_err(),
+                crate::error::CortyxError::Security(crate::error::SecurityError::HiddenPath { .. })
+            ),
+            "dot-prefixed path should return HiddenPath, not PathEscape"
+        );
     }
 
     #[test]
@@ -245,5 +290,26 @@ mod tests {
         assert!(validate_synapse_path(".cache/secret.md").is_err());
         assert!(validate_synapse_path("src/.hidden/context.md").is_err());
         assert!(validate_synapse_path(".cortyx/private/context.md").is_err());
+    }
+
+    #[test]
+    fn validate_within_root_nonexistent_path_ok() {
+        let root = std::path::Path::new("/tmp");
+        let rel = std::path::Path::new("nonexistent_cortyx_test_file.md");
+        assert!(validate_within_root(root, rel).is_ok());
+    }
+
+    #[test]
+    fn validate_within_root_existing_path_ok() {
+        let root = std::path::Path::new("/tmp");
+        let tmp = NamedTempFile::new_in("/tmp").ok();
+        if let Some(f) = tmp {
+            let rel = f
+                .path()
+                .file_name()
+                .map(std::path::Path::new)
+                .unwrap_or(std::path::Path::new("test"));
+            assert!(validate_within_root(root, rel).is_ok());
+        }
     }
 }

@@ -8,4 +8,6 @@ pub mod server_impl;
 pub use self::collaboration::*;
 pub use self::context_render::*;
 pub use self::meta_io::*;
-pub use self::server_impl::{flush_provisional_hits_async, flush_provisional_hits_blocking};
+pub use self::server_impl::flush_provisional_hits_async;
+#[cfg(test)]
+pub use self::server_impl::flush_provisional_hits_blocking;

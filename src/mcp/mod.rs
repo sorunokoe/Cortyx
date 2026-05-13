@@ -2,15 +2,15 @@
 //!
 //! Exposes Cortyx functionality via the MCP protocol for LLM integration.
 
-use anyhow::Result;
+use crate::error::Result;
 use rmcp::{
     handler::server::{router::tool::ToolRouter, wrapper::Parameters},
     model::{Implementation, ServerCapabilities, ServerInfo},
-    tool, tool_handler, tool_router, ServerHandler, ServiceExt,
+    tool_handler, ServerHandler, ServiceExt,
 };
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
 
@@ -69,6 +69,16 @@ const MAX_TASK_BYTES: usize = 4_096;
 /// The check is advisory — it guards response-building work, not input deserialization.
 const MAX_INFLIGHT_BYTES: usize = 64 * 1_048_576; // 64 MB
 
+#[allow(dead_code)]
+pub(crate) struct InflightGuard<'a>(&'a std::sync::atomic::AtomicUsize, usize);
+
+impl Drop for InflightGuard<'_> {
+    fn drop(&mut self) {
+        self.0
+            .fetch_sub(self.1, std::sync::atomic::Ordering::AcqRel);
+    }
+}
+
 #[derive(Clone)]
 pub struct CortyxServer {
     project_root: PathBuf,
@@ -88,10 +98,15 @@ pub struct CortyxServer {
     /// After ≥3 uses, terms are injected as soft query boosts (0.3× weight) into
     /// subsequent BM25 lookups — biasing retrieval toward the session's working vocabulary
     /// without any persistent storage or LLM calls.
-    session_tf: Arc<Mutex<HashMap<String, u32>>>,
+    session_tf: Arc<Mutex<HashMap<String, f32>>>,
+    /// Session-scoped path history for content-level continuity (δ-mem SSW analogue).
+    /// Tracks recently retrieved paths with exponential decay (λ=0.8 per call).
+    /// Paths that were recently retrieved get a soft score boost on the next retrieval.
+    session_path_history: Arc<Mutex<HashMap<PathBuf, f32>>>,
     /// Running sum of bytes currently being processed across all concurrent handlers.
     /// Handlers that build large responses increment this before work and decrement after.
     inflight_bytes: Arc<std::sync::atomic::AtomicUsize>,
+    fleet_registry: Option<Arc<crate::fleet::FleetRegistry>>,
     // Kept for the rmcp macro-generated dispatch table; not called directly.
     #[allow(dead_code)]
     tool_router: ToolRouter<Self>,
@@ -173,6 +188,23 @@ pub async fn serve(project: Option<PathBuf>) -> Result<()> {
             pruned,
             "S-VII: synapse temporal decay applied at startup"
         );
+    }
+
+    let index = Arc::new(RwLock::new(idx));
+
+    // P19 Periodic Action: re-apply synapse LTD every 24 h during active serve.
+    // Ensures synapses go stale in long-running servers without a restart.
+    {
+        let index = Arc::clone(&index);
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(86_400));
+            interval.tick().await; // skip first tick — startup already ran decay
+            loop {
+                interval.tick().await;
+                let mut idx = index.write().await;
+                idx.apply_synapse_decay();
+            }
+        });
     }
 
     // S-IV (R16): Auto-fetch global concepts — fire-and-forget so a slow/hanging
@@ -262,10 +294,20 @@ pub async fn serve(project: Option<PathBuf>) -> Result<()> {
     #[cfg(feature = "embed")]
     tracing::info!("--features embed: hybrid BM25 + dense cosine retrieval active.");
 
-    let index = Arc::new(RwLock::new(idx));
     let provisional_hits = Arc::new(Mutex::new(Vec::new()));
     let context_sessions = Arc::new(Mutex::new(HashMap::new()));
     let next_context_handle = Arc::new(AtomicU64::new(0));
+    let fleet_registry = match crate::fleet::load_registry() {
+        Ok(registry) if !registry.nodes.is_empty() => {
+            tracing::info!("Fleet: {} registered node(s)", registry.nodes.len());
+            Some(Arc::new(registry))
+        },
+        Ok(_) => None,
+        Err(err) => {
+            tracing::warn!("Fleet: failed to load registry: {err}");
+            None
+        },
+    };
 
     let dirty_handle = index.read().await.dirty_set_handle();
     let _watcher = watcher::start_watcher(project_root.clone(), Arc::clone(&index), dirty_handle)?;
@@ -278,12 +320,20 @@ pub async fn serve(project: Option<PathBuf>) -> Result<()> {
         context_sessions,
         next_context_handle,
         session_tf: Arc::new(Mutex::new(HashMap::new())),
+        session_path_history: Arc::new(Mutex::new(HashMap::new())),
         inflight_bytes: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+        fleet_registry: fleet_registry.clone(),
         tool_router: CortyxServer::tool_router(),
     };
 
-    let service = server.serve(rmcp::transport::stdio()).await?;
-    service.waiting().await?;
+    let service = server
+        .serve(rmcp::transport::stdio())
+        .await
+        .map_err(|e| crate::error::CortyxError::Other(e.to_string()))?;
+    service
+        .waiting()
+        .await
+        .map_err(|e| crate::error::CortyxError::Other(e.to_string()))?;
     let flushed = flush_provisional_hits_async(&index, &provisional_hits).await?;
     if flushed > 0 {
         tracing::info!("S2: explicitly cleared {flushed} provisional paths before shutdown");

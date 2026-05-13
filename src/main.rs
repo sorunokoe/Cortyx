@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
-use cortyx::cli::{Cli, Commands, ConceptsCommand, RouteIntent};
+use cortyx::cli::{Cli, Commands, RouteIntent};
 use cortyx::{
     agent_memory, answer_plane, commands, export, global_index, index, installer, mcp, miner,
     neuron, watcher,
@@ -944,6 +944,9 @@ async fn main() -> Result<()> {
             index::NeuronIndex::load_or_create(&root)
                 .map(|_| ())
                 .map_err(|e| anyhow::anyhow!("hook-check: could not load index: {e}"))?;
+        },
+        Commands::Fleet(sub) => {
+            commands::fleet::run(sub)?;
         },
         Commands::Concepts(sub) => {
             commands::concepts::run(sub)?;

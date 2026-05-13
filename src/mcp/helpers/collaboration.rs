@@ -1,7 +1,7 @@
 //! Collaboration state building, projection, and rendering.
 
 use super::super::*;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 pub(super) const DEFAULT_COLLAB_SUMMARY_LIMIT: usize = 5;
 pub(super) const DEFAULT_COLLAB_TIMELINE_LIMIT: usize = 8;

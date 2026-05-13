@@ -3,6 +3,39 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+/// Confidence tier of a synapse edge type — controls the per-tier minimum propagated
+/// score floor during graph traversal.
+///
+/// Tier floors are applied as an additional constraint on top of
+/// [`crate::reasoner::TraversalOptions::min_propagated_score`] (the global floor):
+/// effective floor = `tier_floor.max(global_floor)`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SynapseConfidenceTier {
+    /// AST-derived structural edges (Imports, Calls, Implements, ImplementedBy, CalledBy,
+    /// ConceptExpands). High confidence — lenient tier floor so structural signal propagates
+    /// widely; the global floor (0.12) governs in practice.
+    Structural,
+    /// Learned or inferred edges (SemanticRelated, TemporalFollows, Derived).
+    /// Medium confidence — tier floor (0.20) exceeds the global default, tightening the gate.
+    Semantic,
+    /// Future speculative / early-Hebbian edges. Low confidence — strict floor.
+    Speculative,
+}
+
+impl SynapseConfidenceTier {
+    /// Minimum normalized propagated score required to traverse an edge of this tier.
+    ///
+    /// Applied as `tier_floor.max(TraversalOptions::min_propagated_score)` so these
+    /// floors only restrict edges that are MORE speculative than the global default.
+    pub fn min_propagated_score(self) -> f32 {
+        match self {
+            Self::Structural => 0.08,
+            Self::Semantic => 0.20,
+            Self::Speculative => 0.45,
+        }
+    }
+}
+
 /// The semantic type of a connection between two neurons.
 ///
 /// Each type has an associated relevance multiplier applied during graph
@@ -60,6 +93,25 @@ impl SynapseType {
             Self::CalledBy => Self::Calls,
             Self::Contradicts => Self::Contradicts,
             _ => Self::SemanticRelated,
+        }
+    }
+
+    /// Confidence tier of this synapse type, used to derive per-tier traversal floors.
+    ///
+    /// `Contradicts` is gated out before the floor check in traversal, so its tier
+    /// is moot — `Structural` is used as a safe default.
+    pub fn confidence_tier(&self) -> SynapseConfidenceTier {
+        match self {
+            Self::Imports
+            | Self::Calls
+            | Self::Implements
+            | Self::ImplementedBy
+            | Self::CalledBy
+            | Self::ConceptExpands => SynapseConfidenceTier::Structural,
+            Self::SemanticRelated | Self::TemporalFollows | Self::Derived => {
+                SynapseConfidenceTier::Semantic
+            },
+            Self::Contradicts => SynapseConfidenceTier::Structural,
         }
     }
 }
@@ -161,6 +213,48 @@ mod tests {
     }
 
     #[test]
+    fn effective_weight_blend_schedule() {
+        // blend = min(traversal_count / 100, 0.5)
+        let mut s = Synapse::new(PathBuf::from("a.md"), SynapseType::Imports, "t".into());
+        s.learned_weight = SynapseWeight::new(1.0);
+        let base = SynapseType::Imports.type_multiplier(); // 0.80
+
+        // At count=10: blend=0.10 → 90% prior + 10% learned
+        s.traversal_count = 10;
+        let expected10 = 0.90 * base + 0.10 * 1.0;
+        assert!(
+            (s.effective_weight() - expected10).abs() < 1e-5,
+            "at count=10 expected {expected10:.4}, got {:.4}",
+            s.effective_weight()
+        );
+
+        // At count=25: blend=0.25 → 75% prior + 25% learned
+        s.traversal_count = 25;
+        let expected25 = 0.75 * base + 0.25 * 1.0;
+        assert!(
+            (s.effective_weight() - expected25).abs() < 1e-5,
+            "at count=25 expected {expected25:.4}, got {:.4}",
+            s.effective_weight()
+        );
+
+        // At count≥50: blend=0.50 (cap) → 50% prior + 50% learned
+        s.traversal_count = 50;
+        let expected_cap = 0.50 * base + 0.50 * 1.0;
+        assert!(
+            (s.effective_weight() - expected_cap).abs() < 1e-5,
+            "at count=50 expected {expected_cap:.4} (cap), got {:.4}",
+            s.effective_weight()
+        );
+
+        // count=100 same as 50 (blend clamped at 0.5)
+        s.traversal_count = 100;
+        assert!(
+            (s.effective_weight() - expected_cap).abs() < 1e-5,
+            "at count=100 should equal count=50 (blend capped at 0.5)"
+        );
+    }
+
+    #[test]
     fn synapse_type_inverse_is_symmetric() {
         assert_eq!(
             SynapseType::Implements.inverse(),
@@ -171,5 +265,65 @@ mod tests {
             SynapseType::Implements
         );
         assert_eq!(SynapseType::Contradicts.inverse(), SynapseType::Contradicts);
+    }
+
+    #[test]
+    fn synapse_tier_structural_types() {
+        for ty in [
+            SynapseType::Imports,
+            SynapseType::Calls,
+            SynapseType::Implements,
+            SynapseType::ImplementedBy,
+            SynapseType::CalledBy,
+            SynapseType::ConceptExpands,
+        ] {
+            assert_eq!(
+                ty.confidence_tier(),
+                SynapseConfidenceTier::Structural,
+                "{ty:?} should be Structural"
+            );
+        }
+    }
+
+    #[test]
+    fn synapse_tier_semantic_types() {
+        for ty in [
+            SynapseType::SemanticRelated,
+            SynapseType::TemporalFollows,
+            SynapseType::Derived,
+        ] {
+            assert_eq!(
+                ty.confidence_tier(),
+                SynapseConfidenceTier::Semantic,
+                "{ty:?} should be Semantic"
+            );
+        }
+    }
+
+    #[test]
+    fn tier_min_scores_ordered() {
+        assert!(
+            SynapseConfidenceTier::Structural.min_propagated_score()
+                < SynapseConfidenceTier::Semantic.min_propagated_score()
+        );
+        assert!(
+            SynapseConfidenceTier::Semantic.min_propagated_score()
+                < SynapseConfidenceTier::Speculative.min_propagated_score()
+        );
+    }
+
+    #[test]
+    fn tier_floor_additive_with_global_floor() {
+        // Structural tier floor (0.08) < global default (0.12) → global wins.
+        let global = crate::reasoner::TraversalOptions::default().min_propagated_score;
+        assert!(
+            SynapseConfidenceTier::Structural.min_propagated_score() < global,
+            "Structural tier is deliberately lenient; global floor governs"
+        );
+        // Semantic floor (0.20) > global (0.12) → tier wins.
+        assert!(
+            SynapseConfidenceTier::Semantic.min_propagated_score() > global,
+            "Semantic tier tightens the propagation floor"
+        );
     }
 }

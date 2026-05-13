@@ -3,7 +3,7 @@ use regex::Regex;
 use super::super::kg_extract::{
     extract_count_fact_value, extract_numeric_fact_value, extract_phrase_fact_value,
 };
-use super::super::{AnswerSurfaceRow, Turn};
+use super::super::AnswerSurfaceRow;
 use super::conversation::{
     generate_embedded_dialogue_answer_surface_rows, is_dialogue_speaker, scoped_question_pattern,
 };
@@ -13,7 +13,6 @@ pub mod generation;
 pub mod shared_extractors;
 pub mod specific_extractors;
 
-use self::core::*;
 use self::generation::*;
 use self::shared_extractors::*;
 use self::specific_extractors::*;

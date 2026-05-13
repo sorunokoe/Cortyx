@@ -21,6 +21,7 @@ pub mod collaboration_kernel;
 pub mod commands;
 pub mod embedder;
 pub mod export;
+pub mod fleet;
 pub mod git_extractor;
 pub mod global_index;
 pub mod import_parser;

@@ -52,7 +52,15 @@ pub fn start_watcher(
             // Drain overflow buffer first — these are events that couldn't fit in the
             // primary channel during a burst save (guaranteed delivery on next cycle).
             {
-                let mut ov = overflow_for_task.lock().unwrap_or_else(|e| e.into_inner());
+                let mut ov = match overflow_for_task.lock() {
+                    Ok(guard) => guard,
+                    Err(poisoned) => {
+                        tracing::warn!(
+                            "Watcher overflow mutex poisoned — recovering inner state: {poisoned}"
+                        );
+                        poisoned.into_inner()
+                    },
+                };
                 batch.append(&mut *ov);
             }
 
@@ -86,8 +94,16 @@ pub fn start_watcher(
             // The set is protected by a Mutex so insertions from this task and drains
             // from compile_dirty() never race — no file I/O, no TOCTOU window.
             {
-                let mut set = dirty_handle.lock().unwrap_or_else(|e| e.into_inner());
-                set.extend(batch.iter().cloned());
+                match dirty_handle.lock() {
+                    Ok(mut set) => {
+                        set.extend(batch.iter().cloned());
+                    },
+                    Err(poisoned) => {
+                        tracing::warn!("Watcher dirty_set mutex poisoned — recovering inner state");
+                        let mut set = poisoned.into_inner();
+                        set.extend(batch.iter().cloned());
+                    },
+                }
             }
 
             // Invalidate (mark stale) — fast, holds write lock for μs per path.
@@ -136,10 +152,15 @@ pub fn start_watcher(
                 // Fast path: primary channel. On overflow, push to the overflow
                 // buffer so no invalidation is ever silently dropped.
                 if tx.try_send(path.clone()).is_err() {
-                    overflow
-                        .lock()
-                        .unwrap_or_else(|e| e.into_inner())
-                        .push(path);
+                    match overflow.lock() {
+                        Ok(mut guard) => guard.push(path),
+                        Err(poisoned) => {
+                            tracing::warn!(
+                                "Watcher overflow mutex poisoned — recovering inner state: {poisoned}"
+                            );
+                            poisoned.into_inner().push(path);
+                        },
+                    };
                 }
             }
         }

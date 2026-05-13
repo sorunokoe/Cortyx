@@ -336,6 +336,13 @@ pub enum Commands {
         #[arg(long)]
         project: Option<PathBuf>,
     },
+    /// Manage the local fleet of registered Cortyx projects.
+    ///
+    /// Fleet enables cross-project context sharing: when local confidence is low,
+    /// Cortyx automatically queries registered peer projects for supplementary context.
+    /// Zero server required — all coordination is local-first via ~/.cortyx/fleet/nodes.json.
+    #[command(subcommand)]
+    Fleet(FleetCommand),
     /// Manage the git-federated global concept library (S-IV, TRIZ R16).
     ///
     /// The concept library lives at `~/.cortyx/global/` and is a plain git repository.
@@ -343,6 +350,31 @@ pub enum Commands {
     /// zero server, works offline. Deduplication prevents duplicate concepts.
     #[command(subcommand)]
     Concepts(ConceptsCommand),
+}
+
+/// Sub-commands for `cortyx fleet`
+#[derive(Subcommand)]
+pub enum FleetCommand {
+    /// Register a project directory as a fleet node.
+    ///
+    /// Scans the project's Cortyx index to extract its module manifest,
+    /// then records the node at ~/.cortyx/fleet/nodes.json.
+    Register {
+        /// Path to the Cortyx project to register (defaults to current directory).
+        path: Option<PathBuf>,
+        /// Human-readable alias for this node (defaults to directory name).
+        #[arg(long)]
+        alias: Option<String>,
+    },
+    /// Remove a fleet node by alias or path.
+    Deregister {
+        /// Alias or path of the node to remove.
+        target: String,
+    },
+    /// List all registered fleet nodes.
+    List,
+    /// Show fleet health: node count, module totals, and last registration times.
+    Status,
 }
 
 /// Sub-commands for `cortyx concepts`

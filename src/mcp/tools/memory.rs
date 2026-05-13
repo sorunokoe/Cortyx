@@ -208,6 +208,11 @@ impl CortyxServer {
                 })
                 .collect()
         };
+        let hard_cited_paths: Vec<PathBuf> = citation_decisions
+            .iter()
+            .filter(|(_, _, weight)| *weight >= 2)
+            .map(|(p, _, _)| p.clone())
+            .collect();
 
         // Phase 2 (mutable): apply citation signals.
         let mut idx = self.index.write().await;
@@ -261,8 +266,25 @@ impl CortyxServer {
             }
         }
 
+        // Release write lock before file I/O in surface enrichment.
+        drop(idx);
+
+        let surface_note = if !hard_cited_paths.is_empty() {
+            let enriched = crate::answer_plane::surface_enricher::enrich_neuron_answer_surfaces(
+                &input.response_text,
+                &hard_cited_paths,
+            );
+            if enriched > 0 {
+                format!(" Answer-surface enriched {enriched} neuron(s).")
+            } else {
+                String::new()
+            }
+        } else {
+            String::new()
+        };
+
         format!(
-            "Closed task: {hits}/{} neurons cited (auto-detected from response).{mined_note}",
+            "Closed task: {hits}/{} neurons cited (auto-detected from response).{mined_note}{surface_note}",
             activated.len()
         )
     }

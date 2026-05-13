@@ -129,6 +129,10 @@ pub enum SecurityError {
     #[error("Path traversal denied: {path}")]
     PathEscape { path: String },
 
+    /// A path component is a hidden (dot-prefixed) file — rejected by policy.
+    #[error("Hidden path rejected by policy: {path}")]
+    HiddenPath { path: String },
+
     /// A URL-based remote is not in the configured allowlist.
     #[error("Remote URL not in allowlist: {url}")]
     UntrustedRemote { url: String },
@@ -263,11 +267,15 @@ impl From<bincode::Error> for CortyxError {
 /// the migration away from `anyhow`.
 ///
 /// This is a transitional helper. Prefer typed `From` implementations for new code.
+#[deprecated(
+    note = "Use typed From impls or anyhow::Context instead; this trait bypasses the type system"
+)]
 pub trait AnyhowCompat<T> {
     /// Wrap any error with additional context and convert to `CortyxError::Other`.
     fn context_cortyx(self, msg: &str) -> std::result::Result<T, CortyxError>;
 }
 
+#[allow(deprecated)]
 impl<T, E: std::fmt::Display> AnyhowCompat<T> for std::result::Result<T, E> {
     fn context_cortyx(self, msg: &str) -> std::result::Result<T, CortyxError> {
         self.map_err(|e| CortyxError::other(format!("{msg}: {e}")))

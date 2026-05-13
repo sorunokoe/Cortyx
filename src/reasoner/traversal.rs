@@ -148,7 +148,9 @@ impl GraphReasoner {
                 }
 
                 let propagated = work.score * synapse.weight.get() * synapse.effective_weight();
-                if propagated + EPSILON < options.min_propagated_score {
+                let tier_floor = synapse.edge_type.confidence_tier().min_propagated_score();
+                let effective_floor = tier_floor.max(options.min_propagated_score);
+                if propagated + EPSILON < effective_floor {
                     continue;
                 }
 

@@ -80,7 +80,10 @@ impl NeuronIndex {
             if let Ok(raw) = std::fs::read_to_string(&dirty_file) {
                 if let Ok(paths) = serde_json::from_str::<Vec<PathBuf>>(&raw) {
                     if !paths.is_empty() {
-                        let mut set = self.dirty_set.lock().unwrap_or_else(|e| e.into_inner());
+                        let mut set = self
+                            .dirty_set
+                            .lock()
+                            .expect("compile_dirty legacy dirty_set mutex poisoned");
                         set.extend(paths);
                     }
                 }
@@ -92,7 +95,10 @@ impl NeuronIndex {
         // Atomically drain the dirty set (swap with an empty one so the watcher can
         // continue inserting into the new empty set while we compile).
         let dirty_paths: Vec<PathBuf> = {
-            let mut set = self.dirty_set.lock().unwrap_or_else(|e| e.into_inner());
+            let mut set = self
+                .dirty_set
+                .lock()
+                .expect("compile_dirty drain dirty_set mutex poisoned");
             let drained: HashSet<PathBuf> = std::mem::take(&mut *set);
             drained.into_iter().collect()
             // Lock is released here before any self.* call.

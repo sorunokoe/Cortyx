@@ -688,7 +688,7 @@ fn hit_multiplier_reward_grows_with_citations() {
 }
 
 #[test]
-fn auto_quarantine_fires_after_threshold() {
+fn auto_quarantine_waits_for_sample_floor_on_zero_hit_neurons() {
     let dir = TempDir::new().unwrap();
     let ndir = dir.path().join(".cortyx").join("neurons");
     std::fs::create_dir_all(&ndir).unwrap();
@@ -705,6 +705,7 @@ fn auto_quarantine_fires_after_threshold() {
     if let Some(&i) = idx.path_index.get(&p) {
         idx.entries[i].use_count = QUARANTINE_MIN_SAMPLES - 2; // = 3
         idx.entries[i].hit_count = 0;
+        idx.entries[i].staleness_multiplier = 1.0;
     }
     idx.record_activation(&[p.clone()]); // → use_count = 4 (still below threshold)
     let mult_early = idx
@@ -717,21 +718,38 @@ fn auto_quarantine_fires_after_threshold() {
         "Should NOT quarantine below QUARANTINE_MIN_SAMPLES (4 < 5)"
     );
 
-    // At use_count = 5 (after record_activation increments to 6), z=1.0 tier fires.
-    // Wilson lower bound for 0/6 at z=1.0 = 0.0 < adaptive threshold 0.02 → quarantine.
+    // Zero-hit neurons remain protected until they accumulate 3× the minimum sample floor.
     if let Some(&i) = idx.path_index.get(&p) {
         idx.entries[i].use_count = QUARANTINE_MIN_SAMPLES; // = 5
         idx.entries[i].hit_count = 0;
+        idx.entries[i].staleness_multiplier = 1.0;
     }
-    idx.record_activation(&[p.clone()]); // → use_count = 6, fires adaptive z=1.0
-    let mult = idx
+    idx.record_activation(&[p.clone()]); // → use_count = 6 (< 15), still no quarantine
+    let mult_before_floor = idx
         .path_index
         .get(&p)
         .map(|&i| idx.entries[i].staleness_multiplier)
         .unwrap_or(1.0);
     assert_eq!(
-        mult, 0.3,
-        "Should quarantine at QUARANTINE_MIN_SAMPLES with 0% hit rate"
+        mult_before_floor, 1.0,
+        "Zero-hit neurons should not quarantine before QUARANTINE_MIN_SAMPLES * 3"
+    );
+
+    // Once the sample floor is reached, a persistently bad zero-hit ratio is actionable.
+    if let Some(&i) = idx.path_index.get(&p) {
+        idx.entries[i].use_count = QUARANTINE_MIN_SAMPLES * 3 - 1; // = 14
+        idx.entries[i].hit_count = 0;
+        idx.entries[i].staleness_multiplier = 1.0;
+    }
+    idx.record_activation(&[p.clone()]); // → use_count = 15, can now quarantine
+    let mult_at_floor = idx
+        .path_index
+        .get(&p)
+        .map(|&i| idx.entries[i].staleness_multiplier)
+        .unwrap_or(1.0);
+    assert_eq!(
+        mult_at_floor, 0.3,
+        "Zero-hit neurons should quarantine once QUARANTINE_MIN_SAMPLES * 3 is reached"
     );
 }
 
@@ -1043,9 +1061,9 @@ fn adaptive_quarantine_params_tier_boundaries() {
     assert!((t100 - 0.08).abs() < 0.001, "100+ samples → threshold=0.08");
 }
 
-/// Early quarantine at 5+ samples with 0% hit rate (z=1.0 tier).
+/// Once a neuron has real citation signal, a bad Wilson lower bound should quarantine it.
 #[test]
-fn adaptive_ci_quarantines_early_for_zero_hit_rate() {
+fn adaptive_ci_quarantines_bad_ratio_when_hits_exist() {
     let dir = TempDir::new().unwrap();
     let ndir = dir.path().join(".cortyx").join("neurons");
     std::fs::create_dir_all(&ndir).unwrap();
@@ -1057,12 +1075,14 @@ fn adaptive_ci_quarantines_early_for_zero_hit_rate() {
     idx.index_neuron(&p, "noise boilerplate low quality", &meta);
     idx.rebuild_derived();
 
-    // 9 activations, 0 hits → z=1.0 tier, lb(0,10)=0.0 < 0.02 → should quarantine
+    // Real signal exists (1 citation), but the ratio remains poor: 1/20 after activation.
+    // The Wilson lower bound stays below the adaptive threshold, so quarantine should fire.
     if let Some(&i) = idx.path_index.get(&p) {
-        idx.entries[i].use_count = 9;
-        idx.entries[i].hit_count = 0;
+        idx.entries[i].use_count = 19;
+        idx.entries[i].hit_count = 1;
+        idx.entries[i].staleness_multiplier = 1.0;
     }
-    idx.record_activation(&[p.clone()]); // → use_count=10
+    idx.record_activation(&[p.clone()]); // → use_count=20, hit_count=1
     let mult = idx
         .path_index
         .get(&p)
@@ -1070,7 +1090,7 @@ fn adaptive_ci_quarantines_early_for_zero_hit_rate() {
         .unwrap_or(1.0);
     assert_eq!(
         mult, 0.3,
-        "10 activations with 0 hits should quarantine at z=1.0 tier"
+        "Poor hit ratio with real citation signal should quarantine"
     );
 }
 

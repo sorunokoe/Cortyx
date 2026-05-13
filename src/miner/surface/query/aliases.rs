@@ -1,5 +1,3 @@
-use super::*;
-
 pub(crate) fn fact_alias_lines(user_lines: &[String], assistant_lines: &[String]) -> Vec<String> {
     let mut aliases = Vec::new();
     let mut push = |alias: &str| {

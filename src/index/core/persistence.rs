@@ -43,8 +43,9 @@ pub(super) struct PersistedActivationCache {
     session_index: HashMap<String, Vec<usize>>,
     pmi_neighbors: HashMap<String, Vec<String>>,
     idf_n: usize,
-    /// S4-WAL: entries.len() at last full index.json write.
-    wal_base: usize,
+    /// S4-delta: entries.len() at last full index.json write.
+    #[serde(rename = "wal_base")]
+    delta_base: usize,
 }
 
 #[derive(Serialize)]
@@ -64,12 +65,13 @@ pub(super) struct PersistedActivationCacheRef<'a> {
     module_index: &'a HashMap<String, Vec<usize>>,
     vocab_bridge: &'a HashMap<String, HashSet<String>>,
     morpheme_map: &'a HashMap<String, Vec<String>>,
-    session_utilization: &'a Vec<[usize; 2]>,
+    session_utilization: &'a [[usize; 2]],
     session_index: &'a HashMap<String, Vec<usize>>,
     pmi_neighbors: &'a HashMap<String, Vec<String>>,
     idf_n: usize,
-    /// S4-WAL: entries.len() at last full index.json write.
-    wal_base: usize,
+    /// S4-delta: entries.len() at last full index.json write.
+    #[serde(rename = "wal_base")]
+    delta_base: usize,
 }
 
 // ─── Schema migrations ────────────────────────────────────────────────────────
@@ -273,8 +275,8 @@ impl NeuronIndex {
             }
         }
 
-        // S4-WAL: replay any delta entries written by WAL-mode saves since the last
-        // full index.json write.  Only applied when the base_count matches the number
+        // S4-delta: replay any delta entries written by delta-append saves since the last
+        // full index.json write. Only applied when the base_count matches the number
         // of entries just loaded from index.json, preventing double-counting on
         // crash-between-write scenarios.
         let cortyx_dir = path.parent().unwrap_or_else(|| Path::new("."));
@@ -287,14 +289,14 @@ impl NeuronIndex {
                     if let Ok(delta_entries) = serde_json::from_value::<Vec<BM25Entry>>(
                         raw.get("entries").cloned().unwrap_or_default(),
                     ) {
-                        tracing::debug!(n = delta_entries.len(), "Replaying WAL delta entries");
+                        tracing::debug!(n = delta_entries.len(), "Replaying delta-append entries");
                         idx.entries.extend(delta_entries);
                     }
                 } else {
                     tracing::debug!(
                         base_count,
                         loaded = idx.entries.len(),
-                        "WAL delta base_count mismatch — skipping stale delta"
+                        "Delta base_count mismatch — skipping stale delta"
                     );
                 }
             }
@@ -337,6 +339,7 @@ impl NeuronIndex {
         let path = index_path(&self.project_root);
         let cortyx_dir = path.parent().unwrap_or(Path::new("."));
         std::fs::create_dir_all(cortyx_dir)?;
+        self.flush_dirty_sidecars();
         let structural_dirty = self.structural_artifacts_dirty.load(Ordering::Relaxed);
         let prior_generation = read_index_cache_generation(&path).unwrap_or(0);
 
@@ -351,21 +354,21 @@ impl NeuronIndex {
         // written, and a crash between the delta write and the next full index.json rewrite
         // will leave a stale-but-readable delta.  The mechanism provides write optimisation,
         // not durability guarantees.  For durability, the full save path is taken whenever
-        // `needs_full_save` is set (i.e., whenever an existing entry is mutated).
+        // `delta_dirty` is set (i.e., whenever an existing entry is mutated).
         let delta_path = cortyx_dir.join("index.delta.json");
-        let wal_base = self.wal_base.load(Ordering::Relaxed);
-        let delta_len = self.entries.len().saturating_sub(wal_base);
+        let delta_base = self.delta_base.load(Ordering::Relaxed);
+        let delta_len = self.entries.len().saturating_sub(delta_base);
         // Compact to a full write when delta exceeds 25 % of the base — keeps the
         // fallback replay path fast and prevents unbounded delta file growth.
-        let over_threshold = wal_base > 0 && delta_len > wal_base / 4;
-        let in_wal_mode = wal_base > 0
-            && !self.needs_full_save.load(Ordering::Relaxed)
+        let over_threshold = delta_base > 0 && delta_len > delta_base / 4;
+        let in_delta_mode = delta_base > 0
+            && !self.delta_dirty.load(Ordering::Relaxed)
             && !over_threshold
             && delta_len > 0;
 
-        // In WAL mode the generation must stay unchanged so the activation cache passes
-        // the index_generation check against the (unchanged) index.json on the next load.
-        let cache_generation = if structural_dirty && !in_wal_mode {
+        // In delta-append mode the generation must stay unchanged so the activation cache
+        // passes the index_generation check against the (unchanged) index.json on the next load.
+        let cache_generation = if structural_dirty && !in_delta_mode {
             prior_generation.saturating_add(1)
         } else {
             prior_generation
@@ -415,21 +418,21 @@ impl NeuronIndex {
         }
 
         // Write monolithic index.json (backward compat) with shard registry embedded,
-        // or in WAL mode write only the delta entries to a small delta file.
-        if in_wal_mode {
-            // WAL mode: write only entries[wal_base..] to the delta file.
+        // or in delta-append mode write only the delta entries to a small delta file.
+        if in_delta_mode {
+            // Delta-append mode: write only entries[delta_base..] to the delta file.
             let delta = serde_json::json!({
-                "base_count": wal_base,
-                "entries": &self.entries[wal_base..],
+                "base_count": delta_base,
+                "entries": &self.entries[delta_base..],
             });
             atomic_write_json(&delta_path, &delta)?;
             // Pass index_bytes=0 to bypass the size guard — the cache legitimately
             // contains more entries than the (unchanged) index.json.
             if let Err(e) = self.save_activation_cache(cache_generation, 0) {
-                tracing::warn!("Failed to write activation cache (WAL mode): {e}");
+                tracing::warn!("Failed to write activation cache (delta-append mode): {e}");
             }
         } else {
-            // Full save: rewrite index.json, clear any stale delta, update WAL baseline.
+            // Full save: rewrite index.json, clear any stale delta, update the delta baseline.
             let persisted = PersistedIndexRef {
                 version: INDEX_VERSION,
                 cache_generation,
@@ -439,8 +442,8 @@ impl NeuronIndex {
             };
             atomic_write_json(&path, &persisted)?;
             let _ = std::fs::remove_file(&delta_path); // clear stale delta on full write
-            self.wal_base.store(self.entries.len(), Ordering::Relaxed);
-            self.needs_full_save.store(false, Ordering::Relaxed);
+            self.delta_base.store(self.entries.len(), Ordering::Relaxed);
+            self.delta_dirty.store(false, Ordering::Relaxed);
             let index_bytes = std::fs::metadata(&path).map(|meta| meta.len()).unwrap_or(0);
             if let Err(e) = self.save_activation_cache(cache_generation, index_bytes) {
                 tracing::warn!("Failed to write activation cache: {e}");
@@ -518,8 +521,8 @@ impl NeuronIndex {
         let cache_path = activation_cache_path(project_root);
         let index_bytes = std::fs::metadata(index_path).ok()?.len();
         let cache_bytes = std::fs::metadata(&cache_path).ok()?.len();
-        // S4-WAL: allow the cache to be larger than index.json when a delta file exists.
-        // In WAL mode the cache contains entries not yet in the full index.json.
+        // S4-delta: allow the cache to be larger than index.json when a delta file exists.
+        // In delta-append mode the cache contains entries not yet in the full index.json.
         let cortyx_dir = index_path.parent().unwrap_or_else(|| Path::new("."));
         let has_delta = cortyx_dir.join("index.delta.json").exists();
         if !has_delta && cache_bytes > index_bytes {
@@ -579,7 +582,7 @@ impl NeuronIndex {
             session_index: cache.session_index,
             pmi_neighbors: cache.pmi_neighbors,
             idf_n: cache.idf_n,
-            wal_base: AtomicUsize::new(cache.wal_base),
+            delta_base: AtomicUsize::new(cache.delta_base),
             #[cfg(feature = "embed")]
             embeddings: load_embeddings(project_root),
             ..Default::default()
@@ -619,7 +622,7 @@ impl NeuronIndex {
             session_index: &self.session_index,
             pmi_neighbors: &self.pmi_neighbors,
             idf_n: self.idf_n,
-            wal_base: self.wal_base.load(Ordering::Relaxed),
+            delta_base: self.delta_base.load(Ordering::Relaxed),
         };
         let bytes = bincode::serialize(&cache)?;
         let cache_path = activation_cache_path(&self.project_root);

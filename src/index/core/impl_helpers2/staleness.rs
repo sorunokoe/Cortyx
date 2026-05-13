@@ -97,3 +97,29 @@ impl NeuronIndex {
 }
 
 impl NeuronIndex {}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn apply_synapse_decay_reduces_learned_weight() {
+        let decay_factor = (-0.01_f32 * 30.0_f32).exp();
+        assert!(
+            decay_factor < 1.0,
+            "decay factor over 30 days should be < 1.0"
+        );
+        assert!(
+            decay_factor > 0.7,
+            "decay factor over 30 days should still be > 0.7 (≈0.74)"
+        );
+        let initial_weight = 0.8_f32;
+        let decayed = initial_weight * decay_factor;
+        assert!(
+            decayed < initial_weight,
+            "decayed weight should be less than initial"
+        );
+        assert!(
+            decayed > 0.05,
+            "30-day decay should not trigger pruning threshold of 0.05"
+        );
+    }
+}

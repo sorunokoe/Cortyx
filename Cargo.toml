@@ -60,7 +60,7 @@ codegen-units = 1
 [lints.rust]
 unsafe_code = "deny"
 missing_docs = "allow"
-unused_imports = "allow"
+unused_imports = "warn"
 
 [lints.clippy]
 # Code quality

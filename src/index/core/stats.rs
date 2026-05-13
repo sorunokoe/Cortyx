@@ -4,6 +4,10 @@
 use super::*;
 use crate::types::{QueryText, SynapseWeight};
 
+type ScoredContextPaths = Vec<(PathBuf, f32)>;
+type OverflowContextPaths = Vec<(PathBuf, String)>;
+type RankedContextResults = (ScoredContextPaths, OverflowContextPaths);
+
 impl NeuronIndex {
     // ── Stats ─────────────────────────────────────────────────────────────────
 
@@ -50,7 +54,72 @@ impl NeuronIndex {
             .unwrap_or(0)
     }
 
-    /// Increment `use_count` for each neuron in `paths` and persist their metadata.
+    fn mark_sidecar_dirty(&self, path: &Path) {
+        match self.dirty_sidecars.lock() {
+            Ok(mut dirty_sidecars) => {
+                dirty_sidecars.insert(path.to_path_buf());
+            },
+            Err(err) => tracing::warn!("Failed to lock dirty sidecar set: {err}"),
+        }
+    }
+
+    fn persist_feedback_sidecar(&self, neuron_path: &Path) -> bool {
+        let Some(&i) = self.path_index.get(neuron_path) else {
+            return true;
+        };
+
+        let meta_p = meta_path(neuron_path);
+        let Ok(data) = std::fs::read_to_string(&meta_p) else {
+            return true;
+        };
+        let Ok(mut meta) = serde_json::from_str::<NeuronMeta>(&data) else {
+            return true;
+        };
+
+        meta.use_count = self.entries[i].use_count;
+        meta.hit_count = self.entries[i].hit_count;
+        if let Err(err) = atomic_write_json(&meta_p, &meta) {
+            tracing::warn!(
+                "Failed to persist feedback sidecar for {}: {err}",
+                meta_p.display()
+            );
+            return false;
+        }
+
+        true
+    }
+
+    pub(in crate::index) fn flush_dirty_sidecars(&self) {
+        let dirty_paths: Vec<PathBuf> = match self.dirty_sidecars.lock() {
+            Ok(mut dirty_sidecars) => dirty_sidecars.drain().collect(),
+            Err(err) => {
+                tracing::warn!("Failed to lock dirty sidecar set for flush: {err}");
+                return;
+            },
+        };
+
+        if dirty_paths.is_empty() {
+            return;
+        }
+
+        let failed_paths: Vec<PathBuf> = dirty_paths
+            .into_iter()
+            .filter(|path| !self.persist_feedback_sidecar(path))
+            .collect();
+
+        if failed_paths.is_empty() {
+            return;
+        }
+
+        match self.dirty_sidecars.lock() {
+            Ok(mut dirty_sidecars) => {
+                dirty_sidecars.extend(failed_paths);
+            },
+            Err(err) => tracing::warn!("Failed to restore dirty sidecars after flush: {err}"),
+        }
+    }
+
+    /// Increment `use_count` for each neuron in `paths` and defer sidecar persistence until save().
     ///
     /// Also applies auto-quarantine: if a neuron has ≥ MIN_SAMPLE_SIZE activations
     /// but its hit_rate is below QUARANTINE_THRESHOLD (10%), it's a chronic
@@ -75,7 +144,8 @@ impl NeuronIndex {
                 if let Some((z, threshold)) = adaptive_quarantine_params(uc) {
                     let lower = wilson_lower_bound_z(hc, uc, z);
                     let currently_quarantined = self.entries[i].staleness_multiplier <= 0.3;
-                    if !currently_quarantined && lower < threshold {
+                    let has_quarantine_signal = hc > 0 || uc >= QUARANTINE_MIN_SAMPLES * 3;
+                    if !currently_quarantined && has_quarantine_signal && lower < threshold {
                         self.entries[i].staleness_multiplier = 0.3;
                         tracing::debug!(
                             path = %path.display(),
@@ -96,25 +166,14 @@ impl NeuronIndex {
                     }
                 }
 
-                // Persist the updated use_count to the sidecar JSON so it survives restarts.
-                let meta_p = meta_path(path);
-                if let Ok(data) = std::fs::read_to_string(&meta_p) {
-                    if let Ok(mut meta) = serde_json::from_str::<NeuronMeta>(&data) {
-                        meta.use_count = self.entries[i].use_count;
-                        if let Err(e) = atomic_write_json(&meta_p, &meta) {
-                            tracing::warn!(
-                                "Failed to persist updated use_count for {}: {e}",
-                                meta_p.display()
-                            );
-                        }
-                    }
-                }
+                self.mark_sidecar_dirty(path);
             }
         }
     }
 
     /// Increment `hit_count` for a neuron when the LLM confirms it was cited.
     ///
+    /// Feedback sidecars are flushed on the next `save()` instead of synchronously here.
     /// Returns the updated hit_rate = hit_count / use_count.max(1).
     pub fn record_hit(&mut self, neuron_path: &Path, was_cited: bool) -> f32 {
         if let Some(&i) = self.path_index.get(neuron_path) {
@@ -127,20 +186,7 @@ impl NeuronIndex {
             let hit_rate =
                 self.entries[i].hit_count as f32 / self.entries[i].use_count.max(1) as f32;
 
-            // Persist both counters
-            let meta_p = meta_path(neuron_path);
-            if let Ok(data) = std::fs::read_to_string(&meta_p) {
-                if let Ok(mut meta) = serde_json::from_str::<NeuronMeta>(&data) {
-                    meta.use_count = self.entries[i].use_count;
-                    meta.hit_count = self.entries[i].hit_count;
-                    if let Err(e) = atomic_write_json(&meta_p, &meta) {
-                        tracing::warn!(
-                            "Failed to persist hit feedback for {}: {e}",
-                            meta_p.display()
-                        );
-                    }
-                }
-            }
+            self.mark_sidecar_dirty(neuron_path);
 
             // Adaptive synapse EMA: update learned_weight for all synapses that
             // point to this neuron, reinforcing or downweighting the traversal path.
@@ -242,26 +288,34 @@ impl NeuronIndex {
             let a = a_entry.neuron_path.clone();
             let b = b_entry.neuron_path.clone();
 
-            let already_exists = self.adjacency.get(&a).is_some_and(|syns| {
+            let has_ab = self.adjacency.get(&a).is_some_and(|syns| {
                 syns.iter()
                     .any(|s| s.target == b && s.edge_type == SynapseType::SemanticRelated)
             });
-            if already_exists {
+            let has_ba = self.adjacency.get(&b).is_some_and(|syns| {
+                syns.iter()
+                    .any(|s| s.target == a && s.edge_type == SynapseType::SemanticRelated)
+            });
+            if has_ab && has_ba {
                 continue;
             }
 
-            let syn_ab = Synapse::new(
-                b.clone(),
-                SynapseType::SemanticRelated,
-                "hebbian:co-return".to_string(),
-            );
-            let syn_ba = Synapse::new(
-                a.clone(),
-                SynapseType::SemanticRelated,
-                "hebbian:co-return".to_string(),
-            );
-            self.adjacency.entry(a.clone()).or_default().push(syn_ab);
-            self.adjacency.entry(b.clone()).or_default().push(syn_ba);
+            if !has_ab {
+                let syn_ab = Synapse::new(
+                    b.clone(),
+                    SynapseType::SemanticRelated,
+                    "hebbian:co-return".to_string(),
+                );
+                self.adjacency.entry(a.clone()).or_default().push(syn_ab);
+            }
+            if !has_ba {
+                let syn_ba = Synapse::new(
+                    a.clone(),
+                    SynapseType::SemanticRelated,
+                    "hebbian:co-return".to_string(),
+                );
+                self.adjacency.entry(b.clone()).or_default().push(syn_ba);
+            }
             tracing::debug!(
                 a = %a.display(),
                 b = %b.display(),
@@ -270,11 +324,119 @@ impl NeuronIndex {
         }
     }
 
+    pub(crate) fn rerank_contexts_with_session_tf(
+        &self,
+        task: &str,
+        max_tokens: usize,
+        results: RankedContextResults,
+        session_tf: &HashMap<String, f32>,
+    ) -> RankedContextResults {
+        const SESSION_TF_MIN_COUNT: f32 = 3.0;
+        const SESSION_TF_WEIGHT: f32 = 0.2;
+
+        let (full, overflow) = results;
+        let Ok(query) = QueryText::new(task) else {
+            return (full, overflow);
+        };
+        let mut hot_terms: Vec<(&str, f32)> = session_tf
+            .iter()
+            .filter(|(_, count)| **count >= SESSION_TF_MIN_COUNT)
+            .map(|(term, count)| (term.as_str(), *count))
+            .collect();
+        if hot_terms.is_empty() {
+            return (full, overflow);
+        }
+        hot_terms.sort_unstable_by(|a, b| a.0.cmp(b.0));
+
+        let max_session_count = hot_terms
+            .iter()
+            .map(|(_, count)| *count)
+            .fold(SESSION_TF_MIN_COUNT, f32::max);
+        let total_session_weight: f32 = hot_terms
+            .iter()
+            .map(|(_, count)| *count / max_session_count)
+            .sum();
+        let boost_score = |entry: &BM25Entry, base_score: f32| {
+            let matched_weight: f32 = hot_terms
+                .iter()
+                .filter(|(term, _)| entry.term_freq.contains_key(*term))
+                .map(|(_, count)| *count / max_session_count)
+                .sum();
+            if matched_weight <= 0.0 {
+                base_score
+            } else {
+                let session_tf_score = matched_weight / total_session_weight.max(f32::EPSILON);
+                base_score * (1.0 + SESSION_TF_WEIGHT * session_tf_score)
+            }
+        };
+
+        let terms = tokenize(query.as_str());
+        let complexity = self.compute_task_complexity(&terms);
+        let history_scale = self.adaptive_budget_scale();
+        let adjusted_max = ((max_tokens as f32 * complexity * history_scale) as usize)
+            .max(512)
+            .min(8192.max(max_tokens * 2));
+
+        let mut overflow_headlines: HashMap<PathBuf, String> = overflow.into_iter().collect();
+        let mut seen = HashSet::new();
+        let mut candidates = Vec::new();
+
+        for (path, score) in full {
+            if !seen.insert(path.clone()) {
+                continue;
+            }
+            let boosted = self
+                .entry_by_path(&path)
+                .map(|entry| boost_score(entry, score))
+                .unwrap_or(score);
+            candidates.push((path, boosted));
+        }
+        for path in overflow_headlines.keys() {
+            if !seen.insert(path.clone()) {
+                continue;
+            }
+            let score = self
+                .entry_by_path(path)
+                .map(|entry| boost_score(entry, self.bm25_score(&terms, entry)))
+                .unwrap_or(0.0);
+            candidates.push((path.clone(), score));
+        }
+
+        candidates.sort_unstable_by(|a, b| b.1.total_cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+
+        let mut reranked_full = Vec::new();
+        let mut reranked_overflow = Vec::new();
+        let mut used = 0usize;
+        for (path, score) in candidates {
+            let tokens = self
+                .entry_by_path(&path)
+                .map(|entry| entry.tokens)
+                .unwrap_or(200);
+            if used + tokens <= adjusted_max || reranked_full.is_empty() {
+                used += tokens;
+                reranked_full.push((path, score));
+            } else {
+                let headline = overflow_headlines
+                    .remove(&path)
+                    .unwrap_or_else(|| neuron_headline_for(&path));
+                reranked_overflow.push((path, headline));
+            }
+        }
+
+        (reranked_full, reranked_overflow)
+    }
+
     /// B2: Expand query terms through per-neuron synonym clouds.
     ///
     /// For each activated neuron path, return any synonym-cloud terms that appear
     /// in the query — as augmented expansion terms for the next retrieval pass.
     /// Used during `get_contexts` vocabulary expansion phase.
+    pub(crate) fn bm25_score_for_path(&self, terms: &[String], path: &Path) -> f32 {
+        self.entry_by_path(path)
+            .map(|entry| self.bm25_score(terms, entry))
+            .unwrap_or(0.0)
+    }
+
     /// Return the highest raw BM25 score for `task` across all indexed neurons.
     ///
     /// Runs Phase 1 posting-list lookup + BM25 scoring only (no synapse traversal,

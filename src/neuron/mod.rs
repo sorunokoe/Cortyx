@@ -22,7 +22,7 @@ pub use io::{
 pub use kind::{NeuronKind, NeuronStatus};
 pub use meta::{latest_shadow, pop_shadow, push_shadow, NeuronMeta, DEFAULT_CONFIDENCE};
 pub use section::{parse_sections, replace_section, update_neuron_header};
-pub use synapse::{Synapse, SynapseType};
+pub use synapse::{Synapse, SynapseConfidenceTier, SynapseType};
 pub use synapse_parser::parse_synapses_from_content;
 pub use templates::{stub_core_neuron, stub_function_neuron, stub_project_neuron};
 pub use util::{

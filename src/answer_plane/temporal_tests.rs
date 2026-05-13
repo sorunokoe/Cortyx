@@ -1,4 +1,6 @@
 use super::*;
+use crate::answer_plane::output::collect_evidence_with_reasoning;
+use crate::answer_plane::output::should_defer_precomputed_answer;
 use crate::index::NeuronIndex;
 use crate::miner::mine_file;
 use serde_json::Value;

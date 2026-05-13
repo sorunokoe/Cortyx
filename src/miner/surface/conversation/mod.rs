@@ -17,7 +17,6 @@ pub mod preferences;
 pub mod profile;
 pub mod temporal;
 
-use self::answer::*;
 use self::bridge::*;
 use self::embedded::*;
 use self::preferences::*;

@@ -22,5 +22,6 @@ tests/fixtures/locomo10.json
 .validation-openqa/
 .validation-openqa-current/
 librust_out.rlib
+*.rlib
 lme500_eval_results.json
 lme500_eval_results.public-hypotheses.jsonl

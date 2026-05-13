@@ -228,8 +228,8 @@ impl NeuronIndex {
 
         if let Some(&pos) = self.path_index.get(neuron_path) {
             self.entries[pos] = entry;
-            self.has_pending_updates = true;
-            self.needs_full_save.store(true, Ordering::Relaxed);
+            self.has_pending_updates.store(true, Ordering::Release);
+            self.delta_dirty.store(true, Ordering::Relaxed);
         } else {
             let pos = self.entries.len();
             self.path_index.insert(neuron_path.to_path_buf(), pos);

@@ -75,7 +75,9 @@ impl CortyxServer {
             context_sessions,
             next_context_handle,
             session_tf: Arc::new(Mutex::new(HashMap::new())),
+            session_path_history: Arc::new(Mutex::new(HashMap::new())),
             inflight_bytes: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+            fleet_registry: None,
             tool_router: CortyxServer::tool_router(),
         }
     }

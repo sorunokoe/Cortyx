@@ -55,7 +55,8 @@ pub struct ContextMetadata {
 /// Persisted to disk after every compile or mutation (evolve, synapse, extract).
 #[derive(Debug, Default)]
 pub struct NeuronIndex {
-    pub(in crate::index) project_root: PathBuf,
+    // ── RetrievalState ────────────────────────────────────────────────────────
+    // Fields used exclusively on the query hot-path.
     pub(in crate::index) entries: Vec<BM25Entry>,
     /// Synapse graph: neuron_path → outgoing + incoming typed synapse edges
     pub(in crate::index) adjacency: HashMap<PathBuf, Vec<Synapse>>,
@@ -95,36 +96,6 @@ pub struct NeuronIndex {
     /// directly are expanded through this map: "auth" → ["auth_guard", "authentication",
     /// "oauth_token"]. Reduces vocabulary gap from ~3% to ~0.3%.
     pub(in crate::index) morpheme_map: HashMap<String, Vec<String>>,
-    /// B2: Synonym cloud from co-activation history (TRIZ R14).
-    ///
-    /// Tracks how often query terms co-activate each neuron. After ≥30 co-activations,
-    /// a term is promoted to the neuron's `synonym_cloud` in BM25Entry.
-    /// Map: neuron_path → HashMap<term, coactivation_count>
-    /// Persisted in `.cortyx/coactivation.json` so synonym-cloud promotion can survive
-    /// normal CLI/server restarts. Synonym clouds in BM25Entry are still persisted directly.
-    pub(in crate::index) coactivation_counts: HashMap<PathBuf, HashMap<String, u32>>,
-    /// C-2: Hebbian synapse co-return counts (R20).
-    ///
-    /// Tracks how often two Verbatim neurons are returned together in the same query.
-    /// Map: (path_a, path_b) → co-return count (path_a < path_b lexicographically).
-    /// Co-return co-occurrence counter for Hebbian synapse formation.
-    ///
-    /// Tracks how often pairs of neurons appear together in query results.
-    /// After ≥10 co-returns, a SemanticRelated synapse is auto-created between the pair.
-    /// Not persisted — rebuilt from query patterns in the current process lifetime.
-    ///
-    /// # Mutex discipline
-    /// This uses `std::sync::Mutex` (not `tokio::sync::Mutex`) intentionally.
-    /// Callers **must not** hold this lock across any `.await` point. All current
-    /// call sites release the lock before yielding. If you add a new call site,
-    /// enforce this invariant to avoid blocking the async thread pool.
-    /// Keys are (path_index_a, path_index_b) with a ≤ b — using the usize IDs from
-    /// `path_index` eliminates per-lookup PathBuf hashing (O(path_len) → O(8 bytes)).
-    pub(in crate::index) co_return_counts: std::sync::Mutex<HashMap<(usize, usize), u32>>,
-    /// F2: Session token utilization history — last 5 sessions' [tokens_used, tokens_budget].
-    ///
-    /// Persisted via PersistedIndexRef so budget adaptation accumulates across restarts.
-    pub(in crate::index) session_utilization: Vec<[usize; 2]>,
     /// R21 T6: Session index — maps session_id → entry indices for session-level grouping.
     ///
     /// Built during rebuild_derived(). At retrieval, when a Verbatim neuron enters the
@@ -155,6 +126,44 @@ pub struct NeuronIndex {
     /// produced 100% SSU at the e18c4e6 baseline.  Posting-list entries are still
     /// added for ALL neuron kinds so the counting_augment path can find Aggregates.
     pub(in crate::index) idf_n: usize,
+
+    // ── FeedbackState ─────────────────────────────────────────────────────────
+    // Fields written by activation/hit recording. Must not be read during query.
+    /// B2: Synonym cloud from co-activation history (TRIZ R14).
+    ///
+    /// Tracks how often query terms co-activate each neuron. After ≥30 co-activations,
+    /// a term is promoted to the neuron's `synonym_cloud` in BM25Entry.
+    /// Map: neuron_path → HashMap<term, coactivation_count>
+    /// Persisted in `.cortyx/coactivation.json` so synonym-cloud promotion can survive
+    /// normal CLI/server restarts. Synonym clouds in BM25Entry are still persisted directly.
+    pub(in crate::index) coactivation_counts: HashMap<PathBuf, HashMap<String, u32>>,
+    /// C-2: Hebbian synapse co-return counts (R20).
+    ///
+    /// Tracks how often two Verbatim neurons are returned together in the same query.
+    /// Map: (path_a, path_b) → co-return count (path_a < path_b lexicographically).
+    /// Co-return co-occurrence counter for Hebbian synapse formation.
+    ///
+    /// Tracks how often pairs of neurons appear together in query results.
+    /// After ≥10 co-returns, a SemanticRelated synapse is auto-created between the pair.
+    /// Not persisted — rebuilt from query patterns in the current process lifetime.
+    ///
+    /// # Mutex discipline
+    /// This uses `std::sync::Mutex` (not `tokio::sync::Mutex`) intentionally.
+    /// Callers **must not** hold this lock across any `.await` point. All current
+    /// call sites release the lock before yielding. If you add a new call site,
+    /// enforce this invariant to avoid blocking the async thread pool.
+    /// Keys are (path_index_a, path_index_b) with a ≤ b — using the usize IDs from
+    /// `path_index` eliminates per-lookup PathBuf hashing (O(path_len) → O(8 bytes)).
+    pub(in crate::index) co_return_counts: std::sync::Mutex<HashMap<(usize, usize), u32>>,
+    /// F2: Session token utilization history — last 5 sessions' [tokens_used, tokens_budget].
+    ///
+    /// Persisted via PersistedIndexRef so budget adaptation accumulates across restarts.
+    pub(in crate::index) session_utilization: Vec<[usize; 2]>,
+
+    // ── PersistenceState ──────────────────────────────────────────────────────
+    // Fields governing serialization and dirty-tracking.
+    // Note: `project_root` also resolves runtime paths, but persistence owns that layout.
+    pub(in crate::index) project_root: PathBuf,
     /// Count of entries inserted (not updated) since the last rebuild_derived() call.
     /// Used to take the fast incremental delta path in rebuild_derived() instead of
     /// clearing and rebuilding all HashMaps from scratch.
@@ -163,17 +172,22 @@ pub struct NeuronIndex {
     /// True if any existing entry was updated (not just appended) since the last
     /// rebuild_derived() call.  When true the full rebuild path is taken so that
     /// df_cache / posting_list stay consistent with the changed entries.
-    pub(in crate::index) has_pending_updates: bool,
+    pub(in crate::index) has_pending_updates: AtomicBool,
     /// S4 delta-append: entries.len() at last full index.json write.
     /// Persisted in the activation cache so delta-append mode activates on subsequent process starts.
     /// 0 means no full save yet; the next save() establishes the delta baseline.
-    pub(in crate::index) wal_base: AtomicUsize,
+    pub(in crate::index) delta_base: AtomicUsize,
     /// S4 delta-append: true when any existing entry was updated since the last full save.
     /// Forces a full index.json rewrite so in-place mutations are never lost.
-    pub(in crate::index) needs_full_save: AtomicBool,
+    pub(in crate::index) delta_dirty: AtomicBool,
     /// Set when structural derived state changes and the module shards / cache generation
     /// should be refreshed on the next save(). Feedback-only saves leave this false.
     pub(in crate::index) structural_artifacts_dirty: AtomicBool,
+    /// Feedback sidecars that need their counters flushed on the next `save()`.
+    pub(in crate::index) dirty_sidecars: std::sync::Mutex<HashSet<PathBuf>>,
+
+    // ── WatcherState ──────────────────────────────────────────────────────────
+    // Fields owned exclusively by the file-system watcher.
     /// In-memory dirty set: source paths changed by the file watcher and not yet
     /// compiled into the index.
     ///
@@ -181,6 +195,45 @@ pub struct NeuronIndex {
     /// Eliminates the `dirty.json` TOCTOU race: file-system reads/writes are replaced
     /// by a single mutex-protected in-memory swap.
     pub(in crate::index) dirty_set: std::sync::Arc<std::sync::Mutex<HashSet<PathBuf>>>,
+}
+
+impl NeuronIndex {
+    #[cfg(debug_assertions)]
+    pub fn verify_invariants(&self) {
+        let entry_paths: HashSet<_> = self
+            .entries
+            .iter()
+            .map(|entry| entry.neuron_path.as_path())
+            .collect();
+
+        for entry in &self.entries {
+            debug_assert!(
+                self.adjacency.contains_key(&entry.neuron_path),
+                "adjacency missing entry for {:?}",
+                entry.neuron_path
+            );
+        }
+        for path in self.adjacency.keys() {
+            debug_assert!(
+                entry_paths.contains(path.as_path()),
+                "adjacency contains unknown entry for {:?}",
+                path
+            );
+        }
+
+        if self.has_pending_updates.load(Ordering::Acquire) {
+            let has_dirty_sidecar = self
+                .dirty_sidecars
+                .lock()
+                .map(|dirty| !dirty.is_empty())
+                .unwrap_or(true);
+            debug_assert!(
+                self.delta_dirty.load(Ordering::Acquire) || has_dirty_sidecar,
+                "pending updates require a full save or at least one dirty sidecar"
+            );
+        }
+        // Add more invariants here as the struct evolves.
+    }
 }
 
 // ─── Parallel compile helper ──────────────────────────────────────────────────

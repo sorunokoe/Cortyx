@@ -9,10 +9,10 @@ impl NeuronIndex {
         // Force full rebuild: prune may have removed existing entries, so the
         // incremental delta path (which only handles appends) is not safe here.
         self.pending_append_count = 0;
-        self.has_pending_updates = true;
-        // S4-WAL: prune removes entries — invalidate WAL baseline and force full save.
-        self.wal_base.store(0, Ordering::Relaxed);
-        self.needs_full_save.store(true, Ordering::Relaxed);
+        self.has_pending_updates.store(true, Ordering::Release);
+        // S4-delta: prune removes entries — invalidate the delta baseline and force full save.
+        self.delta_base.store(0, Ordering::Relaxed);
+        self.delta_dirty.store(true, Ordering::Relaxed);
         self.rebuild_derived();
     }
 
@@ -24,7 +24,10 @@ impl NeuronIndex {
         // S7: Incremental delta — skip the full clear+rebuild when only new entries were
         // appended (no updates).  This reduces the hot path (mining a new file into an
         // existing index) from O(N+n) to O(n) for the HashMap phase.
-        if self.pending_append_count > 0 && !self.has_pending_updates && self.idf_n > 0 {
+        if self.pending_append_count > 0
+            && !self.has_pending_updates.load(Ordering::Acquire)
+            && self.idf_n > 0
+        {
             self.rebuild_derived_delta();
             return;
         }
@@ -141,7 +144,7 @@ impl NeuronIndex {
         self.structural_artifacts_dirty
             .store(true, Ordering::Relaxed);
         self.pending_append_count = 0;
-        self.has_pending_updates = false;
+        self.has_pending_updates.store(false, Ordering::Release);
     }
 
     /// Incremental derived-structure update for pure-append batches (S7).
@@ -247,6 +250,6 @@ impl NeuronIndex {
         self.structural_artifacts_dirty
             .store(true, Ordering::Relaxed);
         self.pending_append_count = 0;
-        self.has_pending_updates = false;
+        self.has_pending_updates.store(false, Ordering::Release);
     }
 }

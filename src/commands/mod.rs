@@ -4,5 +4,6 @@
 
 pub mod concepts;
 pub mod doctor;
+pub mod fleet;
 pub mod prune;
 pub mod rollback;

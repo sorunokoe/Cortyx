@@ -4,6 +4,7 @@ use rmcp::handler::server::router::tool::ToolRouter;
 mod admin;
 mod collaboration;
 mod context;
+mod fleet;
 mod knowledge;
 mod memory;
 
@@ -14,4 +15,5 @@ pub(super) fn tool_router() -> ToolRouter<CortyxServer> {
         + CortyxServer::knowledge_tool_router()
         + CortyxServer::collaboration_tool_router()
         + CortyxServer::admin_tool_router()
+        + CortyxServer::fleet_tool_router()
 }

@@ -31,13 +31,25 @@ src/
 │       ├── bm25/           — BM25Entry, posting-list, IDF cache
 │       └── activation/
 │           └── search.rs   — get_contexts_with_overflow, Hebbian tracking
+├── fleet/                  — optional local-first fleet orchestration (NEW)
+│   ├── mod.rs              — public API re-exports + FLEET_REGISTRY_VERSION
+│   ├── types.rs            — FleetNodeId (blake3 newtype), FleetNode, FleetRegistry,
+│   │                         FleetQueryResult, FleetRouteReason
+│   ├── registry.rs         — load/save/register/deregister; path: ~/.cortyx/fleet/nodes.json
+│   ├── router.rs           — parallel tokio dispatch (200ms timeout per node),
+│   │                         module-manifest filtering, FLEET_LOW_CONFIDENCE_THRESHOLD
+│   ├── merge.rs            — rrf_merge() — append fleet context after local output
+│   └── tests.rs            — unit tests (registry roundtrip, merge, threshold)
 ├── mcp/
-│   ├── mod.rs              — CortyxServer, serve(), URL allowlist, inflight cap
+│   ├── mod.rs              — CortyxServer (+ fleet_registry field), serve(), URL allowlist
 │   ├── helpers/
 │   │   ├── meta_io.rs      — neuron metadata helpers (CortyxError, no anyhow)
 │   │   └── server_impl.rs  — for_benchmark() constructor (used in tests)
 │   └── tools/
-│       └── context.rs      — get_contexts handler + InflightGuard RAII
+│       ├── context.rs      — get_contexts handler + fleet escalation hook
+│       └── fleet.rs        — cortyx_fleet_query + cortyx_fleet_status MCP tools
+├── commands/
+│   └── fleet.rs            — CLI: fleet register / deregister / list / status
 ├── watcher.rs              — inotify/FSEvents watcher, in-memory dirty_set
 ├── reasoner.rs             — graph traversal + ReasoningReport
 └── main.rs                 — binary entrypoint (anyhow OK here)
@@ -73,7 +85,47 @@ retrieval. Persisted to `.cortyx/index.json` after every mutating operation.
 
 ---
 
-## Security Model
+## Fleet Module (`src/fleet/`)
+
+Fleet provides zero-server, local-first cross-project context sharing. When the local
+BM25 confidence score for a query falls below `FLEET_LOW_CONFIDENCE_THRESHOLD` (4.0),
+the `get_contexts` handler automatically fans out to registered peer projects.
+
+### Design invariants
+
+- **Zero overhead when absent:** if `~/.cortyx/fleet/nodes.json` does not exist,
+  no fleet code runs — `CortyxServer.fleet_registry` is `None`.
+- **No daemon required:** each query dispatches blocking index loads on tokio
+  `spawn_blocking` tasks, capped at `FLEET_QUERY_TIMEOUT_MS` (200ms) total.
+- **Supplementary only:** fleet results are appended after local context, never
+  replacing it. Local weight 0.7, fleet weight 0.3 (RRF merge).
+- **Module-manifest routing:** nodes whose registered module list does not match
+  the active `module` filter are skipped — avoids irrelevant fan-out.
+
+### Registry format (`~/.cortyx/fleet/nodes.json`)
+
+```json
+{
+  "version": 1,
+  "nodes": [
+    { "id": "node-a1b2c3d4", "path": "/abs/path", "alias": "api-svc",
+      "modules": ["auth", "billing"], "last_registered": "2026-05-12T..." }
+  ]
+}
+```
+
+`FleetNodeId` is a newtype over a blake3-short (8 hex chars) of the canonical path,
+ensuring stable identity across renames of the alias.
+
+### Escalation trigger in `get_contexts`
+
+```
+local_top_score < 4.0 AND fleet_registry.is_some()
+  → route_fleet_query(task, module_filter, max_tokens/4, registry)
+  → append fleet results as tagged HTML comment blocks in the output string
+```
+
+---
 
 ### Path Escape Prevention
 `src/neuron/filter.rs` — `validate_relative_path()` and `validate_synapse_path()`
@@ -150,13 +202,14 @@ Synapse strength is a graduated blend of `prior_weight` (static score assigned
 at compile time) and `learned_weight` (updated by the feedback loop):
 
 ```
-blend_ratio = min(use_count / 20, 0.5)   // saturates at 50% learned
+blend_ratio = min(traversal_count / 100, 0.5)   // saturates at 50% learned
 effective   = prior_weight * (1 - blend_ratio) + learned_weight * blend_ratio
 ```
 
-- At `use_count = 0` → 100% prior (cold start safety)
-- At `use_count = 10` → 50/50 blend
-- At `use_count ≥ 20` → 50% prior + 50% learned (never fully discards prior)
+- At `traversal_count < 10` → 100% prior (cold-start: insufficient signal)
+- At `traversal_count = 10` → 90% prior / 10% learned
+- At `traversal_count = 25` → 75% prior / 25% learned
+- At `traversal_count ≥ 50` → 50% prior + 50% learned (cap; domain knowledge is never fully discarded)
 
 The 50% saturation cap prevents a high-velocity feedback loop from discarding
 prior domain knowledge.
@@ -206,6 +259,10 @@ resolution applied.
 | "WAL" misnaming | TC | P26 Copying | `index/core/persistence.rs` | Comments corrected to "S4 delta-append"; ⚠ note added |
 | `effective_weight()` doc wrong | TC | P16 Partial Action | `neuron/synapse.rs` | Doc corrected: graduated blend, 50% saturation cap |
 | Hebbian metaphor mismatch | TC | P26 Copying | `index/core/stats.rs` | One-line clarification added: co-return co-occurrence, not neural activation |
+| `session_tf` grows monotonically — early-session terms pollute late-session retrieval | TC | P15 Dynamics, P35 Parameter Changes | `mcp/tools/context.rs` | Forget-gate decay λ=0.9 applied after each `get_contexts` call; entries pruned at count < 1 |
+| Session memory tracks query vocabulary but not retrieved content | TC | P23 Feedback, P3 Local Quality | `mcp/mod.rs`, `mcp/tools/context.rs` | `session_path_history` (λ=0.8 decay) added alongside `session_tf`; retrieved paths receive +15% score boost on next call |
+| Weak overflow items dilute high-confidence primary results | TC | P21 Skipping, P1 Segmentation | `mcp/tools/context.rs` | Adaptive channel gate: suppress overflow score < 1.5 when primary BM25 max > 8.0 |
+| `apply_synapse_decay()` only fires at startup — synapses go stale during long-running serve | TC | P19 Periodic Action | `mcp/mod.rs` | Background tokio task on 24 h interval re-applies LTD; skips first tick (startup already ran) |
 
 **Deferred (too invasive for automated refactor):**
 

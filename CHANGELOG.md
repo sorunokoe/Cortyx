@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Fleet module** (`src/fleet/`) — zero-server local-first cross-project context sharing.
+  - `cortyx fleet register <path> [--alias <name>]` — register a peer project as a fleet node
+  - `cortyx fleet deregister <alias-or-path>` — remove a node from the fleet
+  - `cortyx fleet list` — show all registered nodes with alias, path, module count
+  - `cortyx fleet status` — fleet health summary
+  - `cortyx_fleet_query` MCP tool — explicit fleet context query from agent tooling
+  - `cortyx_fleet_status` MCP tool — list registered nodes in-session
+  - Auto-escalation in `cortyx_get_contexts`: when local BM25 top-score < 4.0 and fleet
+    nodes are registered, fan-out query dispatches to peer projects (200ms timeout, parallel
+    tokio tasks, module-manifest filtering to avoid irrelevant fan-out)
+  - Fleet context appended as tagged comment blocks after local context (0.7/0.3 weight split)
+  - Registry stored at `~/.cortyx/fleet/nodes.json` (mirrors global concepts pattern)
+  - Zero overhead when registry absent — all fleet code skipped entirely
+
 ---
 
 ## [0.2.0] — 2026-05-11

@@ -69,6 +69,14 @@ pub struct NeuronMeta {
     /// S-XI (R16): Stable UUID — rename-resilient identifier.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub uuid: Option<String>,
+    /// Source path relative to the project root.
+    ///
+    /// Written alongside `source_path` (absolute) when the project root is known.
+    /// Enables portable index transfer across machines.  Read with
+    /// [`NeuronMeta::set_relative_source_path`] / prefer over `source_path` when present.
+    /// `#[serde(default)]` ensures backward compatibility with existing `.context.json` files.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_path_rel: Option<PathBuf>,
 }
 
 pub const DEFAULT_CONFIDENCE: f32 = 1.0;
@@ -156,6 +164,7 @@ impl NeuronMeta {
             confidence_score: DEFAULT_CONFIDENCE,
             shadow_sections: HashMap::new(),
             uuid: Some(generate_neuron_uuid(source)),
+            source_path_rel: None,
         }
     }
 
@@ -186,7 +195,21 @@ impl NeuronMeta {
             confidence_score: 1.0,
             shadow_sections: HashMap::new(),
             uuid: Some(generate_neuron_uuid(neuron_path)),
+            source_path_rel: None,
         }
+    }
+
+    /// Populate `source_path_rel` as a path relative to `project_root`.
+    ///
+    /// No-op if `source_path` is not under `project_root`. Call this before
+    /// [`crate::neuron::io::save_meta`] when the project root is known to make
+    /// the sidecar JSON portable across machines.
+    pub fn set_relative_source_path(&mut self, project_root: &Path) {
+        self.source_path_rel = self
+            .source_path
+            .strip_prefix(project_root)
+            .ok()
+            .map(Path::to_path_buf);
     }
 }
 
