@@ -190,8 +190,9 @@ pub fn validate_within_root(
                 .into())
             }
         },
-        // Path doesn't exist yet (new neuron write) — lexical validation is sufficient
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(joined),
+        // Path doesn't exist yet (new neuron write) — return relative to original root
+        // so callers see a consistent path regardless of whether root is a symlink.
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(root.join(rel)),
         Err(e) => Err(crate::error::CortyxError::Io(e)),
     }
 }
