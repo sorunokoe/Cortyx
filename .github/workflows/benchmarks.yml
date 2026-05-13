@@ -46,16 +46,20 @@ jobs:
         run: cargo test --release --test bench bench_locomo -- --ignored --nocapture
 
       - name: Rebuild release binary for eval harnesses
-        run: cargo build --release
+        run: |
+          cargo build --release
+          echo "Binary check: $(ls -lh target/release/cortyx 2>/dev/null || echo 'NOT FOUND')"
+          echo "PWD: $(pwd)"
+          echo "workspace: $GITHUB_WORKSPACE"
 
       - name: Run LME-500 eval harness
         env:
-          CORTYX_BIN: target/release/cortyx
+          CORTYX_BIN: ${{ github.workspace }}/target/release/cortyx
         run: python3 scripts/eval_lme.py --fresh-corpus
 
       - name: Run LoCoMo eval harness
         env:
-          CORTYX_BIN: target/release/cortyx
+          CORTYX_BIN: ${{ github.workspace }}/target/release/cortyx
         run: python3 scripts/eval_locomo.py --fresh-corpus
 
       - name: Registry scorecard
