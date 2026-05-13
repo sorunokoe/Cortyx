@@ -339,9 +339,11 @@ fn benchmark_registry_truth_matrix_is_coherent() {
             .contains("Recorded outcomes: hindsight=loss, zep=loss, letta-memgpt=loss, mem0=loss"),
         "human scorecard output should show the populated answer-quality ledger"
     );
+    // Answer quality is no longer a must-win gate (Cortyx is a context delivery engine).
+    // The active blocking must-win gate is retrieval, which awaits same-fixture comparator evidence.
     assert!(
-        scorecard_table_stdout.contains("Answer quality must be a win [blocked]"),
-        "human scorecard output should surface the concrete blocked must-win gate"
+        scorecard_table_stdout.contains("Retrieval must be a win [awaiting-evidence]"),
+        "human scorecard output should surface the concrete retrieval must-win gate"
     );
     assert_eq!(
         script_scorecard["claim_state"].as_str(),
@@ -588,21 +590,13 @@ fn benchmark_registry_truth_matrix_is_coherent() {
             .is_some_and(|reason| reason.contains("retrieval vs mempalace=win")),
         "retrieval must-win reason should surface the recorded wins that already exist"
     );
-    let answer_quality_gate = must_win_gates
-        .iter()
-        .find(|entry| entry["id"].as_str() == Some("answer-quality-win"))
-        .expect("answer-quality must-win gate should exist");
-    assert_eq!(
-        answer_quality_gate["current_state"].as_str(),
-        Some("blocked"),
-        "answer-quality must-win should become concretely blocked once losses are recorded"
-    );
+    // answer-quality-win was removed from must_win_gates: Cortyx is a context delivery engine,
+    // not a synthesis system, so answer-quality is not a blocking gate.
     assert!(
-        answer_quality_gate["reason"].as_str().is_some_and(|reason| {
-            reason.contains("answer-quality vs hindsight=loss")
-                && reason.contains("Same-surface competitor evidence is still missing for answer-quality")
-        }),
-        "answer-quality must-win reason should surface both recorded losses and remaining evidence gaps"
+        must_win_gates
+            .iter()
+            .all(|entry| entry["id"].as_str() != Some("answer-quality-win")),
+        "answer-quality-win must not appear as a must-win gate (Cortyx is a context delivery engine)"
     );
     let proof_eligibility_phase = readiness_phases
         .iter()

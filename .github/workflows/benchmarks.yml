@@ -39,9 +39,11 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Run extended cargo benchmarks (LME-500 + LoCoMo)
-        run: |
-          cargo test --test bench bench_retrieval_accuracy_500q bench_locomo -- --ignored --nocapture
+      - name: Run LME-500 extended cargo benchmark
+        run: cargo test --test bench bench_retrieval_accuracy_500q -- --ignored --nocapture
+
+      - name: Run LoCoMo extended cargo benchmark
+        run: cargo test --test bench bench_locomo -- --ignored --nocapture
 
       - name: Run LME-500 eval harness
         env:
