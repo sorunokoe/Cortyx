@@ -45,6 +45,9 @@ jobs:
       - name: Run LoCoMo extended cargo benchmark
         run: cargo test --release --test bench bench_locomo -- --ignored --nocapture
 
+      - name: Rebuild release binary for eval harnesses
+        run: cargo build --release
+
       - name: Run LME-500 eval harness
         env:
           CORTYX_BIN: target/release/cortyx
