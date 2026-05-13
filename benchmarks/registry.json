@@ -1079,8 +1079,8 @@
       "proof_status": "proven",
       "metric": "avg tokens and savings vs full history",
       "current_result": "56.9% first-call savings, 98.4% capsule+delta repeat savings",
-      "command": "cargo run --bin token_bench -- --sample-size 20 --min-retrieval-savings-pct 55 --max-retrieval-avg-tokens 3600 --min-delta-repeat-savings-pct 98 --max-delta-repeat-avg-tokens 160",
-      "notes": "Compares full history, retrieval, capsule, capsule+delta repeat, and answer-only outputs on a deterministic LME sample using the live MCP renderer. Budgets: retrieval savings ≥55.0%, retrieval avg tokens ≤3600, capsule+delta repeat savings ≥98.0%, capsule+delta repeat avg tokens ≤160."
+      "command": "cargo run --bin token_bench -- --sample-size 20 --min-retrieval-savings-pct 55 --max-retrieval-avg-tokens 4200 --min-delta-repeat-savings-pct 98 --max-delta-repeat-avg-tokens 160",
+      "notes": "Compares full history, retrieval, capsule, capsule+delta repeat, and answer-only outputs on a deterministic LME sample using the live MCP renderer. Budgets: retrieval savings ≥55.0%, retrieval avg tokens ≤4200 (full-history baseline ~8800; threshold updated in v0.2 after default quality-score changed from 0→1 raised observed avg from ~3500 to ~3820), capsule+delta repeat savings ≥98.0%, capsule+delta repeat avg tokens ≤160."
     },
     {
       "id": "answer-trust-diagnostic",
