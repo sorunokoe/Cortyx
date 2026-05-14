@@ -64,7 +64,7 @@ jobs:
           # rc=0: fully reproducible; rc=2: results written with infra warnings (e.g. one slow query);
           # rc=1: hard failure (fixture missing, binary missing, etc.) — abort the job.
           [ $RC -le 2 ] || exit $RC
-          [ $RC -eq 2 ] && echo "::warning::eval_lme.py completed with infrastructure warnings (rc=2)"
+          if [ "$RC" -eq 2 ]; then echo "::warning::eval_lme.py completed with infrastructure warnings (rc=2)"; fi
 
       - name: Run LoCoMo eval harness
         env:
@@ -76,7 +76,7 @@ jobs:
           RC=$?
           set -e
           [ $RC -le 2 ] || exit $RC
-          [ $RC -eq 2 ] && echo "::warning::eval_locomo.py completed with infrastructure warnings (rc=2)"
+          if [ "$RC" -eq 2 ]; then echo "::warning::eval_locomo.py completed with infrastructure warnings (rc=2)"; fi
 
       - name: Registry scorecard
         run: python3 scripts/benchmark_registry.py scorecard
