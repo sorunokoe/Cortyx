@@ -15,6 +15,7 @@ use crate::error::Result;
 use crate::index::NeuronIndex;
 
 mod cooccurrence;
+pub(crate) mod evidence;
 mod kg_apply;
 mod kg_extract;
 mod parsers;

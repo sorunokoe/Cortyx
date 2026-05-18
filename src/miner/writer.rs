@@ -7,7 +7,7 @@ use crate::neuron::{
     SynapseType,
 };
 
-use super::{cooccurrence, kg_apply, summary, surface, AnswerSurfaceRow, Turn};
+use super::{cooccurrence, evidence, kg_apply, summary, surface, AnswerSurfaceRow, Turn};
 
 /// Write a sequence of turns as Verbatim neurons with TemporalFollows synapses.
 pub fn write_verbatim_neurons(
@@ -267,6 +267,8 @@ pub(super) fn format_verbatim_neuron(
         extra_answer_rows,
         "mine-time extracted direct-answer spans",
     );
+    let facts = evidence::extract_evidence(&content);
+    evidence::append_evidence_surface_section(&mut content, &facts);
     content
 }
 
@@ -340,6 +342,8 @@ pub(super) fn format_fact_summary_neuron(turns: &[Turn], source: &Path) -> Optio
         &extra_answer_rows,
         "mine-time extracted direct-answer spans from distilled facts",
     );
+    let facts = evidence::extract_evidence(&content);
+    evidence::append_evidence_surface_section(&mut content, &facts);
 
     Some(content)
 }

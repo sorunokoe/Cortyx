@@ -22,6 +22,7 @@
 //! | `ModuleScope` | `Option<String>` | `"@alice"` vs `"alice"` normalisation |
 
 pub mod date;
+pub mod evidence;
 pub mod ids;
 pub mod primitives;
 pub mod scope;
@@ -29,6 +30,7 @@ pub mod scores;
 pub mod state_machines;
 
 pub use date::IsoDate;
+pub use evidence::{EvidenceFact, EvidenceFamily};
 pub use ids::{AuthorId, EditId, NeuronUuid};
 pub use primitives::{QueryText, TermFrequency, TokenBudget, TokenCount};
 pub use scope::{ModuleScope, PersonSlug};

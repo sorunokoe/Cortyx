@@ -1472,6 +1472,52 @@ impl CortyxServer {
             )
         }
     }
+
+    #[tool(
+        name = "cortyx_get_evidence",
+        description = "Return structured evidence facts extracted from the top-k neurons for a task. \
+            Facts are typed (EntityFact, TemporalInterval, Preference, KnowledgeUpdate, Absence, \
+            AssistantStated, AggregateCount, MultiHop) and serialized as JSON for LLM synthesis. \
+            Use this when you need precise facts the LLM can reason over, rather than raw neuron text."
+    )]
+    pub(in crate::mcp) async fn get_evidence(
+        &self,
+        Parameters(input): Parameters<GetEvidenceInput>,
+    ) -> String {
+        let idx = self.index.read().await;
+        let top_k = input.top_k.unwrap_or(5).min(20);
+        // Use get_contexts to retrieve top-k neuron paths by BM25 relevance.
+        let paths = idx.get_contexts(&input.task, top_k * 2000, None, None);
+        let paths: Vec<_> = paths.into_iter().take(top_k).collect();
+        drop(idx);
+
+        let mut all_facts: Vec<crate::types::EvidenceFact> = Vec::new();
+        for path in &paths {
+            let content = match std::fs::read_to_string(path) {
+                Ok(c) => c,
+                Err(_) => continue,
+            };
+            let mut facts = crate::miner::evidence::parse_evidence_surface(&content);
+            if let Some(filter) = &input.entity {
+                let filter_lower = filter.to_lowercase();
+                facts.retain(|f| f.entity.to_lowercase().contains(&filter_lower));
+            }
+            all_facts.extend(facts);
+        }
+
+        if all_facts.is_empty() {
+            return format!(
+                "No evidence facts found for task: {}. \
+                 Run `cortyx mine` on your conversation corpus first.",
+                input.task
+            );
+        }
+
+        match serde_json::to_string_pretty(&all_facts) {
+            Ok(json) => json,
+            Err(e) => format!("ERROR serializing evidence: {e}"),
+        }
+    }
 }
 
 #[cfg(test)]

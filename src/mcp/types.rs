@@ -572,3 +572,13 @@ pub struct KgTimelineInput {
     /// Predicate to show the full history for.
     pub predicate: String,
 }
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct GetEvidenceInput {
+    /// Natural language task description — used to retrieve the most relevant neurons.
+    pub task: String,
+    /// Optional entity filter — only return facts for this entity (e.g. "user", "assistant").
+    pub entity: Option<String>,
+    /// Number of top neurons to scan for evidence (default: 5, max: 20).
+    pub top_k: Option<usize>,
+}
