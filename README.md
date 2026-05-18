@@ -1,9 +1,11 @@
 # Cortyx
 
 ```text
-╔═╗╔═╗╦═╗╔╦╗╦ ╦╲ ╱
-║  ║ ║╠╦╝ ║ ╚╦╝ ╳ 
-╚═╝╚═╝╩╚═ ╩  ╩ ╱ ╲
+  ·   ·       ·   ·  
+   ╲ ╱         ╲ ╱   
+────●──── · ────●────
+   ╱ ╲         ╱ ╲   
+  ·   ·       ·   ·  
 ```
 
 [![CI](https://github.com/sorunokoe/Cortyx/actions/workflows/ci.yml/badge.svg)](https://github.com/sorunokoe/Cortyx/actions/workflows/ci.yml)  [![Benchmarks](https://github.com/sorunokoe/Cortyx/actions/workflows/benchmarks.yml/badge.svg)](https://github.com/sorunokoe/Cortyx/actions/workflows/benchmarks.yml)
