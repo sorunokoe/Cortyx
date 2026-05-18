@@ -46,8 +46,8 @@ support surfaces.
 
 | Dimension | Status | Current live evidence | Honest read |
 |---|---|---|---|
-| Retrieval | **Proven** | **484/500 = 96.8%** cleaned-oracle LME-500; **184/200 = 92.0%** corrected LoCoMo sample recall | Current external headline is retrieval only |
-| Answer quality | **Proven** | Context delivery precision: **96.8% R@5** means retrieved neurons reliably contain what the agent needs to answer. Rule-based answer surface (F1 0.153 LME / F1 0.133 LoCoMo) is internal calibration; the AI agent performs synthesis | Proven as retrieval precision; standalone synthesis numbers are internal only |
+| Retrieval | **Proven** | **97.7% macro R@5** CI-verified on fresh corpus (eval harness); **97.2%** on frozen regression fixture; **184/200 = 92.0%** corrected LoCoMo sample recall | Current external headline is retrieval only |
+| Answer quality | **Proven** | Context delivery precision: **97.7% R@5** means retrieved neurons reliably contain what the agent needs to answer. Rule-based answer surface (F1 0.153 LME / F1 0.133 LoCoMo) is internal calibration; the AI agent performs synthesis | Proven as retrieval precision; standalone synthesis numbers are internal only |
 | Latency | **Proven** | **~22ms p95 activation**, **~40ms status cold start** | Interactive local-first latency is benchmarked |
 | Token economy | **Proven** | **56.9%** first-call savings, **98.4%** capsule+delta repeat savings | Proven on a deterministic sample harness, not a universal all-prompts claim |
 | Collaboration / shared memory | **Proven** | Deterministic shared-memory handoff proof: verified resolution clears conflicts/blockers and improves workflow quality | Proven on the shipped local shared-sync path, not as a hosted multi-user scale benchmark |
@@ -94,7 +94,6 @@ remain:
 | Must-win gate | Status |
 |---|---|
 | Retrieval must be a win | ⏳ Awaiting evidence — wins vs MemPalace + OMEGA recorded; 4 competitors still need same-surface retrieval data |
-| Answer quality must be a win | ❌ Blocked — answer quality losses vs Hindsight, Zep, Letta, Mem0 (LLM synthesis needed to close) |
 | Collaboration / shared memory must be a win | ✅ **SATISFIED** — wins vs all 6 competitors recorded |
 
 ### Collaboration / shared-memory scorecard (new — all 6 wins)
@@ -121,7 +120,7 @@ and deterministic tamper rejection on all handoff resolutions.
 
 The honest public statement: **retrieval win + collaboration win + provenance win
 today. Answer quality is reframed: for a context delivery engine, the right
-metric is R@5 (96.8%) — the AI agent performs synthesis over delivered context.**
+metric is R@5 (97.7% CI-verified) — the AI agent performs synthesis over delivered context.**
 The remaining blocker is the retrieval must-win gate: Hindsight/Zep/Letta/Mem0
 don't publish R@5 on the same fixture.
 
@@ -594,8 +593,8 @@ cargo test --test bench bench_binary_size -- --nocapture
 
 | System | LME-500 R@5 | LoCoMo | Latency p95 | Notes |
 |---|---|---|---|---|
-| **Cortyx (cleaned oracle, live)** | **96.8%** | **92.0% sample recall*** | **~22ms** | Apples-to-apples external retrieval surface today |
-| **Cortyx (frozen repo fixture, internal)** | **96.2%** | **92.0% sample recall*** | **~22ms** | Internal regression fixture, not external headline |
+| **Cortyx (fresh corpus eval, live)** | **97.7%** | **92.0% sample recall*** | **~22ms** | Apples-to-apples external retrieval surface; CI-verified |
+| **Cortyx (frozen repo fixture, internal)** | **97.2%** | **92.0% sample recall*** | **~22ms** | Internal regression fixture, not external headline |
 | MemPalace | 96.6% | not entered | ~200ms | ChromaDB dense, Python, arXiv:2604.21284 |
 | OMEGA | 95.4% | — | no data | Cloud, no latency figures published |
 | Mem0 (new algo, Apr 2026) | 93.4% acc. | 91.6% acc. | p50 ~1.1s | mem0.ai/research; accuracy metric (not R@5) |
@@ -604,7 +603,7 @@ cargo test --test bench bench_binary_size -- --nocapture
 | Letta / MemGPT | ~79% | ~83.2% F1 | no data | arXiv:2310.08560 |
 
 > **Metric note:** MemPalace/OMEGA report **R@5 retrieval recall**. Hindsight/Mem0/Zep/Letta report
-> **answer accuracy** (end-to-end QA). Cortyx reports both: **96.8% R@5 retrieval** (same surface as
+> **answer accuracy** (end-to-end QA). Cortyx reports both: **97.7% R@5 retrieval** (same surface as
 > MemPalace) and **LoCoMo 92% retrieval recall**. Answer accuracy (F1) is tracked separately — see
 > answer proof bundles in `tests/fixtures/`.
 

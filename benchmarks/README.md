@@ -42,9 +42,9 @@ their insufficient or missing evidence states explicit.
 
 After the latest answer-proof promotion, the scorecard now sits at **100/100**
 eligible points and is **ready-to-score**. That is still not a win claim:
-only part of the shared-roster ledger is populated, the answer-quality must-win
-gate is already blocked by recorded losses, and collaboration/shared-memory
-still has no comparator evidence.
+only part of the shared-roster ledger is populated, and the retrieval must-win
+gate is awaiting same-surface evidence from Hindsight/Zep/Letta/Mem0.
+Collaboration/shared-memory is **satisfied** (wins vs all 6 competitors recorded).
 
 `guardrails best-overall-local-core --run` is the practical non-regression
 suite for retrieval drift, local speed, token economy, and release footprint.

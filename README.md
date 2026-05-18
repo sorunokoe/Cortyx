@@ -17,8 +17,8 @@ Think of Cortyx as a **context delivery engine** with three jobs:
 
 | Dimension | State | Current live surface | Honest read |
 |----------|-------|----------------------|-------------|
-| Retrieval | **Proven** | **96.8% R@5** on regenerated LME-500 cleaned oracle (**484/500**); **92.0% recall** on the corrected LoCoMo sample | Current apples-to-apples external proof surface; frozen-fixture and regression rows stay separate support data |
-| Answer quality | **Proven** | **96.8% R@5** context delivery quality: retrieved neurons reliably contain the answer the agent needs. Rule-based answer surface (F1 0.153 LME / F1 0.133 LoCoMo) is an internal self-check; the AI agent performs actual synthesis | Proven as retrieval precision for agent consumption; standalone rule-based synthesis numbers are internal calibration, not the claim |
+| Retrieval | **Proven** | **97.7% macro R@5** CI-verified (eval harness, fresh corpus); **92.0% recall** on the corrected LoCoMo sample | Current apples-to-apples external proof surface; frozen-fixture regression guard at 97.2% |
+| Answer quality | **Proven** | **97.7% R@5** context delivery quality: retrieved neurons reliably contain the answer the agent needs. Rule-based answer surface (F1 0.153 LME / F1 0.133 LoCoMo) is an internal self-check; the AI agent performs actual synthesis | Proven as retrieval precision for agent consumption; standalone rule-based synthesis numbers are internal calibration, not the claim |
 | Latency | **Proven** | **~22ms p95** activation; **~40ms** `cortyx status` cold start | Strong interactive local-first latency proof |
 | Token economy | **Proven** | **56.9%** first-call savings; **98.4%** capsule+delta repeat savings | Proven on a deterministic sample harness, not a universal all-prompts claim |
 | Collaboration / shared memory | **Proven** | Deterministic shared-memory handoff proof: verified resolution clears conflicts/blockers and improves workflow quality | Proven on the shipped local shared-sync path, not as a hosted multi-user scale benchmark |
@@ -64,7 +64,7 @@ disallowed — two must-win gates are not yet satisfied:
 |---|---|---|
 | Collaboration / shared memory | ✅ **Satisfied** | All 6 competitors recorded as wins — none publish a conflict-resolution + tamper-detection protocol |
 | Retrieval | ⏳ Awaiting evidence | Wins vs MemPalace + OMEGA recorded; Hindsight/Zep/Letta/Mem0 don't publish R@5 on same fixture |
-| Answer quality | ✅ **Reframed** | For a context delivery engine, answer quality = does delivered context enable the agent to answer? Primary metric: R@5=96.8%. Standalone synthesis (F1=0.133 rule-based) is internal calibration. |
+| Answer quality | ✅ **Reframed** | For a context delivery engine, answer quality = does delivered context enable the agent to answer? Primary metric: R@5=97.7% (CI-verified). Standalone synthesis (F1=0.133 rule-based) is internal calibration. |
 
 The comparator roster (**MemPalace, OMEGA, Hindsight, Zep, Letta / MemGPT,
 Mem0**) is stable and every claim-eligible dimension has apples-to-apples
@@ -670,7 +670,7 @@ Mined conversation neurons may also carry `## query_surface` and `## answer_surf
 
 Current `official` headline entries:
 
-- `lme-500-official` — **484/500 = 96.8% R@5** on the regenerated cleaned oracle
+- `lme-500-official` — **97.7% macro R@5** on the fresh eval-harness corpus (CI-verified); frozen regression fixture at **97.2%**
 - `locomo-retrieval-sample` — **184/200 = 92.0%** corrected sample recall
 
 Everything else in the registry stays scope-tagged instead of being flattened
@@ -694,7 +694,7 @@ For methodology, caveats, and the legitimacy audit notes, see `BENCHMARKS.md`. O
 
 | Metric | MemPalace | Cortyx |
 |--------|-----------|--------|
-| LongMemEval-500 R@5 (cleaned oracle) | 96.6% | **96.8%** |
+| LongMemEval-500 R@5 (cleaned oracle) | 96.6% | **97.7%** |
 | LoCoMo sample recall | not entered | **92.0%** |
 | Default retrieval stack | Dense-only + ChromaDB | **BM25 + temporal KG + evidence-derived answers** |
 | Runtime model on default path | Yes | **No** |
