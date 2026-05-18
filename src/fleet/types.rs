@@ -35,6 +35,13 @@ pub struct FleetNode {
     pub alias: String,
     pub modules: Vec<String>,
     pub last_registered: String,
+    /// Git remote URL when this node is a git-backed shared corpus.
+    /// When `Some`, `path` is a managed local clone under `~/.cortyx/fleet/{alias}/`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub git_url: Option<String>,
+    /// ISO 8601 timestamp of the last successful `git fetch` for git-backed nodes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_fetched: Option<String>,
 }
 
 /// Persisted fleet registry stored under `~/.cortyx/fleet/`.

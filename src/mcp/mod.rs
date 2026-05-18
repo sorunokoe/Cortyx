@@ -288,6 +288,14 @@ pub async fn serve(project: Option<PathBuf>) -> Result<()> {
         }
     }
 
+    // Fleet git-backed nodes: fire-and-forget sync at serve startup.
+    // Same pattern as global concepts auto-fetch — non-blocking, offline-safe.
+    tokio::spawn(async move {
+        if let Err(e) = crate::fleet::sync_git_nodes() {
+            tracing::warn!("Fleet: git-backed node sync error: {e}");
+        }
+    });
+
     // Embed feature active — hybrid BM25 + dense retrieval is wired into get_contexts.
     // Embeddings will be loaded from .cortyx/embeddings.bin if present; falls back
     // gracefully to BM25-only when embeddings.bin is absent or model not installed.

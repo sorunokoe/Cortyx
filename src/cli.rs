@@ -355,15 +355,36 @@ pub enum Commands {
 /// Sub-commands for `cortyx fleet`
 #[derive(Subcommand)]
 pub enum FleetCommand {
-    /// Register a project directory as a fleet node.
+    /// Register a project directory or git-backed corpus as a fleet node.
     ///
-    /// Scans the project's Cortyx index to extract its module manifest,
-    /// then records the node at ~/.cortyx/fleet/nodes.json.
+    /// For a local project: scans the project's Cortyx index to extract its module
+    /// manifest, then records the node at ~/.cortyx/fleet/nodes.json.
+    ///
+    /// For a shared git corpus: clones the repo to ~/.cortyx/fleet/{alias}/ and
+    /// registers it as a fleet node. Run `cortyx fleet sync` to pull future updates.
+    ///
+    /// Examples:
+    ///   cortyx fleet register /path/to/project
+    ///   cortyx fleet register --git-url git@github.com:org/neurons.git --alias team
     Register {
         /// Path to the Cortyx project to register (defaults to current directory).
+        /// Mutually exclusive with --git-url.
         path: Option<PathBuf>,
         /// Human-readable alias for this node (defaults to directory name).
         #[arg(long)]
+        alias: Option<String>,
+        /// Git URL of a shared corpus to clone and register.
+        /// Accepted: https://github.com/, https://gitlab.com/, git@github.com:, git@gitlab.com:
+        /// Requires --alias.
+        #[arg(long)]
+        git_url: Option<String>,
+    },
+    /// Pull the latest commits for all git-backed fleet nodes (or a specific one).
+    ///
+    /// Runs `git fetch --ff-only` in each git-backed node's local clone.
+    /// Failures are non-fatal — the cached clone continues to be used offline.
+    Sync {
+        /// Alias of a specific node to sync (syncs all git-backed nodes when omitted).
         alias: Option<String>,
     },
     /// Remove a fleet node by alias or path.

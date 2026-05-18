@@ -11,6 +11,20 @@ pub(super) struct FleetQueryInput {
 #[derive(schemars::JsonSchema, serde::Deserialize)]
 pub(super) struct FleetStatusInput {}
 
+#[derive(schemars::JsonSchema, serde::Deserialize)]
+pub(super) struct FleetRegisterInput {
+    /// Local filesystem path to a Cortyx project directory.
+    /// Mutually exclusive with `git_url`.
+    pub path: Option<String>,
+    /// Git remote URL of a shared corpus to clone and register.
+    /// Accepted: https://github.com/, https://gitlab.com/, git@github.com:, git@gitlab.com:
+    /// Requires `alias`.
+    pub git_url: Option<String>,
+    /// Human-readable alias for this fleet node.
+    /// Required when `git_url` is provided.
+    pub alias: Option<String>,
+}
+
 #[tool_router(router = fleet_tool_router, vis = "pub(super)")]
 impl CortyxServer {
     #[tool(
@@ -60,8 +74,14 @@ impl CortyxServer {
 
         let mut out = String::new();
         for node in &registry.nodes {
+            let kind = if node.git_url.is_some() {
+                "git"
+            } else {
+                "local"
+            };
             out.push_str(&format!(
-                "- **{}** — `{}` (module count: {}, last_registered: {})\n",
+                "- **[{}] {}** — `{}` (module count: {}, last_registered: {})\n",
+                kind,
                 node.alias,
                 node.path.display(),
                 node.modules.len(),
@@ -69,5 +89,63 @@ impl CortyxServer {
             ));
         }
         out
+    }
+
+    #[tool(
+        name = "cortyx_fleet_register",
+        description = "Register a local project directory or a git-backed shared corpus as a fleet node. \
+            For a local path, provide `path` (and optionally `alias`). \
+            For a shared git corpus, provide `git_url` and `alias`. \
+            Accepted git URL prefixes: https://github.com/, https://gitlab.com/, git@github.com:, git@gitlab.com:"
+    )]
+    pub(in crate::mcp) async fn fleet_register(
+        &self,
+        Parameters(input): Parameters<FleetRegisterInput>,
+    ) -> String {
+        match (input.git_url, input.path) {
+            (Some(url), _) => {
+                let alias = match input.alias {
+                    Some(a) => a,
+                    None => {
+                        return "alias is required when registering a git-backed fleet node"
+                            .to_string()
+                    },
+                };
+                match crate::fleet::register_git_node(&url, &alias) {
+                    Ok(node) => format!(
+                        "✓ Registered git fleet node '{}'\n  URL: {}\n  Path: {}\n  Modules: {}",
+                        node.alias,
+                        url,
+                        node.path.display(),
+                        if node.modules.is_empty() {
+                            "(none)".to_string()
+                        } else {
+                            node.modules.join(", ")
+                        }
+                    ),
+                    Err(e) => format!("Failed to register git fleet node: {e}"),
+                }
+            },
+            (None, Some(path)) => {
+                let project_path = std::path::PathBuf::from(path);
+                match crate::fleet::register_node(&project_path, input.alias) {
+                    Ok(node) => format!(
+                        "✓ Registered fleet node '{}'\n  Path: {}\n  Modules: {}",
+                        node.alias,
+                        node.path.display(),
+                        if node.modules.is_empty() {
+                            "(none)".to_string()
+                        } else {
+                            node.modules.join(", ")
+                        }
+                    ),
+                    Err(e) => format!("Failed to register fleet node: {e}"),
+                }
+            },
+            (None, None) => {
+                "Provide either 'path' for a local node or 'git_url' for a git-backed node."
+                    .to_string()
+            },
+        }
     }
 }

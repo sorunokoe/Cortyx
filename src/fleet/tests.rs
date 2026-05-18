@@ -79,6 +79,8 @@ fn save_and_load_registry_roundtrip() {
                 alias: "alpha".to_string(),
                 modules: vec!["core".to_string()],
                 last_registered: "2026-01-01T00:00:00Z".to_string(),
+                git_url: None,
+                last_fetched: None,
             }],
         };
 
