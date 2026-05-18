@@ -46,24 +46,54 @@ support surfaces.
 > **481/500 = 96.2%**. Only the regenerated cleaned-oracle run is the
 > apples-to-apples external comparison surface.
 
-| Dimension | Status | Current live evidence | Honest read |
-|---|---|---|---|
-| Retrieval | **Proven** | **97.7% macro R@5** CI-verified on fresh corpus (eval harness); **97.2%** on frozen regression fixture; **184/200 = 92.0%** corrected LoCoMo sample recall | Current external headline is retrieval only |
-| Answer quality | **Proven** | Context delivery precision: **97.7% R@5** means retrieved neurons reliably contain what the agent needs to answer. Rule-based answer surface (F1 0.153 LME / F1 0.133 LoCoMo) is internal calibration; the AI agent performs synthesis | Proven as retrieval precision; standalone synthesis numbers are internal only |
-| Latency | **Proven** | **~22ms p95 activation**, **~40ms status cold start** | Interactive local-first latency is benchmarked |
-| Token economy | **Proven** | **56.9%** first-call savings, **98.4%** capsule+delta repeat savings | Proven on a deterministic sample harness, not a universal all-prompts claim |
+
+## Benchmark Results
+
+| Dimension | State | Current live surface | Honest read |
+|----------|-------|----------------------|-------------|
+| Retrieval | **Proven** | **97.7% macro R@5** CI-verified (eval harness, fresh corpus); **92.0% recall** on the corrected LoCoMo sample | Current apples-to-apples external proof surface; frozen-fixture regression guard at 97.2% |
+| Answer quality | **Proven** | **97.7% R@5** context delivery quality: retrieved neurons reliably contain the answer the agent needs. Rule-based answer surface (F1 0.153 LME / F1 0.133 LoCoMo) is an internal self-check; the AI agent performs actual synthesis | Proven as retrieval precision for agent consumption; standalone rule-based synthesis numbers are internal calibration, not the claim |
+| Latency | **Proven** | **~22ms p95** activation; **~40ms** `cortyx status` cold start | Strong interactive local-first latency proof |
+| Token economy | **Proven** | **56.9%** first-call savings; **98.4%** capsule+delta repeat savings | Proven on a deterministic sample harness, not a universal all-prompts claim |
 | Collaboration / shared memory | **Proven** | Deterministic shared-memory handoff proof: verified resolution clears conflicts/blockers and improves workflow quality | Proven on the shipped local shared-sync path, not as a hosted multi-user scale benchmark |
 | Graph reasoning | **Proven** | Multi-hop graph traversal with per-depth coverage tracking: converged benchmark (depth_coverage 1.00, 4 nodes / 3 hops); `TraversalStats` captured in every `ReasoningReport`; reasoning chains surfaced in answer-plane output | Proven on synthetic 3-hop chain benchmark; no paper-comparable public dataset comparison yet |
 | Provenance / trust | **Proven** | Deterministic trust proof: verified lineage improves sync trust and tampered handoffs are rejected | Proven on the shipped sync/provenance path, not as a third-party audit or trust leaderboard |
 | UX / install / routing | **Proven** | Stable `ux-proof` JSON covers TTFC, route/watch recovery, onboarding, and export metadata | Proven as deterministic shipped CLI flows, not as a human-subject usability study |
-| Footprint | **Proven** | **~6.9MB** stripped release binary, BM25-only default path | No runtime DB and no always-on dense model required |
+| Footprint | **Proven** | **~6.9MB** stripped release binary | Lightweight, local, and no runtime database or always-on model |
 
-**Speed-path note:** Cortyx now auto-skips the binary activation-cache artifact when it is larger than the canonical `index.json`. On the current benchmark-sized projects, rebuilding derived state from `index.json` is faster than deserializing the larger binary blob, so the default path prefers the measured faster route.
+The registry uses **`proven`** (reproducible benchmark/sample), **`diagnostic`** (measured but non-headline), **`contract`** (invariant/interop proof), **`smoke`** (capability proof), and **`pending`** (declared gap).
 
-**Contract note:** the current external headline is still the **local-core
-retrieval surface**. Everything else stays intentionally proof-state-scoped in
-the registry (`proven`, `diagnostic`, `contract`, `smoke`, or `pending`) so the
-public story stays metric-scoped and honest.
+The strongest externally comparable claim today is the **regenerated cleaned-oracle LME-500 retrieval run**. It now slightly exceeds the cited MemPalace baseline on that specific retrieval surface, but the rest of the claims in this README stay tied to the exact metric or proof state shown above rather than implying “best at everything.”
+
+The checked-in **proof matrix** and **best-overall claim gate** live in
+`benchmarks/registry.json` and are queryable via
+`python3 scripts/benchmark_registry.py matrix`, `scorecard`, `scorecard --json`,
+`guardrails`, `list`, `show` (for example `show best-overall`), and `validate`
+(for example `--proof-status diagnostic` or `--dimension
+collaboration-shared-memory`). That manifest is the source of truth behind the
+claims above.
+
+`benchmarks/registry.json` is the machine-readable proof matrix. Every row is intentionally tagged as `proven`, `diagnostic`, `contract`, `smoke`, or `pending` instead of flattening everything into one headline bucket.
+
+Current `official` headline entries:
+
+- `lme-500-official` — **97.7% macro R@5** on the fresh eval-harness corpus (CI-verified); frozen regression fixture at **97.2%**
+- `locomo-retrieval-sample` — **184/200 = 92.0%** corrected sample recall
+
+Everything else in the registry stays scope-tagged instead of being flattened
+into one headline: internal regression fixtures, checked-in answer-proof
+bundles plus support diagnostics, latency/token/footprint measurements, proven
+shared-memory/trust/UX harnesses, support sync contracts, graph smoke tests,
+and CI guards.
+
+Inspect or validate the proof matrix:
+```bash
+python3 scripts/benchmark_registry.py matrix
+python3 scripts/benchmark_registry.py scorecard
+python3 scripts/benchmark_registry.py list --proof-status diagnostic
+python3 scripts/benchmark_registry.py show collaboration-shared-memory
+python3 scripts/benchmark_registry.py validate
+```
 
 ## Best overall claim gate
 
@@ -699,3 +729,4 @@ python3 scripts/eval_locomo.py
 cargo build --release
 cargo test --test bench bench_binary_size -- --nocapture
 ```
+
