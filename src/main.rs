@@ -951,6 +951,10 @@ async fn main() -> Result<()> {
         Commands::Concepts(sub) => {
             commands::concepts::run(sub)?;
         },
+        Commands::Patterns(sub) => {
+            let root = project_root(None);
+            commands::patterns::run(sub, &root)?;
+        },
     }
 
     Ok(())

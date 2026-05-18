@@ -350,6 +350,29 @@ pub enum Commands {
     /// zero server, works offline. Deduplication prevents duplicate concepts.
     #[command(subcommand)]
     Concepts(ConceptsCommand),
+    /// Manage the user-extensible evidence pattern registry (TRIZ C2 resolution).
+    ///
+    /// The pattern registry lets you extend evidence extraction with domain-specific
+    /// patterns without touching Cortyx source code. Patterns live in `.cortyx/patterns/*.toml`.
+    #[command(subcommand)]
+    Patterns(PatternsCommand),
+}
+
+/// Sub-commands for `cortyx patterns`
+#[derive(Subcommand)]
+pub enum PatternsCommand {
+    /// List all loaded evidence patterns (built-in + user-defined).
+    ///
+    /// Shows pattern name, family, confidence, and whether it is built-in or user-defined.
+    List,
+    /// Scaffold a new TOML pattern file in `.cortyx/patterns/`.
+    ///
+    /// Creates `.cortyx/patterns/<name>.toml` with a template pattern entry.
+    Add {
+        /// Filename stem for the new pattern file (e.g. "my_domain").
+        /// Creates `.cortyx/patterns/<name>.toml`.
+        name: String,
+    },
 }
 
 /// Sub-commands for `cortyx fleet`

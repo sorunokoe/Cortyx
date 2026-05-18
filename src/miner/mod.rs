@@ -19,6 +19,7 @@ pub(crate) mod evidence;
 mod kg_apply;
 mod kg_extract;
 mod parsers;
+pub(crate) mod pattern_registry;
 mod summary;
 mod surface;
 mod writer;
