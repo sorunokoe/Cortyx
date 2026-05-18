@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 130" width="280" height="130">
+  <style>
+    text {
+      font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+      font-size: 15px;
+      text-anchor: middle;
+      fill: #1f2328;
+    }
+    @media (prefers-color-scheme: dark) {
+      text { fill: #e6edf3; }
+    }
+  </style>
+  <text xml:space="preserve" x="140" y="22">  ·   ·       ·   ·  </text>
+  <text xml:space="preserve" x="140" y="46">   ╲ ╱         ╲ ╱   </text>
+  <text xml:space="preserve" x="140" y="70">────●──── · ────●────</text>
+  <text xml:space="preserve" x="140" y="94">   ╱ ╲         ╱ ╲   </text>
+  <text xml:space="preserve" x="140" y="118">  ·   ·       ·   ·  </text>
+</svg>

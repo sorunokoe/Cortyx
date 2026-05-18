@@ -1,16 +1,8 @@
 # Cortyx
 
-<div align="center">
-
-```text
-  ·   ·       ·   ·  
-   ╲ ╱         ╲ ╱   
-────●──── · ────●────
-   ╱ ╲         ╱ ╲   
-  ·   ·       ·   ·  
-```
-
-</div>
+<p align="center">
+  <img src=".github/logo.svg" alt="two neurons connected by a synapse" width="280">
+</p>
 
 [![CI](https://github.com/sorunokoe/Cortyx/actions/workflows/ci.yml/badge.svg)](https://github.com/sorunokoe/Cortyx/actions/workflows/ci.yml)  [![Benchmarks](https://github.com/sorunokoe/Cortyx/actions/workflows/benchmarks.yml/badge.svg)](https://github.com/sorunokoe/Cortyx/actions/workflows/benchmarks.yml)
 
