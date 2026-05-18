@@ -73,7 +73,7 @@ raw fixture — this ensures retrieval changes are always reflected in results.
 
 ## CI Benchmarks
 
-The nightly `Benchmarks` GitHub Actions workflow runs:
+The `Benchmarks` GitHub Actions workflow runs on manual trigger (`workflow_dispatch`) and executes:
 1. `cargo test --test bench bench_retrieval_accuracy_500q bench_locomo -- --ignored --nocapture`
 2. `eval_lme.py --fresh-corpus` and `eval_locomo.py --fresh-corpus`
 3. `benchmark_registry.py scorecard` and `validate`
