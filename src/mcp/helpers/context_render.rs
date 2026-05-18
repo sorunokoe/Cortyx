@@ -585,7 +585,8 @@ pub fn significant_task_terms(task_terms: &[String]) -> std::collections::HashSe
 
 pub fn strip_render_only_sections(content: &str) -> String {
     let without_query = strip_named_render_section(content, "query_surface");
-    strip_named_render_section(&without_query, "answer_surface")
+    let without_answer = strip_named_render_section(&without_query, "answer_surface");
+    strip_named_render_section(&without_answer, "evidence_surface")
 }
 
 pub fn strip_named_render_section(content: &str, section_name: &str) -> String {

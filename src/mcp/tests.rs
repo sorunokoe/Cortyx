@@ -279,7 +279,7 @@ fn render_context_item_strips_answer_and_query_surface_sections() {
     let path = dir.path().join("example.context.md");
     fs::write(
         &path,
-        "# Example\n\nUseful body.\n\n## answer_surface\n<!-- SECTION: answer_surface -->\n| question_pattern | answer_span | confidence |\n| --- | --- | --- |\n| role | reviewer | 0.9 |\n<!-- /SECTION -->\n\n## query_surface\n<!-- SECTION: query_surface -->\n- audit auth route\n<!-- /SECTION -->\n",
+        "# Example\n\nUseful body.\n\n## answer_surface\n<!-- SECTION: answer_surface -->\n| question_pattern | answer_span | confidence |\n| --- | --- | --- |\n| role | reviewer | 0.9 |\n<!-- /SECTION -->\n\n## query_surface\n<!-- SECTION: query_surface -->\n- audit auth route\n<!-- /SECTION -->\n\n## evidence_surface\n<!-- SECTION: evidence_surface -->\n[{\"entity\":\"Alice\",\"predicate\":\"role\",\"value\":\"reviewer\"}]\n<!-- /SECTION -->\n",
     )
     .unwrap();
 
@@ -287,8 +287,10 @@ fn render_context_item_strips_answer_and_query_surface_sections() {
     assert!(rendered.rendered.contains("Useful body."));
     assert!(!rendered.rendered.contains("answer_surface"));
     assert!(!rendered.rendered.contains("query_surface"));
+    assert!(!rendered.rendered.contains("evidence_surface"));
     assert!(!rendered.rendered.contains("reviewer"));
     assert!(!rendered.rendered.contains("audit auth route"));
+    assert!(!rendered.rendered.contains("Alice"));
 }
 
 #[test]
