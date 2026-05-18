@@ -280,9 +280,12 @@ pub fn render_context_item(
 
 pub(super) fn select_emission_tier(score: f32, content: &str) -> EmissionTier {
     let tokens = estimate_context_tokens(content).get();
-    if score < 5.0 {
+    // C2 TRIZ: Align thresholds with index confidence constants.
+    // LOW_CONFIDENCE = 4.0 → Summary (compressed), HIGH_CONFIDENCE = 8.0 → Full.
+    // Focused (headline-extracted) fills the gap at 4.0 ≤ score < 8.0.
+    if score < 4.0 {
         EmissionTier::Summary
-    } else if score >= 9.0 || tokens <= 160 {
+    } else if score >= 8.0 || tokens <= 160 {
         EmissionTier::Full
     } else {
         EmissionTier::Focused
@@ -923,4 +926,98 @@ pub fn auto_mine_code_blocks(
     }
 
     written
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── C2: Score-Tiered Emission threshold alignment tests ──────────────────
+
+    // Long content: must exceed 160 tokens (= 640 ASCII chars). This string is ~900 chars.
+    const LONG_CONTENT: &str = concat!(
+        "## purpose\n",
+        "This neuron describes the authentication flow in full detail. It covers token refresh, ",
+        "session expiry, logout behaviour, and the interaction between the auth middleware and ",
+        "the token store. Understanding this neuron is critical before modifying any auth path.\n\n",
+        "## api\n",
+        "`auth.validate(token: &str) -> Result<AuthResult, AuthError>` — validates a JWT and ",
+        "returns the decoded claims. Raises `AuthError::Expired` if the `exp` claim is in the past.\n\n",
+        "`auth.refresh(refresh_token: &str) -> Result<TokenPair, AuthError>` — issues a new access ",
+        "token using the provided refresh token. The refresh token must not be revoked.\n\n",
+        "## pitfalls\n",
+        "- Tokens expire after 15 minutes of inactivity. Always check `exp` before using.\n",
+        "- Do not cache validated tokens longer than 30 seconds downstream.\n",
+        "- Always check the `exp` field before using a decoded JWT in downstream services.\n",
+        "- The refresh endpoint is rate-limited to 5 requests per minute per user.\n",
+    );
+
+    #[test]
+    fn emission_tier_below_low_confidence_is_summary() {
+        // Score < 4.0 (LOW_CONFIDENCE) → Summary regardless of content length.
+        assert_eq!(
+            select_emission_tier(3.9, LONG_CONTENT),
+            EmissionTier::Summary
+        );
+        assert_eq!(
+            select_emission_tier(0.0, LONG_CONTENT),
+            EmissionTier::Summary
+        );
+        assert_eq!(
+            select_emission_tier(1.5, LONG_CONTENT),
+            EmissionTier::Summary
+        );
+    }
+
+    #[test]
+    fn emission_tier_at_high_confidence_is_full() {
+        // Score >= 8.0 (HIGH_CONFIDENCE) → Full.
+        assert_eq!(select_emission_tier(8.0, LONG_CONTENT), EmissionTier::Full);
+        assert_eq!(select_emission_tier(9.5, LONG_CONTENT), EmissionTier::Full);
+        assert_eq!(select_emission_tier(12.0, LONG_CONTENT), EmissionTier::Full);
+    }
+
+    #[test]
+    fn emission_tier_mid_range_is_focused() {
+        // 4.0 ≤ score < 8.0 with long content → Focused.
+        assert_eq!(
+            select_emission_tier(4.0, LONG_CONTENT),
+            EmissionTier::Focused
+        );
+        assert_eq!(
+            select_emission_tier(6.0, LONG_CONTENT),
+            EmissionTier::Focused
+        );
+        assert_eq!(
+            select_emission_tier(7.9, LONG_CONTENT),
+            EmissionTier::Focused
+        );
+    }
+
+    #[test]
+    fn emission_tier_tiny_content_is_full() {
+        // Very short neurons (≤ 160 tokens) with score in [4.0, 8.0) → Full (size wins).
+        let tiny = "## purpose\nTiny neuron.\n";
+        assert_eq!(select_emission_tier(5.0, tiny), EmissionTier::Full);
+        // But score < 4.0 (LOW_CONFIDENCE) → Summary takes priority over tiny size.
+        assert_eq!(select_emission_tier(1.0, tiny), EmissionTier::Summary);
+    }
+
+    #[test]
+    fn emission_tier_boundary_at_4_is_focused_not_summary() {
+        // Exact boundary: score = 4.0 must be Focused (not Summary).
+        assert_eq!(
+            select_emission_tier(4.0, LONG_CONTENT),
+            EmissionTier::Focused
+        );
+    }
+
+    #[test]
+    fn emission_tier_just_below_high_confidence_is_focused() {
+        // score = 7.99 → Focused (not Full yet).
+        assert_eq!(
+            select_emission_tier(7.99, LONG_CONTENT),
+            EmissionTier::Focused
+        );
+    }
 }

@@ -9,7 +9,7 @@ pub mod types;
 #[cfg(test)]
 mod tests;
 
-pub use merge::{rrf_merge, MergedFleetResult};
+pub use merge::{dynamic_fleet_weight, rrf_merge, MergedFleetResult};
 pub use registry::{
     deregister_node, fleet_registry_path, load_registry, register_git_node, register_node,
     save_registry, sync_git_nodes,

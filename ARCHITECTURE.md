@@ -267,6 +267,9 @@ resolution applied.
 | Session memory tracks query vocabulary but not retrieved content | TC | P23 Feedback, P3 Local Quality | `mcp/mod.rs`, `mcp/tools/context.rs` | `session_path_history` (λ=0.8 decay) added alongside `session_tf`; retrieved paths receive +15% score boost on next call |
 | Weak overflow items dilute high-confidence primary results | TC | P21 Skipping, P1 Segmentation | `mcp/tools/context.rs` | Adaptive channel gate: suppress overflow score < 1.5 when primary BM25 max > 8.0 |
 | `apply_synapse_decay()` only fires at startup — synapses go stale during long-running serve | TC | P19 Periodic Action | `mcp/mod.rs` | Background tokio task on 24 h interval re-applies LTD; skips first tick (startup already ran) |
+| **C2** Fixed emission tier thresholds misaligned with confidence constants | PC | P1 Segmentation, P35 Parameter Changes | `mcp/helpers/context_render.rs` | `select_emission_tier()` thresholds now use LOW_CONFIDENCE=4.0 / HIGH_CONFIDENCE=8.0; Focused fills 4–8 gap |
+| **C6** Fixed Hebbian threshold ignores signal consistency (fixed count=10) | PC | P11 Cushion in Advance, P35 Parameter Changes | `index/core/stats.rs`, `index/core/activation/search.rs` | Wilson score lower bound at z=1.0 replaces fixed threshold; strong pairs wire at count≈3, noisy pairs never wire; sentinel = u32::MAX prevents overshoot |
+| **C7** Static fleet merge weight 0.3 ignores result quality | PC | P15 Dynamics | `fleet/merge.rs`, `mcp/tools/fleet.rs` | `dynamic_fleet_weight(top_score)` — sigmoid-shaped [0.10, 0.50]; baseline 0.30 at midpoint=4.0 (LOW_CONFIDENCE) |
 
 **Deferred (too invasive for automated refactor):**
 

@@ -256,27 +256,62 @@ impl NeuronIndex {
     /// # "Hebbian" as metaphor
     /// This mechanism borrows Hebb's rule ("neurons that fire together wire together") as an
     /// analogy: *neurons that are **returned** together wire together*. The underlying signal is
-    /// co-return co-occurrence — two neurons appearing in the same query result ≥10 times —
+    /// co-return co-occurrence — two neurons appearing in the same query result ≥3 times —
     /// not simultaneous neural activation in the biological sense. The label is evocative, not
     /// mechanistically literal.
+    ///
+    /// # Wilson-Adaptive Threshold (TRIZ C6)
+    /// Instead of a fixed threshold of 10 co-returns, synapse formation is governed by a Wilson
+    /// score lower bound on the co-return rate:
+    ///
+    ///   rate = co_return_count / min(use_a, use_b)
+    ///
+    /// where `min(use_a, use_b)` is the tightest upper bound on co-occurrence opportunities
+    /// (the rarer neuron's activation count). A Wilson lower bound ≥ 0.10 at 68% CI is
+    /// required before a synapse fires. This means:
+    ///
+    /// - Strong pairs (always co-returned): synapse forms at count ≈ 3–5 (fast)
+    /// - Weak pairs (10/100 activations): synapse never forms, noise-resistant
+    ///
+    /// `HEBBIAN_WIRED = u32::MAX` is used as the sentinel (not THRESHOLD+1) to prevent
+    /// the counting window from being accidentally overshot by concurrent increments.
     pub(in crate::index) fn apply_pending_hebbian_synapses(&mut self) {
-        const HEBBIAN_THRESHOLD: u32 = 10;
-        let pairs_to_wire: Vec<(usize, usize)> = {
+        const MIN_HEBBIAN_COUNT: u32 = 3; // absolute floor before any Wilson decision
+        const HEBBIAN_WIRED: u32 = u32::MAX; // sentinel: pair already wired
+
+        // Collect pairs that have crossed the minimum floor and are not yet wired.
+        let candidates: Vec<(usize, usize, u32)> = {
             let Ok(counts) = self.co_return_counts.lock() else {
                 return;
             };
             counts
                 .iter()
-                .filter(|(_, &c)| c == HEBBIAN_THRESHOLD) // exactly at threshold — fire once
-                .map(|(&k, _)| k)
+                .filter(|(_, &c)| c >= MIN_HEBBIAN_COUNT && c != HEBBIAN_WIRED)
+                .map(|(&(a, b), &c)| (a, b, c))
                 .collect()
         };
 
+        // Apply Wilson CI filter: only wire statistically confident pairs.
+        let pairs_to_wire: Vec<(usize, usize)> = candidates
+            .into_iter()
+            .filter(|&(a_idx, b_idx, count)| {
+                let use_a = self.entries.get(a_idx).map(|e| e.use_count).unwrap_or(0);
+                let use_b = self.entries.get(b_idx).map(|e| e.use_count).unwrap_or(0);
+                // Tightest upper bound on co-occurrence opportunities: the rarer neuron's
+                // activation count. Clamped to >= count to handle the case where use_count
+                // lags co_return_counts (e.g. count recorded before record_activation fires).
+                let denominator = use_a.min(use_b).max(count);
+                // Wilson lower bound at z=1.0 (68% CI) — react fast to clear signal.
+                crate::index::core::query::wilson_lower_bound_z(count, denominator, 1.0) >= 0.10
+            })
+            .map(|(a, b, _)| (a, b))
+            .collect();
+
         for (a_idx, b_idx) in pairs_to_wire {
-            // Mark as wired (sentinel = HEBBIAN_THRESHOLD + 1) so we don't re-fire on future calls
+            // Mark as wired with sentinel so we don't re-fire on future calls.
             if let Ok(mut counts) = self.co_return_counts.lock() {
                 if let Some(c) = counts.get_mut(&(a_idx, b_idx)) {
-                    *c = HEBBIAN_THRESHOLD + 1;
+                    *c = HEBBIAN_WIRED;
                 }
             }
 

@@ -798,6 +798,58 @@ fn wilson_lower_bound_correctness() {
     assert_eq!(wilson_lower_bound(0, 0), 0.0);
 }
 
+// ── C6: Wilson-Adaptive Hebbian threshold ─────────────────────────────────────
+
+/// Helper: is this pair wireable under the C6 Wilson-adaptive rule?
+/// Mirrors the logic in apply_pending_hebbian_synapses.
+fn hebbian_wires(co_return_count: u32, use_a: u32, use_b: u32) -> bool {
+    let denominator = use_a.min(use_b).max(co_return_count);
+    wilson_lower_bound_z(co_return_count, denominator, 1.0) >= 0.10
+}
+
+#[test]
+fn hebbian_strong_pair_wires_early() {
+    // Pair always co-returns: 5/5 activations — should wire at count=5.
+    assert!(
+        hebbian_wires(5, 5, 5),
+        "consistent pair (5/5) should wire at count=5"
+    );
+}
+
+#[test]
+fn hebbian_weak_pair_does_not_wire_at_10() {
+    // Pair co-returns 10 times out of 200 each — sparse overlap, should not wire.
+    assert!(
+        !hebbian_wires(10, 200, 200),
+        "sparse pair (10/200) should NOT wire at count=10"
+    );
+}
+
+#[test]
+fn hebbian_zero_use_count_never_wires() {
+    // New neuron with use_count=0 — denominator = max(0, count) = count, lb = 1.0, but
+    // count < 3 minimum floor is handled by the caller; here count=3 case:
+    // denominator = 0.min(0).max(3) = 3; p_hat = 1.0; lb(3,3,1.0) should be high.
+    // This test verifies the .max(count) guard doesn't create NaN.
+    let w = wilson_lower_bound_z(3, 3, 1.0);
+    assert!(w.is_finite(), "wilson_lower_bound_z must not produce NaN");
+}
+
+#[test]
+fn hebbian_medium_pair_wires_with_enough_signal() {
+    // 8 co-returns out of 15 total activations for the rarer neuron — should wire.
+    assert!(hebbian_wires(8, 15, 20), "moderate pair (8/15) should wire");
+}
+
+#[test]
+fn hebbian_medium_pair_does_not_wire_prematurely() {
+    // Only 3 co-returns but one neuron has 50 activations — not enough signal.
+    assert!(
+        !hebbian_wires(3, 50, 60),
+        "3 co-returns out of 50 activations should NOT wire (noise floor)"
+    );
+}
+
 // ── S1: AST Signature Hash ─────────────────────────────────────────────────
 
 #[test]

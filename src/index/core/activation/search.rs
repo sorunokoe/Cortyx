@@ -1142,11 +1142,10 @@ impl NeuronIndex {
 
             if verbatim_ids.len() >= 2 {
                 if let Ok(mut counts) = self.co_return_counts.lock() {
-                    // Hebbian synapse threshold: require ≥10 co-returns before firing.
-                    // 2 was far too low — any niche query pair would co-occur twice
-                    // by chance over a session, polluting the adjacency graph with
-                    // spurious SemanticRelated edges.
-                    const HEBBIAN_THRESHOLD: u32 = 10;
+                    // C6 Wilson-Adaptive Hebbian: co-return counts drive synapse formation via
+                    // Wilson score CI (not a fixed threshold). Wired pairs are marked with
+                    // HEBBIAN_WIRED = u32::MAX; do not increment past that sentinel.
+                    const HEBBIAN_WIRED: u32 = u32::MAX;
                     let n = verbatim_ids.len();
                     for i in 0..n {
                         for j in (i + 1)..n {
@@ -1157,18 +1156,9 @@ impl NeuronIndex {
                                 (verbatim_ids[j], verbatim_ids[i])
                             };
                             let count = counts.entry((a, b)).or_insert(0);
-                            *count += 1;
-                            if *count == HEBBIAN_THRESHOLD {
-                                // Fire: create SemanticRelated synapse in both directions.
-                                // We cannot mutate adjacency here (& borrow). Drop the lock
-                                // and return the pair to be wired by the caller (deferred).
-                                // For now, log the event — synapse creation happens via
-                                // `record_coactivation()` on the next &mut self call.
-                                tracing::debug!(
-                                    a = %self.entries[a].neuron_path.display(),
-                                    b = %self.entries[b].neuron_path.display(),
-                                    "C-2 Hebbian threshold reached: SemanticRelated synapse queued"
-                                );
+                            // Guard: never increment past the wired sentinel.
+                            if *count < HEBBIAN_WIRED {
+                                *count += 1;
                             }
                         }
                     }

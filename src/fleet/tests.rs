@@ -147,3 +147,58 @@ fn fleet_low_confidence_threshold_is_correct_value() {
 fn fleet_node_id_display() {
     assert_eq!(FleetNodeId::new("abc").to_string(), "abc");
 }
+
+// ── C7: Dynamic fleet weight tests ────────────────────────────────────────────
+
+#[test]
+fn dynamic_fleet_weight_zero_score_gives_minimum() {
+    assert!((dynamic_fleet_weight(0.0) - 0.10).abs() < 0.001);
+}
+
+#[test]
+fn dynamic_fleet_weight_at_midpoint_gives_baseline() {
+    // score = 4.0 (LOW_CONFIDENCE midpoint) → weight ≈ 0.30 (the prior)
+    let w = dynamic_fleet_weight(4.0);
+    assert!(
+        (w - 0.30).abs() < 0.01,
+        "expected ~0.30 at midpoint, got {w}"
+    );
+}
+
+#[test]
+fn dynamic_fleet_weight_high_score_amplified() {
+    // score = 8.0 → weight approaching 0.50
+    let w = dynamic_fleet_weight(8.0);
+    assert!(
+        w >= 0.40,
+        "high-quality fleet result should have weight ≥ 0.40, got {w}"
+    );
+    assert!(w <= 0.50);
+}
+
+#[test]
+fn dynamic_fleet_weight_clamped_in_range() {
+    for score in [0.0, 1.0, 4.0, 8.0, 12.0, 100.0] {
+        let w = dynamic_fleet_weight(score);
+        assert!(
+            (0.10..=0.50).contains(&w),
+            "weight {w} out of [0.10, 0.50] for score {score}"
+        );
+    }
+}
+
+#[test]
+fn dynamic_fleet_weight_monotone_increasing() {
+    let scores = [0.0, 1.0, 2.0, 4.0, 6.0, 8.0, 12.0];
+    let weights: Vec<f32> = scores.iter().map(|&s| dynamic_fleet_weight(s)).collect();
+    for i in 1..weights.len() {
+        assert!(
+            weights[i] >= weights[i - 1],
+            "weight should be non-decreasing: w({})={} < w({})={}",
+            scores[i],
+            weights[i],
+            scores[i - 1],
+            weights[i - 1]
+        );
+    }
+}

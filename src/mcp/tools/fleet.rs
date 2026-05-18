@@ -47,7 +47,12 @@ impl CortyxServer {
             registry.as_ref(),
         )
         .await;
-        let merged = crate::fleet::rrf_merge("", 0.0, results, 0.7, 0.3);
+        // C7: Dynamic fleet weight — use max top_score as proxy for fleet quality.
+        // High-scoring fleet results (top_score ≥ 8.0) get weight → 0.50;
+        // low-scoring results (top_score ≈ 0.0) are suppressed to weight → 0.10.
+        let fleet_weight = results.iter().map(|r| r.top_score).fold(0.0_f32, f32::max);
+        let fleet_weight = crate::fleet::dynamic_fleet_weight(fleet_weight);
+        let merged = crate::fleet::rrf_merge("", 0.0, results, 0.7, fleet_weight);
         if merged.trim().is_empty() {
             "No relevant fleet context found.".to_string()
         } else {

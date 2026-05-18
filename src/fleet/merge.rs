@@ -6,6 +6,28 @@ use super::{FleetNodeId, FleetQueryResult};
 
 const RRF_K: usize = 60;
 
+/// Compute dynamic fleet weight from fleet result quality relative to a reference threshold.
+///
+/// When local context is absent (standalone fleet queries), the weight is calibrated against
+/// the LOW_CONFIDENCE midpoint (4.0). This replaces the static 0.3 prior with a quality-
+/// sensitive weight that penalizes noisy fleet results and rewards high-quality ones.
+///
+/// Range: [0.10, 0.50]
+/// - fleet_score ≈ 0.0 → weight = 0.10 (irrelevant node — suppress)
+/// - fleet_score ≈ 4.0 → weight = 0.30 (neutral — baseline prior)
+/// - fleet_score ≥ 8.0 → weight → 0.50 (high quality — amplify)
+///
+/// Formula: sigmoid-shaped blend: 0.30 + 0.20 × (score − 4.0) / (4.0 + |score − 4.0|)
+pub fn dynamic_fleet_weight(fleet_top_score: f32) -> f32 {
+    const MIDPOINT: f32 = 4.0; // LOW_CONFIDENCE — neutral weight reference
+    if fleet_top_score <= 0.0 {
+        return 0.10;
+    }
+    let normalized = (fleet_top_score - MIDPOINT) / MIDPOINT;
+    let weight = 0.30 + 0.20 * normalized / (1.0 + normalized.abs());
+    weight.clamp(0.10, 0.50)
+}
+
 /// A rendered fleet result eligible for inclusion in merged output.
 #[derive(Debug, Clone, PartialEq)]
 pub struct MergedFleetResult {
