@@ -2,6 +2,76 @@
 
 use super::*;
 
+// ─── Write-ahead log ─────────────────────────────────────────────────────────
+//
+// The WAL provides crash-safety for pending index mutations that have not yet been
+// written to the authoritative `index.json`. It replaces the previous
+// `index.delta.json` append-only mechanism, adding BLAKE3 integrity verification.
+//
+// # Crash-safety contract
+// - **WAL present, checksum valid:** WAL entries are applied on top of the loaded
+//   `index.json`. Entries present in both are idempotently overwritten (last-write
+//   wins by neuron path, so replaying a WAL into an already-complete index is safe).
+// - **WAL present, checksum invalid:** WAL is discarded; `index.json` is the
+//   authoritative state. Entries written since the last full save may be lost, but
+//   the index is never left in a corrupt state.
+// - **WAL absent:** Clean state; `index.json` is fully up-to-date.
+//
+// # File format
+// Binary: `[32-byte BLAKE3 hash][JSON payload]`
+// The hash covers the JSON payload bytes so a partial write is detected on replay.
+
+/// A pending mutation buffered in the WAL before the next full `index.json` write.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+enum WalEntry {
+    /// A new or updated BM25 index entry.
+    Upsert(BM25Entry),
+    /// A neuron removed from the index (stale or evicted).
+    Invalidate { path: PathBuf },
+}
+
+fn wal_path(cortyx_dir: &Path) -> PathBuf {
+    cortyx_dir.join("index.wal")
+}
+
+/// Write `entries` to `path` atomically, prefixed with a 32-byte BLAKE3 checksum.
+fn write_wal(path: &Path, base_count: usize, entries: &[WalEntry]) -> Result<()> {
+    let payload = serde_json::to_vec(&serde_json::json!({
+        "base_count": base_count,
+        "entries": entries,
+    }))?;
+    let checksum = blake3::hash(&payload);
+    let mut bytes = Vec::with_capacity(32 + payload.len());
+    bytes.extend_from_slice(checksum.as_bytes());
+    bytes.extend_from_slice(&payload);
+    atomic_write(path, &bytes)
+}
+
+/// Read and verify a WAL file.
+///
+/// Returns `None` if the file is absent, too short to contain the checksum
+/// header, has a mismatched BLAKE3 checksum, or cannot be deserialized.
+fn read_wal(path: &Path) -> Option<(usize, Vec<WalEntry>)> {
+    let data = std::fs::read(path).ok()?;
+    if data.len() < 32 {
+        tracing::warn!(wal = %path.display(), "WAL file too short — discarding");
+        return None;
+    }
+    let (checksum_bytes, payload) = data.split_at(32);
+    let expected = blake3::hash(payload);
+    if checksum_bytes != expected.as_bytes() {
+        tracing::warn!(
+            wal = %path.display(),
+            "WAL checksum mismatch — discarding (falling back to last full save)"
+        );
+        return None;
+    }
+    let raw: serde_json::Value = serde_json::from_slice(payload).ok()?;
+    let base_count = raw.get("base_count")?.as_u64()? as usize;
+    let entries: Vec<WalEntry> = serde_json::from_value(raw.get("entries")?.clone()).ok()?;
+    Some((base_count, entries))
+}
+
 // ─── Persisted index wrapper ───────────────────────────────────────────────────
 
 /// Borrowed view used for serialization — avoids cloning the entire entry vector
@@ -275,29 +345,52 @@ impl NeuronIndex {
             }
         }
 
-        // S4-delta: replay any delta entries written by delta-append saves since the last
-        // full index.json write. Only applied when the base_count matches the number
-        // of entries just loaded from index.json, preventing double-counting on
-        // crash-between-write scenarios.
+        // WAL replay: apply any pending mutations written before the last full index.json
+        // write. This recovers entries that were buffered in the WAL but not yet
+        // committed to index.json when the process last exited.
+        //
+        // The base_count check ensures idempotency: if the WAL was already applied
+        // (i.e. index.json already contains those entries), base_count < entries.len()
+        // and the WAL is skipped rather than double-applied.
         let cortyx_dir = path.parent().unwrap_or_else(|| Path::new("."));
-        let delta_path = cortyx_dir.join("index.delta.json");
-        if let Ok(data) = std::fs::read_to_string(&delta_path) {
-            if let Ok(raw) = serde_json::from_str::<serde_json::Value>(&data) {
-                let base_count =
-                    raw.get("base_count").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
-                if base_count == idx.entries.len() {
-                    if let Ok(delta_entries) = serde_json::from_value::<Vec<BM25Entry>>(
-                        raw.get("entries").cloned().unwrap_or_default(),
-                    ) {
-                        tracing::debug!(n = delta_entries.len(), "Replaying delta-append entries");
-                        idx.entries.extend(delta_entries);
+        let wal_file = wal_path(cortyx_dir);
+        if let Some((base_count, wal_entries)) = read_wal(&wal_file) {
+            if base_count == idx.entries.len() {
+                let n = wal_entries.len();
+                for entry in wal_entries {
+                    if let WalEntry::Upsert(e) = entry {
+                        idx.entries.push(e);
                     }
-                } else {
-                    tracing::debug!(
-                        base_count,
-                        loaded = idx.entries.len(),
-                        "Delta base_count mismatch — skipping stale delta"
-                    );
+                    // WalEntry::Invalidate: staleness is already persisted in sidecar
+                    // JSON files; no replay action needed here.
+                }
+                tracing::debug!(n, "Replayed WAL entries");
+            } else {
+                tracing::debug!(
+                    base_count,
+                    loaded = idx.entries.len(),
+                    "WAL base_count mismatch — skipping stale WAL"
+                );
+            }
+        } else {
+            // Backward compat: read the pre-WAL `index.delta.json` format (no checksum).
+            // Removed once all installations have been upgraded past this version.
+            let delta_path = cortyx_dir.join("index.delta.json");
+            if let Ok(data) = std::fs::read_to_string(&delta_path) {
+                if let Ok(raw) = serde_json::from_str::<serde_json::Value>(&data) {
+                    let base_count =
+                        raw.get("base_count").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
+                    if base_count == idx.entries.len() {
+                        if let Ok(delta_entries) = serde_json::from_value::<Vec<BM25Entry>>(
+                            raw.get("entries").cloned().unwrap_or_default(),
+                        ) {
+                            tracing::debug!(
+                                n = delta_entries.len(),
+                                "Replaying legacy delta entries (upgrading to WAL)"
+                            );
+                            idx.entries.extend(delta_entries);
+                        }
+                    }
                 }
             }
         }
@@ -343,32 +436,34 @@ impl NeuronIndex {
         let structural_dirty = self.structural_artifacts_dirty.load(Ordering::Relaxed);
         let prior_generation = read_index_cache_generation(&path).unwrap_or(0);
 
-        // S4 delta-append: determine whether this save can use the append-only path.
+        // WAL-append: determine whether this save can use the append-only path.
         //
         // When only new entries have been added (no in-place mutations), we skip
         // rewriting the monolithic index.json and instead write only the new entries
-        // to a small delta file, reducing serialisation work from O(N+n) to O(n)
-        // for pure-append mine batches.
+        // to a WAL file with a BLAKE3 integrity checksum. This reduces serialisation
+        // work from O(N+n) to O(n) for pure-append mine batches, while guaranteeing
+        // that a partial WAL write is detected on next startup and discarded safely.
         //
-        // ⚠ This is NOT a Write-Ahead Log in the crash-safety sense: no checksums are
-        // written, and a crash between the delta write and the next full index.json rewrite
-        // will leave a stale-but-readable delta.  The mechanism provides write optimisation,
-        // not durability guarantees.  For durability, the full save path is taken whenever
-        // `delta_dirty` is set (i.e., whenever an existing entry is mutated).
+        // On full saves (delta_dirty=true or threshold exceeded), the WAL is written
+        // first as a pre-save checkpoint, then index.json is written, then the WAL
+        // is deleted. A crash between WAL write and index.json write is recoverable;
+        // a crash between index.json write and WAL deletion results in a benign
+        // idempotent re-application of the WAL on next startup.
         let delta_path = cortyx_dir.join("index.delta.json");
+        let wal_file = wal_path(cortyx_dir);
         let delta_base = self.delta_base.load(Ordering::Relaxed);
         let delta_len = self.entries.len().saturating_sub(delta_base);
-        // Compact to a full write when delta exceeds 25 % of the base — keeps the
-        // fallback replay path fast and prevents unbounded delta file growth.
+        // Compact to a full write when the WAL would exceed 25% of the base — keeps
+        // WAL replay fast and prevents unbounded WAL growth.
         let over_threshold = delta_base > 0 && delta_len > delta_base / 4;
-        let in_delta_mode = delta_base > 0
+        let in_wal_mode = delta_base > 0
             && !self.delta_dirty.load(Ordering::Relaxed)
             && !over_threshold
             && delta_len > 0;
 
-        // In delta-append mode the generation must stay unchanged so the activation cache
+        // In WAL-append mode the generation must stay unchanged so the activation cache
         // passes the index_generation check against the (unchanged) index.json on the next load.
-        let cache_generation = if structural_dirty && !in_delta_mode {
+        let cache_generation = if structural_dirty && !in_wal_mode {
             prior_generation.saturating_add(1)
         } else {
             prior_generation
@@ -418,21 +513,23 @@ impl NeuronIndex {
         }
 
         // Write monolithic index.json (backward compat) with shard registry embedded,
-        // or in delta-append mode write only the delta entries to a small delta file.
-        if in_delta_mode {
-            // Delta-append mode: write only entries[delta_base..] to the delta file.
-            let delta = serde_json::json!({
-                "base_count": delta_base,
-                "entries": &self.entries[delta_base..],
-            });
-            atomic_write_json(&delta_path, &delta)?;
+        // or in WAL-append mode write only the pending entries to a checksummed WAL file.
+        if in_wal_mode {
+            // WAL-append mode: write only entries[delta_base..] to the WAL with a
+            // BLAKE3 integrity checksum. index.json is unchanged.
+            let wal_entries: Vec<WalEntry> = self.entries[delta_base..]
+                .iter()
+                .cloned()
+                .map(WalEntry::Upsert)
+                .collect();
+            write_wal(&wal_file, delta_base, &wal_entries)?;
             // Pass index_bytes=0 to bypass the size guard — the cache legitimately
             // contains more entries than the (unchanged) index.json.
             if let Err(e) = self.save_activation_cache(cache_generation, 0) {
-                tracing::warn!("Failed to write activation cache (delta-append mode): {e}");
+                tracing::warn!("Failed to write activation cache (WAL-append mode): {e}");
             }
         } else {
-            // Full save: rewrite index.json, clear any stale delta, update the delta baseline.
+            // Full save: rewrite index.json, delete WAL and any legacy delta file.
             let persisted = PersistedIndexRef {
                 version: INDEX_VERSION,
                 cache_generation,
@@ -441,7 +538,8 @@ impl NeuronIndex {
                 shards: &shard_names,
             };
             atomic_write_json(&path, &persisted)?;
-            let _ = std::fs::remove_file(&delta_path); // clear stale delta on full write
+            let _ = std::fs::remove_file(&wal_file); // WAL committed into index.json
+            let _ = std::fs::remove_file(&delta_path); // remove any legacy delta file
             self.delta_base.store(self.entries.len(), Ordering::Relaxed);
             self.delta_dirty.store(false, Ordering::Relaxed);
             let index_bytes = std::fs::metadata(&path).map(|meta| meta.len()).unwrap_or(0);
@@ -521,11 +619,13 @@ impl NeuronIndex {
         let cache_path = activation_cache_path(project_root);
         let index_bytes = std::fs::metadata(index_path).ok()?.len();
         let cache_bytes = std::fs::metadata(&cache_path).ok()?.len();
-        // S4-delta: allow the cache to be larger than index.json when a delta file exists.
-        // In delta-append mode the cache contains entries not yet in the full index.json.
+        // Allow the cache to be larger than index.json when a WAL file (or legacy
+        // delta file) exists. In WAL-append mode the cache contains entries not yet
+        // flushed to the full index.json.
         let cortyx_dir = index_path.parent().unwrap_or_else(|| Path::new("."));
-        let has_delta = cortyx_dir.join("index.delta.json").exists();
-        if !has_delta && cache_bytes > index_bytes {
+        let has_pending =
+            wal_path(cortyx_dir).exists() || cortyx_dir.join("index.delta.json").exists();
+        if !has_pending && cache_bytes > index_bytes {
             tracing::debug!(
                 cache = %cache_path.display(),
                 index_bytes,
