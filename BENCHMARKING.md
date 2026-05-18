@@ -1,5 +1,7 @@
 # Benchmarking Cortyx
 
+← [README](README.md) · [BENCHMARKS.md](BENCHMARKS.md)
+
 This file documents the benchmark methodology so any retrieval system can be
 evaluated on the same fixtures and compared against Cortyx's results.
 

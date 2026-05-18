@@ -1,5 +1,7 @@
 # Cortyx Benchmark Results
 
+← [README](README.md) · [BENCHMARKING.md](BENCHMARKING.md) · [benchmarks/README.md](benchmarks/README.md)
+
 Cortyx is tracked across a broader **proof matrix**: **retrieval**,
 **answer quality**, **latency**, **token economy**, **collaboration/shared
 memory**, **graph reasoning**, **UX**, **provenance/trust**, and

@@ -1,5 +1,9 @@
 # Cortyx Architecture
 
+← [Back to README](README.md)
+
+This document covers Cortyx's module map, key data structures, concurrency model, and design constraints.
+
 Cortyx is a Rust MCP-native context-delivery engine. It maintains a semantic
 in-memory index of project knowledge (neurons) and serves them to an LLM host
 via the Model Context Protocol. Retrieval is BM25-primary with synapse-graph

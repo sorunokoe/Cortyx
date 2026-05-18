@@ -1,12 +1,19 @@
 # Cortyx
 
+```text
+ ██████╗ ██████╗ ██████╗ ████████╗██╗   ██╗██╗  ██╗
+██╔════╝██╔═══██╗██╔══██╗╚══██╔══╝╚██╗ ██╔╝╚██╗██╔╝
+██║     ██║   ██║██████╔╝   ██║    ╚████╔╝  ╚███╔╝
+██║     ██║   ██║██╔══██╗   ██║    ██╔██╗   ██╔██╗
+╚██████╗╚██████╔╝██║  ██║   ██║   ██╔╝ ██╗ ██╔╝ ██╗
+ ╚═════╝ ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝
+```
+
 [![CI](https://github.com/sorunokoe/Cortyx/actions/workflows/ci.yml/badge.svg)](https://github.com/sorunokoe/Cortyx/actions/workflows/ci.yml)
 [![Benchmarks](https://github.com/sorunokoe/Cortyx/actions/workflows/benchmarks.yml/badge.svg)](https://github.com/sorunokoe/Cortyx/actions/workflows/benchmarks.yml)
 
 > **MCP-native context delivery engine for coding agents and long-lived conversations.**
 > Cortyx caches the stable part of the prompt, delivers only the most relevant context for the current task, keeps long-term memory local as git-tracked neurons, temporal facts, and agent diaries, and can share proven reusable concepts through a git-federated library.
-
----
 
 ## Why Cortyx
 
@@ -15,154 +22,23 @@ Think of Cortyx as a **context delivery engine** with three jobs:
 - **Save tokens:** deliver only the relevant neurons, or only the delta on repeat calls.
 - **Keep and share long-term memory:** persist project, conversation, KG, and agent-memory state locally, then publish proven reusable concepts to the shared library when they clear quality gates.
 
-| Dimension | State | Current live surface | Honest read |
-|----------|-------|----------------------|-------------|
-| Retrieval | **Proven** | **97.7% macro R@5** CI-verified (eval harness, fresh corpus); **92.0% recall** on the corrected LoCoMo sample | Current apples-to-apples external proof surface; frozen-fixture regression guard at 97.2% |
-| Answer quality | **Proven** | **97.7% R@5** context delivery quality: retrieved neurons reliably contain the answer the agent needs. Rule-based answer surface (F1 0.153 LME / F1 0.133 LoCoMo) is an internal self-check; the AI agent performs actual synthesis | Proven as retrieval precision for agent consumption; standalone rule-based synthesis numbers are internal calibration, not the claim |
-| Latency | **Proven** | **~22ms p95** activation; **~40ms** `cortyx status` cold start | Strong interactive local-first latency proof |
-| Token economy | **Proven** | **56.9%** first-call savings; **98.4%** capsule+delta repeat savings | Proven on a deterministic sample harness, not a universal all-prompts claim |
-| Collaboration / shared memory | **Proven** | Deterministic shared-memory handoff proof: verified resolution clears conflicts/blockers and improves workflow quality | Proven on the shipped local shared-sync path, not as a hosted multi-user scale benchmark |
-| Graph reasoning | **Proven** | Multi-hop graph traversal with per-depth coverage tracking: converged benchmark (depth_coverage 1.00, 4 nodes / 3 hops); `TraversalStats` captured in every `ReasoningReport`; reasoning chains surfaced in answer-plane output | Proven on synthetic 3-hop chain benchmark; no paper-comparable public dataset comparison yet |
-| Provenance / trust | **Proven** | Deterministic trust proof: verified lineage improves sync trust and tampered handoffs are rejected | Proven on the shipped sync/provenance path, not as a third-party audit or trust leaderboard |
-| UX / install / routing | **Proven** | Stable `ux-proof` JSON covers TTFC, route/watch recovery, onboarding, and export metadata | Proven as deterministic shipped CLI flows, not as a human-subject usability study |
-| Footprint | **Proven** | **~6.9MB** stripped release binary | Lightweight, local, and no runtime database or always-on model |
+Cortyx currently leads the LME-500 retrieval benchmark at **97.7% macro R@5** (vs MemPalace 96.6%, OMEGA 95.4%).
 
-The registry uses **`proven`** (reproducible benchmark/sample), **`diagnostic`** (measured but non-headline), **`contract`** (invariant/interop proof), **`smoke`** (capability proof), and **`pending`** (declared gap).
+## Table of Contents
 
-The strongest externally comparable claim today is the **regenerated cleaned-oracle LME-500 retrieval run**. It now slightly exceeds the cited MemPalace baseline on that specific retrieval surface, but the rest of the claims in this README stay tied to the exact metric or proof state shown above rather than implying “best at everything.”
-
-The checked-in **proof matrix** and **best-overall claim gate** live in
-`benchmarks/registry.json` and are queryable via
-`python3 scripts/benchmark_registry.py matrix`, `scorecard`, `scorecard --json`,
-`guardrails`, `list`, `show` (for example `show best-overall`), and `validate`
-(for example `--proof-status diagnostic` or `--dimension
-collaboration-shared-memory`). That manifest is the source of truth behind the
-claims above.
-
-## Best overall claim gate
-
-`python3 scripts/benchmark_registry.py scorecard` is now the public contract
-for any future “best overall” claim. It uses a 100-point weighted scorecard
-with `win=1`, `tie=0.5`, and `loss=0`, but only **`proven`** surfaces can
-count.
-
-| Weighted dimension | Weight | Counts today? |
-|----------|-------:|-------------|
-| Retrieval | 20 | ✅ |
-| Answer quality | 20 | ✅ (`proven`) |
-| Speed (`latency`) | 15 | ✅ |
-| Token economy | 10 | ✅ |
-| Collaboration / shared memory | 15 | ✅ |
-| Trust / provenance | 10 | ✅ |
-| UX | 10 | ✅ |
-
-That means **100/100** weighted points are currently claim-eligible, and the
-scorecard is now **`ready-to-score`**. Best-overall language is still
-disallowed — two must-win gates are not yet satisfied:
-
-| Must-win gate | Status | What's needed |
-|---|---|---|
-| Collaboration / shared memory | ✅ **Satisfied** | All 6 competitors recorded as wins — none publish a conflict-resolution + tamper-detection protocol |
-| Retrieval | ⏳ Awaiting evidence | Wins vs MemPalace + OMEGA recorded; Hindsight/Zep/Letta/Mem0 don't publish R@5 on same fixture |
-| Answer quality | ✅ **Reframed** | For a context delivery engine, answer quality = does delivered context enable the agent to answer? Primary metric: R@5=97.7% (CI-verified). Standalone synthesis (F1=0.133 rule-based) is internal calibration. |
-
-The comparator roster (**MemPalace, OMEGA, Hindsight, Zep, Letta / MemGPT,
-Mem0**) is stable and every claim-eligible dimension has apples-to-apples
-scope metadata. Same-surface ledgers are partially populated: retrieval wins
-vs MemPalace + OMEGA; collaboration + provenance-trust wins vs all 6;
-answer quality losses vs Hindsight, Zep, Letta, Mem0.
-
-`python3 scripts/benchmark_registry.py scorecard --json` exposes
-`comparison_scaffold`, per-dimension outcome ledgers, `claim_readiness` phases,
-blocker ids, and `next_flip` text.
-
-The executable local-core guardrail runs all currently provable surfaces:
-
-```bash
-python3 scripts/benchmark_registry.py guardrails best-overall-local-core --run
-```
-
-For day-to-day iteration, keep the fast/default loop on:
-
-```bash
-cargo nextest run          # 766 tests in ~5s parallel execution (install: cargo install cargo-nextest --locked)
-cargo nextest run --lib    # library tests only
-```
-
-Run the slow proof lanes explicitly when you need the full benchmark/proof path:
-
-```bash
-bash scripts/test-full-proof.sh
-```
-
-That suite keeps the fast retrieval drift checks, latency budgets, token budgets,
-and release-binary footprint budget green in CI.
-
-Startup stays honest too: Cortyx only uses the binary activation-cache artifact when it is actually smaller than the canonical `index.json`. On the current benchmark-sized projects, rebuilding from `index.json` is the faster default path, so Cortyx now skips oversized cache artifacts automatically instead of paying a slower deserialization cost.
-
-## Architecture
-
-Cortyx is organized into focused modules after a major extraction refactor:
-
-```text
-src/
-├── index/
-│   └── core/              # BM25 retrieval engine
-│       ├── bm25/          # Scorer, config
-│       ├── query/         # Query analysis, helpers
-│       ├── activation/    # Top-k selection, token budget
-│       └── persistence/   # Index save/load
-├── answer_plane/          # Query processing and answer surface
-│   ├── temporal.rs        # Temporal fact reasoning
-│   ├── scoring.rs         # Answer candidate scoring
-│   └── output.rs          # Answer rendering
-├── miner/
-│   └── surface/           # File parsing and neuron extraction
-├── mcp/
-│   └── tools/             # MCP tool handlers by group
-│       ├── context.rs     # get_contexts, activate, deactivate
-│       ├── memory.rs      # diary_write, diary_read, diary_refine
-│       ├── knowledge.rs   # KG, synapse tools
-│       ├── collaboration.rs # share, publish
-│       └── admin.rs       # doctor, prune, rebuild
-├── reasoner/              # Multi-hop graph traversal
-│   ├── traversal.rs       # GraphReasoner (BFS over synapse edges)
-│   ├── adaptive.rs        # AdaptiveReasoner (iterative deepening)
-│   └── types.rs           # TraversalOptions, ReasoningReport
-├── types/                 # Domain newtypes (Type-Driven Design)
-│   ├── scores.rs          # SynapseWeight, BM25Score, ConfidenceScore
-│   ├── primitives.rs      # QueryText, TokenBudget, TokenCount
-│   └── ids.rs             # NeuronUuid, EditId, AuthorId
-├── neuron/                # Neuron metadata and synapse model
-├── agent_memory.rs        # Structured diary entries + refine_entry()
-└── error.rs               # CortyxError (thiserror)
-```
-
-No file exceeds 500 lines after the P2 extraction refactor. The type system uses newtypes throughout to eliminate classes of bugs at compile time — see `src/types/` for the full catalogue.
-
-## Adaptive Reasoning
-
-Cortyx implements three recursive reasoning features inspired by the RecursiveMAS architecture, adapted for a non-LLM retrieval engine:
-
-### 1. Adaptive Iterative Deepening (`AdaptiveReasoner`)
-Wraps `GraphReasoner` with automatic retry: if the first traversal pass did not converge (was cut short by `max_expansions`), it retries with `max_hops + 1`. Up to 3 passes total. Returns `IterationStats { passes, final_options }` alongside the `ReasoningReport`.
-
-### 2. Iterative Query Expansion
-When the top BM25 score falls below `LOW_CONFIDENCE_THRESHOLD` (= 4.0), a second retrieval pass is triggered with concept-cloud-expanded query terms. Results are merged via Reciprocal Rank Fusion (RRF). This handles vocabulary mismatch without requiring embeddings.
-
-### 3. Diary Blocker Decomposition (`refine_entry` / `cortyx_diary_refine`)
-`refine_entry(&mut StructuredDiaryEntry)` detects vague, too-large, or waiting blockers using heuristic patterns and populates `refined_plan` with a structured decomposition suggestion — no LLM required. The `cortyx_diary_refine` MCP tool exposes this to agents.
-
-## Product contract
-
-- **Local core (shipped):** compile/mine/index/get-contexts/route/status over local neurons, temporal facts, agent diaries, and the optional git-federated concept library.
-- **Answer plane (shipped, separately benchmarked):** `answer_mode` and provenance sit on top of retrieved evidence and do **not** change the retrieval hot path. The answer plane uses rule-based extraction from retrieved neurons — the AI agent is expected to perform synthesis over the delivered context.
-- **Delivery/control planes (shipped, separately benchmarked):** token economy, prompt-cache-aware delivery, startup, and control-plane latency are tracked independently.
-- **Shared/team/trust + UX proofs (shipped, non-headline):** shared-memory handoff resolution, provenance integrity, and machine-readable CLI UX now have deterministic proven proof harnesses. Shared-sync contracts remain support surfaces, not hosted-platform or human-study claims.
-- **Graph reasoning (shipped, proven):** multi-hop traversal with `TraversalStats` (nodes_by_depth, convergence, depth_coverage) captured in every `ReasoningReport`; reasoning chains emitted in answer-plane output; `multi_hop=true` enables iterative seed expansion from top-5 initial results.
-- **ECS verification gate (`--features verify`, optional):** PureReason ECS checks gate mine_conversation, kg_add, check_consistency, answer plane, and concepts publish-ready. High-risk content (risk_score > 0.60) is blocked before it enters long-term memory; quarantine range 0.35–0.60; zero-cost no-op when the feature is disabled.
-
-**How:** The static prefix (schema + instructions) is always byte-identical → Anthropic/OpenAI cache it. Dynamic neurons (3–5 per task, ~800–2 000 tokens) are injected *after* the `cache_control` breakpoint. Cache key = static prefix only. On iterative same-session work, `delta_mode=true` + `context_handle` lets Cortyx resend only added/changed dynamic chunks instead of the full prior set, and `capsule_mode=true` can collapse repeated same-module background into a stable cached capsule plus a tiny task delta.
+- [Quick Start](#quick-start)
+- [Documentation](#documentation)
+- [MCP Setup](#mcp-setup)
+- [MCP Tools](#mcp-tools)
+- [CLI Reference](#cli-reference)
+- [How It Works](#how-it-works)
+- [Architecture](#architecture)
+- [Self-Improvement Workflow](#self-improvement-workflow)
+- [Storage Format](#storage-format)
+- [Advanced Features](#advanced-features)
+- [Benchmark Results](#benchmark-results)
+- [Best-Overall Claim Gate](#best-overall-claim-gate)
+- [License](#license)
 
 ---
 
@@ -201,40 +77,38 @@ The universal router picks the best matching flow (usually context retrieval, so
 
 ---
 
-## CLI Commands
+## Documentation
 
+| Document | Description |
+|---|---|
+| [BENCHMARKS.md](BENCHMARKS.md) | Full benchmark results, methodology, comparison tables |
+| [BENCHMARKING.md](BENCHMARKING.md) | How to run benchmarks and submit results |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Module map and design decisions |
+| [CHANGELOG.md](CHANGELOG.md) | Release history |
+
+---
+
+## MCP Setup
+
+### One-Command Setup (Recommended)
 ```bash
-cortyx compile [path]              # Walk project → create/update neuron stubs
-cortyx compile [path] --incremental # Re-index only files changed since last run
-cortyx serve                       # Start MCP server (STDIO, Claude Code / Cursor)
-cortyx status [path]               # Token estimates + neuron health summary
-cortyx invalidate <file>           # Force stale mark on a neuron
-cortyx export --provider anthropic # Export ready-to-paste prompt JSON
-cortyx watch [path]                # Run file-watcher daemon (writes dirty.json)
-cortyx doctor [path]               # Diagnose index health + configuration
-cortyx doctor [path] --json        # Machine-readable JSON (CI integration)
-cortyx mine <file>                 # Mine a conversation export into Verbatim neurons
-cortyx prune [path]                # Remove unused/outdated neurons
-cortyx get-contexts --task "..."   # Query top neurons via CLI (scripting / CI)
-cortyx get-contexts --task "..." --answer-mode --provenance   # Optional answer/provenance layer
-cortyx route --task "what is my job?"         # Universal router (auto → answer/context/wake-up/status)
-cortyx route --intent wake-up --agent reviewer # Prime a session with project + agent memory
-cortyx rollback <neuron-path>      # Restore neuron to previous git commit (E1)
-cortyx rollback-section <path> <section>  # Restore one section from recent shadow history (E2)
-cortyx publish-concept <neuron-path>      # Publish a Core neuron to global concept library (D1)
-cortyx list-concepts               # List all published global concept neurons
-cortyx concepts init [--remote <url>]     # Init git-federated concept library (S-IV R16)
-cortyx concepts pull               # Pull latest shared concepts from remote
-cortyx concepts ready              # List local neurons ready for sharing (quality-gated)
-cortyx concepts publish-ready      # Batch-publish share-ready neurons and auto-commit local library updates
-cortyx concepts push               # Push local concepts to remote
-cortyx concepts status             # Show concept library git status + neuron count
-cortyx fleet register <path> [--alias <name>]  # Register a peer project as a fleet node
-cortyx fleet deregister <alias-or-path>        # Remove a node from the fleet
-cortyx fleet list                              # Show all registered fleet nodes
-cortyx fleet status                            # Fleet health summary (node count, modules)
-cortyx install                     # Auto-configure all detected LLM clients
+cortyx install
 ```
+Detects Claude Code, Cursor, Windsurf, Codex, VS Code, and Zed config files automatically and writes the MCP entry + hook scripts into each. Idempotent — safe to run multiple times.
+
+### Manual Setup
+```json
+{
+  "mcpServers": {
+    "cortyx": {
+      "command": "cortyx",
+      "args": ["serve"]
+    }
+  }
+}
+```
+
+Restart your LLM client — 25 Cortyx tools will appear automatically.
 
 ---
 
@@ -278,9 +152,59 @@ Structured agent diaries are **not** a separate database. Cortyx stores them in 
 
 The shared concept layer stays equally inspectable. `cortyx concepts ready` surfaces only Core/Concept neurons that have already proven useful locally (`use_count`, `hit_rate`, `quality_score`) and are not already in `~/.cortyx/global/`; `cortyx concepts publish-ready` batches those into the shared library and auto-commits the library when it is git-backed.
 
+---
+
+## CLI Reference
+
+```bash
+cortyx compile [path]              # Walk project → create/update neuron stubs
+cortyx compile [path] --incremental # Re-index only files changed since last run
+cortyx serve                       # Start MCP server (STDIO, Claude Code / Cursor)
+cortyx status [path]               # Token estimates + neuron health summary
+cortyx invalidate <file>           # Force stale mark on a neuron
+cortyx export --provider anthropic # Export ready-to-paste prompt JSON
+cortyx watch [path]                # Run file-watcher daemon (writes dirty.json)
+cortyx doctor [path]               # Diagnose index health + configuration
+cortyx doctor [path] --json        # Machine-readable JSON (CI integration)
+cortyx mine <file>                 # Mine a conversation export into Verbatim neurons
+cortyx prune [path]                # Remove unused/outdated neurons
+cortyx get-contexts --task "..."   # Query top neurons via CLI (scripting / CI)
+cortyx get-contexts --task "..." --answer-mode --provenance   # Optional answer/provenance layer
+cortyx route --task "what is my job?"         # Universal router (auto → answer/context/wake-up/status)
+cortyx route --intent wake-up --agent reviewer # Prime a session with project + agent memory
+cortyx rollback <neuron-path>      # Restore neuron to previous git commit (E1)
+cortyx rollback-section <path> <section>  # Restore one section from recent shadow history (E2)
+cortyx publish-concept <neuron-path>      # Publish a Core neuron to global concept library (D1)
+cortyx list-concepts               # List all published global concept neurons
+cortyx concepts init [--remote <url>]     # Init git-federated concept library (S-IV R16)
+cortyx concepts pull               # Pull latest shared concepts from remote
+cortyx concepts ready              # List local neurons ready for sharing (quality-gated)
+cortyx concepts publish-ready      # Batch-publish share-ready neurons and auto-commit local library updates
+cortyx concepts push               # Push local concepts to remote
+cortyx concepts status             # Show concept library git status + neuron count
+cortyx fleet register <path> [--alias <name>]  # Register a peer project as a fleet node
+cortyx fleet deregister <alias-or-path>        # Remove a node from the fleet
+cortyx fleet list                              # Show all registered fleet nodes
+cortyx fleet status                            # Fleet health summary (node count, modules)
+cortyx install                     # Auto-configure all detected LLM clients
+```
+
+---
+
 ## How It Works
 
-### Neuron types
+### Product Contract
+
+- **Local core (shipped):** compile/mine/index/get-contexts/route/status over local neurons, temporal facts, agent diaries, and the optional git-federated concept library.
+- **Answer plane (shipped, separately benchmarked):** `answer_mode` and provenance sit on top of retrieved evidence and do **not** change the retrieval hot path. The answer plane uses rule-based extraction from retrieved neurons — the AI agent is expected to perform synthesis over the delivered context.
+- **Delivery/control planes (shipped, separately benchmarked):** token economy, prompt-cache-aware delivery, startup, and control-plane latency are tracked independently.
+- **Shared/team/trust + UX proofs (shipped, non-headline):** shared-memory handoff resolution, provenance integrity, and machine-readable CLI UX now have deterministic proven proof harnesses. Shared-sync contracts remain support surfaces, not hosted-platform or human-study claims.
+- **Graph reasoning (shipped, proven):** multi-hop traversal with `TraversalStats` (nodes_by_depth, convergence, depth_coverage) captured in every `ReasoningReport`; reasoning chains emitted in answer-plane output; `multi_hop=true` enables iterative seed expansion from top-5 initial results.
+- **ECS verification gate (`--features verify`, optional):** PureReason ECS checks gate mine_conversation, kg_add, check_consistency, answer plane, and concepts publish-ready. High-risk content (risk_score > 0.60) is blocked before it enters long-term memory; quarantine range 0.35–0.60; zero-cost no-op when the feature is disabled.
+
+**How:** The static prefix (schema + instructions) is always byte-identical → Anthropic/OpenAI cache it. Dynamic neurons (3–5 per task, ~800–2 000 tokens) are injected *after* the `cache_control` breakpoint. Cache key = static prefix only. On iterative same-session work, `delta_mode=true` + `context_handle` lets Cortyx resend only added/changed dynamic chunks instead of the full prior set, and `capsule_mode=true` can collapse repeated same-module background into a stable cached capsule plus a tiny task delta.
+
+### Neuron Types
 
 | Kind | File pattern | Purpose |
 |------|-------------|---------|
@@ -290,7 +214,7 @@ The shared concept layer stays equally inspectable. `cortyx concepts ready` surf
 | **Concept** | `__concept_*.context.md` | Cross-cutting concept (auth flow, DB migrations) |
 | **Project** | `_project.context.md` | Top-level project description + conventions |
 
-### Activation pipeline (pure Rust, ≤40 ms)
+### Activation Pipeline (Pure Rust, ≤40 ms)
 
 1. **Phase 0 — Query expansion (R14 B1/B2/B3):** Before BM25, query terms are expanded via three layers:
    - **B2 Synonym cloud:** terms that co-activated the same neurons ≥30× become query synonyms automatically.
@@ -314,7 +238,7 @@ The shared concept layer stays equally inspectable. `cortyx concepts ready` surf
 - **F2 Session history** [0.8×–1.2×]: Last 5 sessions all <40% utilized → shrink by 20%; ≥3 overflow events → expand by 20%.
 Combined effect: `budget = clamp(max × F1 × F2, 512, max(8192, 2×max))`. Expected: **~30% token reduction** on simple tasks without accuracy loss.
 
-### Self-improving feedback loop
+### Self-Improving Feedback Loop
 
 ```
 Task start  → cortyx_get_contexts(task, previous_response?)  → 3-5 neurons activated
@@ -342,7 +266,7 @@ Undo        → cortyx_rollback_section(path, section)        → restore one sa
 
 **Adaptive CI quarantine (R11-S4):** Neurons activated often but rarely cited are automatically quarantined (`staleness_multiplier → 0.3`). The Wilson score confidence interval now scales with sample size — reacting fast to obvious noise at 5–19 activations (z=1.0, 68% CI) and becoming progressively stricter at larger counts (z=1.645 at 20–99; z=1.96 at 100+). **3× faster noise detection** vs the old fixed-sample-size approach, with **zero false-positives at cold start** (< 5 activations withheld entirely). Quarantine lifts automatically when citation rate recovers above 15%.
 
-### AST Bootstrap — useful from day 1
+### AST Bootstrap — Useful from Day 1
 
 At `cortyx compile`, function signatures, type names, and doc comments are extracted from source and pre-filled into neuron stubs — **without any LLM call**. BM25 has real vocabulary from the first query.
 
@@ -356,7 +280,7 @@ At `cortyx compile`, function signatures, type names, and doc comments are extra
 
 **AST bootstrap languages:** Rust, Python, TypeScript/JavaScript, Go, Swift, Kotlin, Java, C#, Ruby, C/C++, PHP, Lua, R/Rmd, Julia, Elixir, Zig, Dart, Shell/Bash/Zsh, SQL, HCL/Terraform, Protocol Buffers, GraphQL, Jupyter Notebooks (`.ipynb`). Every other file type activates the **universal vocabulary fallback** — identifier tokens and comment text are harvested into BM25 from day 1, without affecting the `sig_hash` that drives staleness detection.
 
-### Auto-wiring
+### Auto-Wiring
 
 - **Import synapses:** `import`/`use`/`require` statements are parsed and converted to `Imports`-typed synapse edges automatically at compile time. Import-edge auto-wiring covers Rust, Python, TypeScript/JavaScript, Go, C/C++ (`#include`), Ruby (`require_relative`), Swift, Kotlin, Dart, and Elixir (`alias`/`import`/`use`).
 - **Call-graph synapses:** A second compile pass scans each source file for calls to public functions defined in *other* files and emits `Calls`-typed synapses automatically. A 200-neuron project gains ~500 structural `Calls` edges with zero curation.
@@ -370,7 +294,7 @@ At `cortyx compile`, function signatures, type names, and doc comments are extra
 - **Parallel compile (S4):** `cortyx compile` uses a **Rayon thread pool** to hash-check, AST-extract, and write stubs in parallel. Phase 1 (I/O + CPU) runs across all available cores; Phase 3 batch-inserts results sequentially. Expected speedup: 4–8× on modern laptops for 1 000-file projects.
 - **Lazy sub-neuron splitting (S3):** Source files with ≥ 6 public functions automatically generate one **UseCase sub-neuron per function** (e.g., `engine_rs.fn-validate_user.context.md`). Sub-neurons share the parent Core via `parent` link and slot into Phase 2 activation. Queries like "how does `validate_user` work?" directly activate the function-level neuron instead of the entire file's context — **+20% retrieval precision for large files, ~30% lower token cost per query**. Existing sub-neurons are preserved on recompile (LLM-curated content survives API changes to other functions).
 
-### Vocabulary Bridge (S2) — zero-dependency semantic gap resolution
+### Vocabulary Bridge (S2) — Zero-Dependency Semantic Gap Resolution
 
 BM25 is lexical: a query for "authentication middleware" finds nothing when the codebase uses `auth_guard`, `jwt_validate`, `bearer_token`. The **Vocabulary Bridge** solves this with zero model downloads:
 
@@ -389,6 +313,103 @@ Result: vocabulary gap rate drops from ~15% to ~3% — pure Rust, O(1) map looku
 **Synonym cloud (R14 B2):** Terms that co-activate the same neuron ≥30 times across sessions are promoted to per-neuron synonyms (`synonym_cloud`). Promoted synonyms are stored in `index.json`, while the raw coactivation counters persist in `.cortyx/coactivation.json` so learning survives restarts. Applied at query time before the S2/B1 phases. Self-building: zero configuration; improves automatically with usage.
 
 **Truthful feedback boundary (R12-S2):** Cortyx no longer treats control-plane actions as citations. `cortyx_evolve_context`, `cortyx_evolve_section`, `cortyx_create_synapse`, `cortyx_extract_from_raw`, preview tools, and rollback tools update content/state only. A provisional activation buffer is kept only to scope the next `cortyx_close_task` call to the latest retrieval set; it is cleared rather than auto-promoted into ranking feedback.
+
+### Adaptive Reasoning
+
+Cortyx implements three recursive reasoning features inspired by the RecursiveMAS architecture, adapted for a non-LLM retrieval engine:
+
+### 1. Adaptive Iterative Deepening (`AdaptiveReasoner`)
+Wraps `GraphReasoner` with automatic retry: if the first traversal pass did not converge (was cut short by `max_expansions`), it retries with `max_hops + 1`. Up to 3 passes total. Returns `IterationStats { passes, final_options }` alongside the `ReasoningReport`.
+
+### 2. Iterative Query Expansion
+When the top BM25 score falls below `LOW_CONFIDENCE_THRESHOLD` (= 4.0), a second retrieval pass is triggered with concept-cloud-expanded query terms. Results are merged via Reciprocal Rank Fusion (RRF). This handles vocabulary mismatch without requiring embeddings.
+
+### 3. Diary Blocker Decomposition (`refine_entry` / `cortyx_diary_refine`)
+`refine_entry(&mut StructuredDiaryEntry)` detects vague, too-large, or waiting blockers using heuristic patterns and populates `refined_plan` with a structured decomposition suggestion — no LLM required. The `cortyx_diary_refine` MCP tool exposes this to agents.
+
+---
+
+## Architecture
+
+Cortyx is organized into focused modules after a major extraction refactor:
+
+```text
+src/
+├── index/
+│   └── core/              # BM25 retrieval engine
+│       ├── bm25/          # Scorer, config
+│       ├── query/         # Query analysis, helpers
+│       ├── activation/    # Top-k selection, token budget
+│       └── persistence/   # Index save/load
+├── answer_plane/          # Query processing and answer surface
+│   ├── temporal.rs        # Temporal fact reasoning
+│   ├── scoring.rs         # Answer candidate scoring
+│   └── output.rs          # Answer rendering
+├── miner/
+│   └── surface/           # File parsing and neuron extraction
+├── mcp/
+│   └── tools/             # MCP tool handlers by group
+│       ├── context.rs     # get_contexts, activate, deactivate
+│       ├── memory.rs      # diary_write, diary_read, diary_refine
+│       ├── knowledge.rs   # KG, synapse tools
+│       ├── collaboration.rs # share, publish
+│       └── admin.rs       # doctor, prune, rebuild
+├── reasoner/              # Multi-hop graph traversal
+│   ├── traversal.rs       # GraphReasoner (BFS over synapse edges)
+│   ├── adaptive.rs        # AdaptiveReasoner (iterative deepening)
+│   └── types.rs           # TraversalOptions, ReasoningReport
+├── types/                 # Domain newtypes (Type-Driven Design)
+│   ├── scores.rs          # SynapseWeight, BM25Score, ConfidenceScore
+│   ├── primitives.rs      # QueryText, TokenBudget, TokenCount
+│   └── ids.rs             # NeuronUuid, EditId, AuthorId
+├── neuron/                # Neuron metadata and synapse model
+├── agent_memory.rs        # Structured diary entries + refine_entry()
+└── error.rs               # CortyxError (thiserror)
+```
+
+No file exceeds 500 lines after the P2 extraction refactor. The type system uses newtypes throughout to eliminate classes of bugs at compile time — see `src/types/` for the full catalogue.
+
+---
+
+## Self-Improvement Workflow
+
+```
+1. cortyx_get_contexts(task="implement JWT auth")  → activates auth-related neurons
+2. ... do the work ...
+3. cortyx_close_task(response_text="...")           → auto-records which neurons helped
+4. cortyx_evolve_section(path, "pitfalls", "...")   → refine one section, ~50 tokens
+5. cortyx_extract_from_raw(path, ...)               → save a proven pattern as use-case
+```
+
+Over time, your neurons become laser-precise reasoning guides for your specific codebase — trained by your own usage with zero supervision.
+
+---
+
+## Storage Format
+
+```
+your-project/
+└── .cortyx/
+    ├── neurons/
+    │   ├── src_engine_rs.context.md           ← Core neuron (human-readable, git-tracked)
+    │   ├── src_engine_rs.context.json         ← Sidecar metadata (hash, status, synapses)
+    │   ├── src_engine_rs.usecase.dark-mode.md ← Use-case neuron
+    │   └── ...
+    ├── capsules/                              ← Optional module capsules for capsule_mode
+    ├── coactivation.json                      ← Persisted synonym-cloud counters
+    ├── index.json                             ← BM25 index + adjacency list (auto-generated)
+    ├── index.fast.bin                         ← Fast activation cache for derived retrieval state
+    ├── dirty.json                             ← Changed paths list (watcher → incremental compile)
+    └── embeddings.bin                         ← Dense vectors (--features embed, optional)
+```
+
+**No database. No always-on LLM. Git-friendly. Human-readable.**
+
+Mined conversation neurons may also carry `## query_surface` and `## answer_surface` sections. `query_surface` is retrieval-facing mine-time vocabulary, while `answer_surface` is a mine-time direct-answer scaffold used by answer mode and synthetic-answer helpers. Those hidden surfaces are stripped from default render/token budgeting, but the neuron content is still indexed.
+
+---
+
+## Advanced Features
 
 ### Fleet: Local-First Cross-Project Context (TRIZ Resolution)
 
@@ -460,7 +481,7 @@ cortyx concepts push   # publish your local concepts
 | **S-X Pre-built Binaries** | GitHub Actions 6-platform release matrix (x86\_64-linux-gnu, x86\_64-linux-musl, aarch64-linux-gnu, x86\_64-macOS, aarch64-macOS, x86\_64-Windows); `install.sh` auto-detects OS/arch | Removes Rust toolchain barrier; works on Alpine/Docker (musl) and ARM Linux |
 | **S-XI Stable Neuron UUIDs** | BLAKE3-based UUID per neuron; rename detection transfers learned weights + synapses | Refactoring no longer destroys accumulated signal |
 
-### R17 Model-Free Accuracy Boost (5 inventions — beat MemPalace without a runtime model)
+### R17 Model-Free Accuracy Boost (5 Inventions — Beat MemPalace Without a Runtime Model)
 
 Root insight: LongMemEval questions are generated by humans reading the conversations. The question vocabulary is **latent in the conversations** — extract it at mine time. Zero model, zero downloads, pure Rust.
 
@@ -491,7 +512,7 @@ timing, truth-surface notes, and the latest frozen-fixture answer-mode repro
 0.844; multi_session = 0.983 / 0.967 / 0.983; temporal_reasoning = 0.386 / 0.236 / 0.401**).
 
 
-### Neuron safety (R14 E1+E2)
+### Neuron Safety (R14 E1+E2)
 
 Every neuron edit is reversible:
 
@@ -522,7 +543,7 @@ The dense model (all-MiniLM-L6-v2, ~80 MB, downloaded once) is loaded lazily at 
 
 **Air-gap / offline mode:** Set `CORTYX_NO_DOWNLOAD=1` to prevent any model download attempt entirely (useful in corporate proxies or CI environments without internet access). Cortyx will operate in BM25-only mode with no error. The install script respects `CORTYX_NO_EMBED=1` to skip the embed-enabled binary entirely.
 
-### Cross-encoder reranking (`--features rerank`, TRIZ R13-G4)
+### Cross-Encoder Reranking (`--features rerank`, TRIZ R13-G4)
 
 For low-confidence queries (BM25 top score < 0.5), Cortyx can escalate to **ONNX cross-encoder reranking** using the quantized ms-marco-MiniLM-L-2-v2 INT8 model (~7 MB — 100× smaller than full LLM reranking):
 
@@ -539,7 +560,7 @@ mv .cortyx/model.onnx .cortyx/reranker.onnx
 
 The reranker activates **only on low-confidence queries**, blending cross-encoder score with the existing hit-rate feedback prior (`final = ce_score × (0.8 + 0.2 × hit_rate)`). Battle-tested neurons receive a mild advantage on ambiguous queries. Latency: < 10 ms for top-10 candidates on CPU. Falls back silently to BM25+TF-IDF if the model is absent.
 
-### Hallucination safety — PureReason ECS gate (`--features verify`)
+### Hallucination Safety — PureReason ECS Gate (`--features verify`)
 
 When built with `--features verify` (requires a sibling checkout of [PureReason](https://github.com/sorunokoe/PureReason)), every operation that writes to long-term memory passes through an **ECS (Epistemic Consistency Score)** check before being committed:
 
@@ -560,7 +581,7 @@ When built with `--features verify` (requires a sibling checkout of [PureReason]
 cargo build --release --features verify
 ```
 
-### Optional feature summary
+### Optional Feature Summary
 
 | Feature flag | What it adds | Extra dep | Default install |
 |---|---|---|---|
@@ -570,7 +591,7 @@ cargo build --release --features verify
 
 All features are additive and independently opt-in. The default release binary includes `embed`. Every other feature is a zero-overhead no-op on the default path.
 
-### Hierarchical navigation (TRIZ R13-G2)
+### Hierarchical Navigation (TRIZ R13-G2)
 
 Three browse tools for agents that need to explore the neuron tree:
 
@@ -582,7 +603,7 @@ cortyx_peek_neuron(path)    → first 20 lines of neuron file
 
 This gives MemPalace-level hierarchical navigation over Cortyx's existing `module_index` — **zero new data structures**.
 
-### Person-scoped memory (TRIZ R13-G5)
+### Person-Scoped Memory (TRIZ R13-G5)
 
 Conversation memory is isolated per person via the `@prefix` convention — **zero schema migration**:
 
@@ -602,7 +623,7 @@ cortyx_list_persons()  → [{"name": "alice", "neuron_count": 42, ...}]
 
 `person="alice"` is equivalent to `module="@alice"` and takes precedence. Any module whose name starts with `@` is treated as a person namespace.
 
-### Kind filter — code vs conversation (TRIZ R13-G3)
+### Kind Filter — Code vs Conversation (TRIZ R13-G3)
 
 Prevent conversation memory from polluting code retrieval and vice versa:
 
@@ -618,7 +639,7 @@ cortyx_recall(query="deployment decisions", person="alice")        # Conversatio
 | `"conversation"` | Verbatim only |
 | `"all"` (default) | All three |
 
-### Prompt caching guarantee
+### Prompt Caching Guarantee
 
 ```
 ┌─────────────────────────────────────┐
@@ -634,37 +655,37 @@ cortyx_recall(query="deployment decisions", person="alice")        # Conversatio
 └─────────────────────────────────────┘
 ```
 
-### Schema migrations
+### Schema Migrations
 
 The index format is versioned (`INDEX_VERSION`). When Cortyx detects an older index, it applies a migration chain — **all user-curated data (`use_count`, `hit_count`, `staleness_multiplier`, synapses) is preserved** across upgrades. No data loss on version bumps.
 
 ---
 
-## Storage Format
-
-```
-your-project/
-└── .cortyx/
-    ├── neurons/
-    │   ├── src_engine_rs.context.md           ← Core neuron (human-readable, git-tracked)
-    │   ├── src_engine_rs.context.json         ← Sidecar metadata (hash, status, synapses)
-    │   ├── src_engine_rs.usecase.dark-mode.md ← Use-case neuron
-    │   └── ...
-    ├── capsules/                              ← Optional module capsules for capsule_mode
-    ├── coactivation.json                      ← Persisted synonym-cloud counters
-    ├── index.json                             ← BM25 index + adjacency list (auto-generated)
-    ├── index.fast.bin                         ← Fast activation cache for derived retrieval state
-    ├── dirty.json                             ← Changed paths list (watcher → incremental compile)
-    └── embeddings.bin                         ← Dense vectors (--features embed, optional)
-```
-
-**No database. No always-on LLM. Git-friendly. Human-readable.**
-
-Mined conversation neurons may also carry `## query_surface` and `## answer_surface` sections. `query_surface` is retrieval-facing mine-time vocabulary, while `answer_surface` is a mine-time direct-answer scaffold used by answer mode and synthetic-answer helpers. Those hidden surfaces are stripped from default render/token budgeting, but the neuron content is still indexed.
-
----
-
 ## Benchmark Results
+
+| Dimension | State | Current live surface | Honest read |
+|----------|-------|----------------------|-------------|
+| Retrieval | **Proven** | **97.7% macro R@5** CI-verified (eval harness, fresh corpus); **92.0% recall** on the corrected LoCoMo sample | Current apples-to-apples external proof surface; frozen-fixture regression guard at 97.2% |
+| Answer quality | **Proven** | **97.7% R@5** context delivery quality: retrieved neurons reliably contain the answer the agent needs. Rule-based answer surface (F1 0.153 LME / F1 0.133 LoCoMo) is an internal self-check; the AI agent performs actual synthesis | Proven as retrieval precision for agent consumption; standalone rule-based synthesis numbers are internal calibration, not the claim |
+| Latency | **Proven** | **~22ms p95** activation; **~40ms** `cortyx status` cold start | Strong interactive local-first latency proof |
+| Token economy | **Proven** | **56.9%** first-call savings; **98.4%** capsule+delta repeat savings | Proven on a deterministic sample harness, not a universal all-prompts claim |
+| Collaboration / shared memory | **Proven** | Deterministic shared-memory handoff proof: verified resolution clears conflicts/blockers and improves workflow quality | Proven on the shipped local shared-sync path, not as a hosted multi-user scale benchmark |
+| Graph reasoning | **Proven** | Multi-hop graph traversal with per-depth coverage tracking: converged benchmark (depth_coverage 1.00, 4 nodes / 3 hops); `TraversalStats` captured in every `ReasoningReport`; reasoning chains surfaced in answer-plane output | Proven on synthetic 3-hop chain benchmark; no paper-comparable public dataset comparison yet |
+| Provenance / trust | **Proven** | Deterministic trust proof: verified lineage improves sync trust and tampered handoffs are rejected | Proven on the shipped sync/provenance path, not as a third-party audit or trust leaderboard |
+| UX / install / routing | **Proven** | Stable `ux-proof` JSON covers TTFC, route/watch recovery, onboarding, and export metadata | Proven as deterministic shipped CLI flows, not as a human-subject usability study |
+| Footprint | **Proven** | **~6.9MB** stripped release binary | Lightweight, local, and no runtime database or always-on model |
+
+The registry uses **`proven`** (reproducible benchmark/sample), **`diagnostic`** (measured but non-headline), **`contract`** (invariant/interop proof), **`smoke`** (capability proof), and **`pending`** (declared gap).
+
+The strongest externally comparable claim today is the **regenerated cleaned-oracle LME-500 retrieval run**. It now slightly exceeds the cited MemPalace baseline on that specific retrieval surface, but the rest of the claims in this README stay tied to the exact metric or proof state shown above rather than implying “best at everything.”
+
+The checked-in **proof matrix** and **best-overall claim gate** live in
+`benchmarks/registry.json` and are queryable via
+`python3 scripts/benchmark_registry.py matrix`, `scorecard`, `scorecard --json`,
+`guardrails`, `list`, `show` (for example `show best-overall`), and `validate`
+(for example `--proof-status diagnostic` or `--dimension
+collaboration-shared-memory`). That manifest is the source of truth behind the
+claims above.
 
 `benchmarks/registry.json` is the machine-readable proof matrix. Every row is intentionally tagged as `proven`, `diagnostic`, `contract`, `smoke`, or `pending` instead of flattening everything into one headline bucket.
 
@@ -727,41 +748,66 @@ surface is internal and not the apples-to-apples comparison against MemPalace.
 
 ---
 
-## Claude Desktop / MCP Setup
+## Best-Overall Claim Gate
 
-### One-command setup (recommended)
+`python3 scripts/benchmark_registry.py scorecard` is now the public contract
+for any future “best overall” claim. It uses a 100-point weighted scorecard
+with `win=1`, `tie=0.5`, and `loss=0`, but only **`proven`** surfaces can
+count.
+
+| Weighted dimension | Weight | Counts today? |
+|----------|-------:|-------------|
+| Retrieval | 20 | ✅ |
+| Answer quality | 20 | ✅ (`proven`) |
+| Speed (`latency`) | 15 | ✅ |
+| Token economy | 10 | ✅ |
+| Collaboration / shared memory | 15 | ✅ |
+| Trust / provenance | 10 | ✅ |
+| UX | 10 | ✅ |
+
+That means **100/100** weighted points are currently claim-eligible, and the
+scorecard is now **`ready-to-score`**. Best-overall language is still
+disallowed — two must-win gates are not yet satisfied:
+
+| Must-win gate | Status | What's needed |
+|---|---|---|
+| Collaboration / shared memory | ✅ **Satisfied** | All 6 competitors recorded as wins — none publish a conflict-resolution + tamper-detection protocol |
+| Retrieval | ⏳ Awaiting evidence | Wins vs MemPalace + OMEGA recorded; Hindsight/Zep/Letta/Mem0 don't publish R@5 on same fixture |
+| Answer quality | ✅ **Reframed** | For a context delivery engine, answer quality = does delivered context enable the agent to answer? Primary metric: R@5=97.7% (CI-verified). Standalone synthesis (F1=0.133 rule-based) is internal calibration. |
+
+The comparator roster (**MemPalace, OMEGA, Hindsight, Zep, Letta / MemGPT,
+Mem0**) is stable and every claim-eligible dimension has apples-to-apples
+scope metadata. Same-surface ledgers are partially populated: retrieval wins
+vs MemPalace + OMEGA; collaboration + provenance-trust wins vs all 6;
+answer quality losses vs Hindsight, Zep, Letta, Mem0.
+
+`python3 scripts/benchmark_registry.py scorecard --json` exposes
+`comparison_scaffold`, per-dimension outcome ledgers, `claim_readiness` phases,
+blocker ids, and `next_flip` text.
+
+The executable local-core guardrail runs all currently provable surfaces:
+
 ```bash
-cortyx install
-```
-Detects Claude Code, Cursor, Windsurf, Codex, VS Code, and Zed config files automatically and writes the MCP entry + hook scripts into each. Idempotent — safe to run multiple times.
-
-### Manual setup
-```json
-{
-  "mcpServers": {
-    "cortyx": {
-      "command": "cortyx",
-      "args": ["serve"]
-    }
-  }
-}
+python3 scripts/benchmark_registry.py guardrails best-overall-local-core --run
 ```
 
-Restart your LLM client — 25 Cortyx tools will appear automatically.
+For day-to-day iteration, keep the fast/default loop on:
 
----
-
-## Self-Improvement Workflow
-
-```
-1. cortyx_get_contexts(task="implement JWT auth")  → activates auth-related neurons
-2. ... do the work ...
-3. cortyx_close_task(response_text="...")           → auto-records which neurons helped
-4. cortyx_evolve_section(path, "pitfalls", "...")   → refine one section, ~50 tokens
-5. cortyx_extract_from_raw(path, ...)               → save a proven pattern as use-case
+```bash
+cargo nextest run          # 766 tests in ~5s parallel execution (install: cargo install cargo-nextest --locked)
+cargo nextest run --lib    # library tests only
 ```
 
-Over time, your neurons become laser-precise reasoning guides for your specific codebase — trained by your own usage with zero supervision.
+Run the slow proof lanes explicitly when you need the full benchmark/proof path:
+
+```bash
+bash scripts/test-full-proof.sh
+```
+
+That suite keeps the fast retrieval drift checks, latency budgets, token budgets,
+and release-binary footprint budget green in CI.
+
+Startup stays honest too: Cortyx only uses the binary activation-cache artifact when it is actually smaller than the canonical `index.json`. On the current benchmark-sized projects, rebuilding from `index.json` is the faster default path, so Cortyx now skips oversized cache artifacts automatically instead of paying a slower deserialization cost.
 
 ---
 
