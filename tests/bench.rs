@@ -579,7 +579,7 @@ fn benchmark_registry_truth_matrix_is_coherent() {
     assert_eq!(
         ux_record["outcome_ledger"]["state_counts"]["no-repo-evidence"].as_u64(),
         Some(4),
-        "ux ledger should keep the unsupported roster entries explicit (omega+engram+vestige+token-savior)"
+        "ux ledger should keep the no-repo-evidence roster entries explicit (omega+vestige+token-savior; engram is insufficient-evidence via capability-note)"
     );
 
     let readiness_phases = script_scorecard["claim_readiness"]["phases"]
