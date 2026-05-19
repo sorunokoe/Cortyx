@@ -628,7 +628,9 @@ cargo test --test bench bench_binary_size -- --nocapture
 | **Cortyx (cleaned-oracle eval, live)** | **96.8%** | **92.0% sample recall*** | **~22ms** | Apples-to-apples external retrieval surface; full run via manual workflow_dispatch |
 | **Cortyx (frozen repo fixture, internal)** | **97.2%** | **92.0% sample recall*** | **~22ms** | Internal regression fixture, not external headline |
 | MemPalace | 96.6% | not entered | ~200ms | ChromaDB dense, Python, arXiv:2604.21284 |
-| engram | not benchmarked | — | — | Go, SQLite+FTS5+BM25, MCP-native, direct competitor |
+| engram | not benchmarked | — | — | Go, SQLite+FTS5+BM25, MCP-native, direct competitor (3.6k★ github.com/dleemiller/engram) |
+| vestige | not benchmarked | — | — | Rust, FSRS-6 spaced-repetition memory (533★ github.com/brainvoyager/vestige) |
+| token-savior | not benchmarked | — | — | Python, context compression/pruning (881★ github.com/token-savior/token-savior) |
 | Mem0 (new algo, Apr 2026) | 93.4% acc. | 91.6% acc. | p50 ~1.1s | mem0.ai/research; accuracy metric (not R@5) |
 | Hindsight | 91.4% acc. (Gemini-3) | 89.6% F1 | no data | arXiv:2512.12818; accuracy metric (not R@5) |
 | Zep | ~81.6% acc. | ~85% F1 | p95 ~200ms | arXiv:2501.13956; accuracy metric (not R@5) |
@@ -645,7 +647,7 @@ cargo test --test bench bench_binary_size -- --nocapture
 - Same-surface **collaboration/shared-memory**, trust/provenance, and UX competitor ledgers
 
 **Current same-surface scorecard ledger status:**
-- Retrieval: **win** vs MemPalace (both use R@5); engram/Hindsight/Zep/Letta/Mem0 need same-surface data.
+- Retrieval: **win** vs MemPalace (both use R@5); engram/vestige/token-savior/Hindsight/Zep/Letta/Mem0 need same-surface data.
 - Answer quality: **loss** vs Hindsight, Zep, Letta / MemGPT, Mem0 on LoCoMo QA F1.
 - Speed: **win** vs Zep (22ms vs p95 200ms), Mem0 (22ms vs p50 1.1s), MemPalace (22ms vs ~200ms).
 - Token economy: **win** vs Zep (57% vs 50%), **win** vs MemPalace; **tie/inconclusive** vs Mem0.

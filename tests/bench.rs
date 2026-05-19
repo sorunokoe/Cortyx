@@ -124,7 +124,7 @@ fn benchmark_registry_truth_matrix_is_coherent() {
         .expect("comparison_scaffold.competitors must be an array");
     assert_eq!(
         raw_competitors.len(),
-        6,
+        9,
         "the shared comparator roster should name the repo-cited systems"
     );
     let raw_competitor_ids: HashSet<&str> = raw_competitors
@@ -142,6 +142,9 @@ fn benchmark_registry_truth_matrix_is_coherent() {
         "zep",
         "letta-memgpt",
         "mem0",
+        "engram",
+        "vestige",
+        "token-savior",
     ] {
         assert!(
             raw_competitor_ids.contains(competitor_id),
@@ -420,14 +423,14 @@ fn benchmark_registry_truth_matrix_is_coherent() {
         script_scorecard["comparison_scaffold"]["competitors"]
             .as_array()
             .map(|entries| entries.len()),
-        Some(6),
+        Some(9),
         "the scaffold should expose the shared comparator roster"
     );
     assert_eq!(
         script_scorecard["competitor_scores"]
             .as_array()
             .map(|rows| rows.len()),
-        Some(6),
+        Some(9),
         "the scorecard should expose incomplete competitor totals once the roster exists"
     );
 
@@ -465,8 +468,8 @@ fn benchmark_registry_truth_matrix_is_coherent() {
     );
     assert_eq!(
         retrieval_record["outcome_ledger"]["state_counts"]["no-repo-evidence"].as_u64(),
-        Some(5),
-        "retrieval ledger should keep the unsupported roster entries explicit"
+        Some(8),
+        "retrieval ledger should keep the unsupported roster entries explicit (omega+hindsight+zep+letta+mem0+engram+vestige+token-savior)"
     );
     let retrieval_recorded: HashSet<&str> = retrieval_record["recorded_competitor_ids"]
         .as_array()
@@ -500,8 +503,8 @@ fn benchmark_registry_truth_matrix_is_coherent() {
     );
     assert_eq!(
         answer_quality_record["outcome_ledger"]["state_counts"]["no-repo-evidence"].as_u64(),
-        Some(2),
-        "answer-quality should keep missing same-surface repo evidence explicit"
+        Some(5),
+        "answer-quality should keep missing same-surface repo evidence explicit (omega+mempalace+engram+vestige+token-savior)"
     );
     let answer_recorded: HashSet<&str> = answer_quality_record["recorded_competitor_ids"]
         .as_array()
@@ -535,8 +538,8 @@ fn benchmark_registry_truth_matrix_is_coherent() {
     );
     assert_eq!(
         collaboration_record["outcome_ledger"]["state_counts"]["no-repo-evidence"].as_u64(),
-        Some(1),
-        "collaboration/shared-memory should keep omega's missing evidence explicit"
+        Some(4),
+        "collaboration/shared-memory should keep omega+engram+vestige+token-savior missing evidence explicit"
     );
 
     let provenance_record = comparison_dimension_records
@@ -555,8 +558,8 @@ fn benchmark_registry_truth_matrix_is_coherent() {
     );
     assert_eq!(
         provenance_record["outcome_ledger"]["state_counts"]["no-repo-evidence"].as_u64(),
-        Some(1),
-        "provenance/trust should keep omega's missing evidence explicit"
+        Some(4),
+        "provenance/trust should keep omega+engram+vestige+token-savior missing evidence explicit"
     );
 
     let ux_record = comparison_dimension_records
@@ -570,13 +573,13 @@ fn benchmark_registry_truth_matrix_is_coherent() {
     );
     assert_eq!(
         ux_record["outcome_ledger"]["state_counts"]["insufficient-evidence"].as_u64(),
-        Some(4),
+        Some(5),
         "ux ledger should show the capability-note competitor references explicitly"
     );
     assert_eq!(
         ux_record["outcome_ledger"]["state_counts"]["no-repo-evidence"].as_u64(),
-        Some(2),
-        "ux ledger should keep the unsupported roster entries explicit"
+        Some(4),
+        "ux ledger should keep the unsupported roster entries explicit (omega+engram+vestige+token-savior)"
     );
 
     let readiness_phases = script_scorecard["claim_readiness"]["phases"]
@@ -659,9 +662,9 @@ fn benchmark_registry_truth_matrix_is_coherent() {
         weighted_outcomes_phase["reason"]
             .as_str()
             .is_some_and(|reason| {
-                reason.contains("retrieval=awaiting-evidence (no-repo-evidence=5, recorded=1)")
+                reason.contains("retrieval=awaiting-evidence (no-repo-evidence=8, recorded=1)")
                     && reason.contains(
-                        "answer-quality=awaiting-evidence (no-repo-evidence=2, recorded=4)",
+                        "answer-quality=awaiting-evidence (no-repo-evidence=5, recorded=4)",
                     )
             }),
         "weighted-outcomes phase should summarize the partially populated ledgers"

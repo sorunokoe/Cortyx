@@ -27,7 +27,7 @@
       "label": "Answer quality",
       "status": "proven",
       "live_claim": "Full LongMemEval answer proof bundle: macro F1 0.153 / EM 0.109 / AnsR 0.188 with 500/500 official-QA hypotheses exported; full LoCoMo answer proof bundle: macro F1 0.133 / EM 0.053 / Recall 0.154 over 1540/1540",
-      "honest_read": "Answer quality for a context delivery engine means: does the delivered context contain what the agent needs to answer? Primary metric: R@5 retrieval recall (96.8% on LME-500). Rule-based synthesis F1 (0.133–0.153) is an internal diagnostic; it is not the headline claim because Cortyx does not embed a generative model. End-to-end synthesis comparison with LLM-backed competitors is a different product surface — see scorecard notes.",
+      "honest_read": "Answer quality for a context delivery engine means: does the delivered context contain what the agent needs to answer? Primary metric: R@5 retrieval recall (96.8% on LME-500). Rule-based synthesis F1 (0.133\u20130.153) is an internal diagnostic; it is not the headline claim because Cortyx does not embed a generative model. End-to-end synthesis comparison with LLM-backed competitors is a different product surface \u2014 see scorecard notes.",
       "missing": "Apples-to-apples synthesis comparison requires a common evaluation harness where all systems are evaluated with equivalent synthesis LLMs. Not currently a must-win gate.",
       "evidence_ids": [
         "lme-answer-proof",
@@ -129,7 +129,7 @@
   "overall_scorecard": {
     "id": "best-overall",
     "label": "Best overall public claim gate",
-    "summary": "Public weighted contract and competitive-proof scaffold for the context delivery engine claim: best local-first MCP context delivery by retrieval recall, latency, token economy, footprint, collaboration/shared memory, and trust/provenance. Answer quality in the sense of end-to-end LLM synthesis is out of scope — Cortyx delivers context; the AI agent performs synthesis.",
+    "summary": "Public weighted contract and competitive-proof scaffold for the context delivery engine claim: best local-first MCP context delivery by retrieval recall, latency, token economy, footprint, collaboration/shared memory, and trust/provenance. Answer quality in the sense of end-to-end LLM synthesis is out of scope \u2014 Cortyx delivers context; the AI agent performs synthesis.",
     "scoring_model": {
       "id": "weighted-win-tie-loss",
       "weights_total": 100,
@@ -177,7 +177,7 @@
           "answer-quality"
         ],
         "must_win": false,
-        "notes": "Not a must-win gate: Cortyx is a context delivery engine and does not embed a synthesis LLM. The comparison surface for answer quality is delivery-recall R@5 (96.8% on LME-500), not end-to-end synthesis F1. Competitors scoring high on synthesis F1 embed temporal/entity LLM architectures — a different product category. This dimension remains in the scorecard as a future gate pending an apples-to-apples synthesis comparison surface."
+        "notes": "Not a must-win gate: Cortyx is a context delivery engine and does not embed a synthesis LLM. The comparison surface for answer quality is delivery-recall R@5 (96.8% on LME-500), not end-to-end synthesis F1. Competitors scoring high on synthesis F1 embed temporal/entity LLM architectures \u2014 a different product category. This dimension remains in the scorecard as a future gate pending an apples-to-apples synthesis comparison surface."
       },
       {
         "id": "speed",
@@ -326,11 +326,11 @@
             "scripts/eval_lme.py",
             "arXiv:2604.21284"
           ],
-          "notes": "The cited LME-500 retrieval row now supports a recorded retrieval win. Speed/token/UX notes remain product-surface references. MemPalace (arXiv:2604.21284) is documented as a single-agent system (Wings/Rooms/Closets/Drawers hierarchy as metadata filtering for one agent's memory) with no multi-agent shared state — supporting collaboration and provenance-trust wins for Cortyx."
+          "notes": "The cited LME-500 retrieval row now supports a recorded retrieval win. Speed/token/UX notes remain product-surface references. MemPalace (arXiv:2604.21284) is documented as a single-agent system (Wings/Rooms/Closets/Drawers hierarchy as metadata filtering for one agent's memory) with no multi-agent shared state \u2014 supporting collaboration and provenance-trust wins for Cortyx."
         },
         {
           "id": "omega",
-          "label": "OMEGA (unverified — removed from claims)",
+          "label": "OMEGA (unverified \u2014 removed from claims)",
           "status": "removed",
           "dimension_evidence": {
             "retrieval": "none",
@@ -341,7 +341,9 @@
             "provenance-trust": "none",
             "ux": "none"
           },
-          "source_refs": ["BENCHMARKS.md#competitive-comparison"],
+          "source_refs": [
+            "BENCHMARKS.md#competitive-comparison"
+          ],
           "notes": "OMEGA was cited as a competitor in earlier benchmark analysis. As of June 2026, no public arXiv paper, GitHub repository, or verifiable source has been found. This entry is retained for audit purposes only and is excluded from all scorecard calculations and public claims."
         },
         {
@@ -361,7 +363,7 @@
             "scripts/eval_locomo.py",
             "arXiv:2512.12818"
           ],
-          "notes": "The cited LoCoMo QA F1 baseline now supports a recorded answer-quality loss. No same-surface retrieval or UX outcome is recorded yet. Hindsight (arXiv:2512.12818) is a single-agent system (Tempr+Cara) with per-agent memory networks and no multi-agent shared state — supporting collaboration and provenance-trust wins for Cortyx. Note: arXiv:2512.12818 is the Hindsight paper; arXiv:2504.19413 is Mem0."
+          "notes": "The cited LoCoMo QA F1 baseline now supports a recorded answer-quality loss. No same-surface retrieval or UX outcome is recorded yet. Hindsight (arXiv:2512.12818) is a single-agent system (Tempr+Cara) with per-agent memory networks and no multi-agent shared state \u2014 supporting collaboration and provenance-trust wins for Cortyx. Note: arXiv:2512.12818 is the Hindsight paper; arXiv:2504.19413 is Mem0."
         },
         {
           "id": "zep",
@@ -382,7 +384,7 @@
             "https://blog.getzep.com/scaling-agent-memory-zep-30x",
             "arXiv:2501.13956"
           ],
-          "notes": "LoCoMo QA F1 baseline supports a recorded answer-quality loss. Zep (arXiv:2501.13956, getzep/graphiti) uses a per-user/entity graph model with no shared-memory primitive, no agent-to-agent sync transport, no conflict resolution, and no tamper detection — supporting collaboration and provenance-trust wins for Cortyx."
+          "notes": "LoCoMo QA F1 baseline supports a recorded answer-quality loss. Zep (arXiv:2501.13956, getzep/graphiti) uses a per-user/entity graph model with no shared-memory primitive, no agent-to-agent sync transport, no conflict resolution, and no tamper detection \u2014 supporting collaboration and provenance-trust wins for Cortyx."
         },
         {
           "id": "letta-memgpt",
@@ -402,7 +404,7 @@
             "arXiv:2310.08560",
             "https://docs.letta.com"
           ],
-          "notes": "LoCoMo QA F1 baseline supports a recorded answer-quality loss. Letta (arXiv:2310.08560, docs.letta.com) documents 'shared memory blocks' with last-writer-wins semantics, no conflict resolution protocol, no tamper detection, and no sync transport. On Cortyx's shared-trust benchmark protocol (conflict resolution + tamper rejection), Letta scores 0 — supporting a collaboration win for Cortyx. Letta also has no content hashing or revision-chain integrity — supporting a provenance-trust win."
+          "notes": "LoCoMo QA F1 baseline supports a recorded answer-quality loss. Letta (arXiv:2310.08560, docs.letta.com) documents 'shared memory blocks' with last-writer-wins semantics, no conflict resolution protocol, no tamper detection, and no sync transport. On Cortyx's shared-trust benchmark protocol (conflict resolution + tamper rejection), Letta scores 0 \u2014 supporting a collaboration win for Cortyx. Letta also has no content hashing or revision-chain integrity \u2014 supporting a provenance-trust win."
         },
         {
           "id": "mem0",
@@ -423,7 +425,61 @@
             "arXiv:2504.19413",
             "https://docs.mem0.ai"
           ],
-          "notes": "LoCoMo QA F1 range supports a recorded answer-quality loss. Mem0 (arXiv:2504.19413, docs.mem0.ai) documents org/project memory and multi-agent cookbook patterns using flat shared storage with no sync transport, no conflict resolution, and no tamper detection. On Cortyx's shared-trust benchmark protocol, Mem0 scores 0 — supporting a collaboration win for Cortyx. Mem0 also has no content hashing or integrity protocol — supporting a provenance-trust win."
+          "notes": "LoCoMo QA F1 range supports a recorded answer-quality loss. Mem0 (arXiv:2504.19413, docs.mem0.ai) documents org/project memory and multi-agent cookbook patterns using flat shared storage with no sync transport, no conflict resolution, and no tamper detection. On Cortyx's shared-trust benchmark protocol, Mem0 scores 0 \u2014 supporting a collaboration win for Cortyx. Mem0 also has no content hashing or integrity protocol \u2014 supporting a provenance-trust win."
+        },
+        {
+          "id": "engram",
+          "label": "engram",
+          "dimension_evidence": {
+            "retrieval": "none",
+            "answer-quality": "none",
+            "speed": "capability-note",
+            "token-economy": "none",
+            "collaboration-shared-memory": "none",
+            "provenance-trust": "none",
+            "ux": "capability-note"
+          },
+          "source_refs": [
+            "BENCHMARKS.md#competitive-comparison",
+            "https://github.com/dleemiller/engram"
+          ],
+          "notes": "Go binary, SQLite+FTS5+BM25, MCP-native context delivery for AI coding agents. Direct competitor on retrieval dimension. 3.6k GitHub stars as of June 2026. Same-surface LME-500 R@5 benchmark pending."
+        },
+        {
+          "id": "vestige",
+          "label": "vestige",
+          "dimension_evidence": {
+            "retrieval": "none",
+            "answer-quality": "none",
+            "speed": "capability-note",
+            "token-economy": "none",
+            "collaboration-shared-memory": "none",
+            "provenance-trust": "none",
+            "ux": "none"
+          },
+          "source_refs": [
+            "BENCHMARKS.md#competitive-comparison",
+            "https://github.com/brainvoyager/vestige"
+          ],
+          "notes": "Rust, FSRS-6 spaced-repetition memory system. 533 GitHub stars as of June 2026. Same-surface benchmark pending."
+        },
+        {
+          "id": "token-savior",
+          "label": "token-savior",
+          "dimension_evidence": {
+            "retrieval": "none",
+            "answer-quality": "none",
+            "speed": "none",
+            "token-economy": "capability-note",
+            "collaboration-shared-memory": "none",
+            "provenance-trust": "none",
+            "ux": "none"
+          },
+          "source_refs": [
+            "BENCHMARKS.md#competitive-comparison",
+            "https://github.com/token-savior/token-savior"
+          ],
+          "notes": "Python context compression/pruning tool. 881 GitHub stars as of June 2026. Focuses on token economy; same-surface LME-500 benchmark pending."
         }
       ],
       "required_scope_fields": [
@@ -488,7 +544,7 @@
         {
           "dimension_id": "answer-quality",
           "scope": {
-            "public_fixture_or_protocol": "For a context delivery engine, answer quality means: does the delivered context enable the AI agent to answer correctly? Primary metric: R@5 retrieval recall on the checked-in LME-500 fixture (96.8%, 484/500). The rule-based answer surface (F1 0.133 LoCoMo) is internal calibration only — Cortyx does not embed a generative model; the AI agent performs synthesis.",
+            "public_fixture_or_protocol": "For a context delivery engine, answer quality means: does the delivered context enable the AI agent to answer correctly? Primary metric: R@5 retrieval recall on the checked-in LME-500 fixture (96.8%, 484/500). The rule-based answer surface (F1 0.133 LoCoMo) is internal calibration only \u2014 Cortyx does not embed a generative model; the AI agent performs synthesis.",
             "metric_family": "Retrieval precision (R@5) for AI agent delivery. Standalone synthesis F1 from competing systems (which embed their own LLMs) is a different metric surface and cannot be directly compared.",
             "default_product_path": "Default shipped context delivery path: cortyx_get_contexts + answer_mode=true. No external LLM or hosted service required.",
             "hardware_class": "Same developer-laptop class; LME-500 fixture is checked-in and deterministic.",
@@ -496,7 +552,7 @@
             "runtime_dependencies": "No external LLM or hosted service required. BM25-only or BM25+embed (optional).",
             "tuning_or_prompt_notes": "No per-benchmark tuning. Retrieval scoring uses official LME-500 oracle.",
             "current_repo_evidence": "retrieval-recall-lme500 (96.8% R@5, 484/500). Rule-based answer surface proof bundles retained as internal diagnostics only.",
-            "readiness_note": "[2026-05-04] --llm-answer run complete: qwen3:8b synthesis F1=0.094 on locomo10 (10 convs, 1540 entries). Retrieval Recall=0.33 is the binding constraint — 67% of questions have no relevant context. Competitors (Hindsight 89.6%, Zep ~85%, Letta ~83.2%, Mem0 58–67%) use specialized memory architectures with temporal/entity indexing. Same-surface R@5 comparison: Cortyx 96.8% on LME-500, competitors do not publish R@5. Must-win gate remains awaiting-evidence: no apples-to-apples comparison surface exists between Cortyx's context delivery R@5 and competitors' end-to-end synthesis F1."
+            "readiness_note": "[2026-05-04] --llm-answer run complete: qwen3:8b synthesis F1=0.094 on locomo10 (10 convs, 1540 entries). Retrieval Recall=0.33 is the binding constraint \u2014 67% of questions have no relevant context. Competitors (Hindsight 89.6%, Zep ~85%, Letta ~83.2%, Mem0 58\u201367%) use specialized memory architectures with temporal/entity indexing. Same-surface R@5 comparison: Cortyx 96.8% on LME-500, competitors do not publish R@5. Must-win gate remains awaiting-evidence: no apples-to-apples comparison surface exists between Cortyx's context delivery R@5 and competitors' end-to-end synthesis F1."
           },
           "recorded_outcomes": [
             {
@@ -532,7 +588,7 @@
             {
               "competitor_id": "mem0",
               "outcome": "loss",
-              "summary": "llm-answer surface (qwen3:8b): Cortyx F1=0.094 vs mem0 published 58–67% LoCoMo F1 (arXiv:2504.19413). Not apples-to-apples: competitors use embedded LLMs with temporal/entity memory architectures; Cortyx is a context delivery engine with BM25+dense retrieval. Primary Cortyx answer-quality metric is R@5=96.8% on LME-500 (no competitor R@5 published).",
+              "summary": "llm-answer surface (qwen3:8b): Cortyx F1=0.094 vs mem0 published 58\u201367% LoCoMo F1 (arXiv:2504.19413). Not apples-to-apples: competitors use embedded LLMs with temporal/entity memory architectures; Cortyx is a context delivery engine with BM25+dense retrieval. Primary Cortyx answer-quality metric is R@5=96.8% on LME-500 (no competitor R@5 published).",
               "surface": "llm-answer-locomo",
               "date_recorded": "2026-05-04",
               "source_refs": [
@@ -643,7 +699,7 @@
             {
               "competitor_id": "mempalace",
               "outcome": "win",
-              "summary": "MemPalace (arXiv:2604.21284) is a single-agent system whose Wings/Rooms/Closets/Drawers hierarchy is vector DB metadata filtering for one agent only — no multi-agent shared state, no conflict resolution, no sync transport. On Cortyx's published shared-trust harness protocol, MemPalace has no capability to demonstrate.",
+              "summary": "MemPalace (arXiv:2604.21284) is a single-agent system whose Wings/Rooms/Closets/Drawers hierarchy is vector DB metadata filtering for one agent only \u2014 no multi-agent shared state, no conflict resolution, no sync transport. On Cortyx's published shared-trust harness protocol, MemPalace has no capability to demonstrate.",
               "source_refs": [
                 "arXiv:2604.21284",
                 "tests/shared_trust_proof.rs"
@@ -919,7 +975,7 @@
       "metric": "per-category recall thresholds",
       "current_result": "green",
       "command": "cargo test --test bench bench_lme_regression_guard -- --nocapture",
-      "notes": "Fast CI guard over 20 representative LME rows. Budgets: single_session_user ≥80%, temporal-reasoning ≥80%, knowledge_update ≥60%, multi_session ≥80%. | 2026-05-05: category baselines updated from 489/500 run."
+      "notes": "Fast CI guard over 20 representative LME rows. Budgets: single_session_user \u226580%, temporal-reasoning \u226580%, knowledge_update \u226560%, multi_session \u226580%. | 2026-05-05: category baselines updated from 489/500 run."
     },
     {
       "id": "locomo-retrieval-sample",
@@ -945,7 +1001,7 @@
       "metric": "per-type recall thresholds",
       "current_result": "green",
       "command": "cargo test --test bench bench_locomo_regression_guard -- --nocapture",
-      "notes": "Fast CI guard over 20 representative LoCoMo rows, mined once per unique conversation. Budgets: single_hop ≥80%, multi_hop ≥80%, temporal ≥60%, open_qa ≥40%."
+      "notes": "Fast CI guard over 20 representative LoCoMo rows, mined once per unique conversation. Budgets: single_hop \u226580%, multi_hop \u226580%, temporal \u226560%, open_qa \u226540%."
     },
     {
       "id": "activation-latency-p95",
@@ -984,7 +1040,7 @@
       "metric": "release binary size (MB)",
       "current_result": "~12.8MB stripped release binary (Linux CI)",
       "command": "cargo build --release && cargo test --test bench bench_binary_size -- --nocapture",
-      "notes": "Builds the release binary first so the footprint claim is executable from the registry. Cargo's release profile strips symbols, enables LTO, and uses a single codegen unit. Budget: stripped release binary ≤14.0MB."
+      "notes": "Builds the release binary first so the footprint claim is executable from the registry. Cargo's release profile strips symbols, enables LTO, and uses a single codegen unit. Budget: stripped release binary \u226414.0MB."
     },
     {
       "id": "lme-answer-proof",
@@ -1008,9 +1064,9 @@
       "kind": "answer-quality",
       "proof_status": "proven",
       "metric": "macro F1 / EM / Recall",
-      "current_result": "llm-answer mode (Cortyx retrieves → qwen3:8b synthesises): macro F1 0.094 / EM 0.000 / Recall 0.331 over 1540/1540 (2026-05-04). Prior rule-based: macro F1 0.133 / EM 0.053 / Recall 0.154 over 1540/1540",
+      "current_result": "llm-answer mode (Cortyx retrieves \u2192 qwen3:8b synthesises): macro F1 0.094 / EM 0.000 / Recall 0.331 over 1540/1540 (2026-05-04). Prior rule-based: macro F1 0.133 / EM 0.053 / Recall 0.154 over 1540/1540",
       "command": "cargo test --test answer_proof checked_in_locomo_full_answer_proof_is_comparator_ready -- --nocapture",
-      "notes": "Checked-in full LoCoMo answer proof artifact over all 1540 official QA rows. `tests/fixtures/locomo_answer_full_report.json` is reproducible and comparator-ready, and it now anchors the recorded LoCoMo answer-quality ledger entries against the cited published baselines.\n\n[2026-05-04] --llm-answer run with qwen3:8b: F1=0.094, EM=0.000, Recall=0.331. Retrieval Recall ~0.33 is the binding constraint (67% of questions have no relevant context in retrieved neurons). Competitors: Hindsight 89.6%, Zep ~85%, Letta ~83.2%, Mem0 58–67%. Cortyx loses on synthesis F1 because it is a context delivery engine without temporal/entity indexing; retrieval-only R@5=96.8% on LME-500 remains strong."
+      "notes": "Checked-in full LoCoMo answer proof artifact over all 1540 official QA rows. `tests/fixtures/locomo_answer_full_report.json` is reproducible and comparator-ready, and it now anchors the recorded LoCoMo answer-quality ledger entries against the cited published baselines.\n\n[2026-05-04] --llm-answer run with qwen3:8b: F1=0.094, EM=0.000, Recall=0.331. Retrieval Recall ~0.33 is the binding constraint (67% of questions have no relevant context in retrieved neurons). Competitors: Hindsight 89.6%, Zep ~85%, Letta ~83.2%, Mem0 58\u201367%. Cortyx loses on synthesis F1 because it is a context delivery engine without temporal/entity indexing; retrieval-only R@5=96.8% on LME-500 remains strong."
     },
     {
       "id": "lme-answer-diagnostic",
@@ -1049,7 +1105,7 @@
       "metric": "avg tokens and savings vs full history",
       "current_result": "56.9% first-call savings, 98.4% capsule+delta repeat savings",
       "command": "cargo run --bin token_bench -- --sample-size 20 --min-retrieval-savings-pct 55 --max-retrieval-avg-tokens 4200 --min-delta-repeat-savings-pct 98 --max-delta-repeat-avg-tokens 160",
-      "notes": "Compares full history, retrieval, capsule, capsule+delta repeat, and answer-only outputs on a deterministic LME sample using the live MCP renderer. Budgets: retrieval savings ≥55.0%, retrieval avg tokens ≤4200 (full-history baseline ~8800; threshold updated in v0.2 after default quality-score changed from 0→1 raised observed avg from ~3500 to ~3820), capsule+delta repeat savings ≥98.0%, capsule+delta repeat avg tokens ≤160."
+      "notes": "Compares full history, retrieval, capsule, capsule+delta repeat, and answer-only outputs on a deterministic LME sample using the live MCP renderer. Budgets: retrieval savings \u226555.0%, retrieval avg tokens \u22644200 (full-history baseline ~8800; threshold updated in v0.2 after default quality-score changed from 0\u21921 raised observed avg from ~3500 to ~3820), capsule+delta repeat savings \u226598.0%, capsule+delta repeat avg tokens \u2264160."
     },
     {
       "id": "answer-trust-diagnostic",
@@ -1164,9 +1220,9 @@
       "kind": "latency",
       "proof_status": "pending",
       "metric": "compile time ms",
-      "current_result": "pending — run bench_scale_2k_compile",
+      "current_result": "pending \u2014 run bench_scale_2k_compile",
       "command": "cargo test --test bench bench_scale_2k_compile -- --ignored --nocapture",
-      "notes": "Synthetic amplifier: 2000 Rust files compiled into a neuron index. Budget: <2min. Catches O(n²) index-build regressions. Not a real-content realism test."
+      "notes": "Synthetic amplifier: 2000 Rust files compiled into a neuron index. Budget: <2min. Catches O(n\u00b2) index-build regressions. Not a real-content realism test."
     },
     {
       "id": "scale-2k-activation",
@@ -1177,9 +1233,9 @@
       "kind": "latency",
       "proof_status": "pending",
       "metric": "p95 activation ms at 2K neurons",
-      "current_result": "pending — run bench_scale_2k_activation",
+      "current_result": "pending \u2014 run bench_scale_2k_activation",
       "command": "cargo test --test bench bench_scale_2k_activation -- --ignored --nocapture",
-      "notes": "P95 activation latency over 20 trials × 5 queries on a 2K-neuron index. Budget: p95 <200ms. A regression here signals O(n²) BM25 scoring or unbounded synapse traversal."
+      "notes": "P95 activation latency over 20 trials \u00d7 5 queries on a 2K-neuron index. Budget: p95 <200ms. A regression here signals O(n\u00b2) BM25 scoring or unbounded synapse traversal."
     },
     {
       "id": "ux-install-route-smoke",
