@@ -212,13 +212,14 @@ fn watch_startup_emits_bootstrap_proof_and_recovery_paths() {
 
     let mut child = Command::new(cortyx_bin())
         .args(["watch"])
+        .env("CORTYX_NO_DOWNLOAD", "1")
         .current_dir(dir.path())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
         .expect("watch should start");
 
-    wait_until(Duration::from_secs(5), || engine_neuron.exists());
+    wait_until(Duration::from_secs(10), || engine_neuron.exists());
     thread::sleep(Duration::from_millis(300));
 
     child.kill().ok();

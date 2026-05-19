@@ -263,6 +263,26 @@ impl From<bincode::Error> for CortyxError {
     }
 }
 
+#[cfg(feature = "embed")]
+impl From<anyhow::Error> for CortyxError {
+    fn from(err: anyhow::Error) -> Self {
+        Self::other(err)
+    }
+}
+
+#[cfg(feature = "rerank")]
+impl From<ort::Error> for CortyxError {
+    fn from(err: ort::Error) -> Self {
+        Self::other(err)
+    }
+}
+
+impl From<std::array::TryFromSliceError> for CortyxError {
+    fn from(err: std::array::TryFromSliceError) -> Self {
+        Self::other(err)
+    }
+}
+
 /// Extension trait for converting `Result<T, E>` into `Result<T, CortyxError>` during
 /// the migration away from `anyhow`.
 ///

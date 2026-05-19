@@ -331,7 +331,7 @@ fn benchmark_registry_truth_matrix_is_coherent() {
     );
     let scorecard_table_stdout = String::from_utf8_lossy(&scorecard_table.stdout);
     assert!(
-        scorecard_table_stdout.contains("Recorded outcomes: mempalace=win, omega=win"),
+        scorecard_table_stdout.contains("Recorded outcomes: mempalace=win"),
         "human scorecard output should show the populated retrieval ledger"
     );
     assert!(
@@ -460,12 +460,12 @@ fn benchmark_registry_truth_matrix_is_coherent() {
     );
     assert_eq!(
         retrieval_record["outcome_ledger"]["state_counts"]["recorded"].as_u64(),
-        Some(2),
-        "retrieval ledger should record the supported retrieval wins"
+        Some(1),
+        "retrieval ledger should record the supported retrieval win (mempalace only; omega removed as unverifiable)"
     );
     assert_eq!(
         retrieval_record["outcome_ledger"]["state_counts"]["no-repo-evidence"].as_u64(),
-        Some(4),
+        Some(5),
         "retrieval ledger should keep the unsupported roster entries explicit"
     );
     let retrieval_recorded: HashSet<&str> = retrieval_record["recorded_competitor_ids"]
@@ -480,8 +480,8 @@ fn benchmark_registry_truth_matrix_is_coherent() {
         .collect();
     assert_eq!(
         retrieval_recorded,
-        HashSet::from(["mempalace", "omega"]),
-        "retrieval should record the same-surface wins it can already support"
+        HashSet::from(["mempalace"]),
+        "retrieval should record only the same-surface wins backed by verifiable sources"
     );
 
     let answer_quality_record = comparison_dimension_records
@@ -525,13 +525,18 @@ fn benchmark_registry_truth_matrix_is_coherent() {
         .expect("collaboration comparison record should exist");
     assert_eq!(
         collaboration_record["current_state"].as_str(),
-        Some("scored"),
-        "collaboration/shared-memory should be scored once all 6 competitors have recorded outcomes"
+        Some("awaiting-evidence"),
+        "collaboration/shared-memory awaiting-evidence while omega lacks verifiable repo evidence"
     );
     assert_eq!(
         collaboration_record["outcome_ledger"]["state_counts"]["recorded"].as_u64(),
-        Some(6),
-        "collaboration/shared-memory should record all 6 win outcomes"
+        Some(5),
+        "collaboration/shared-memory records 5 wins (omega removed as unverifiable)"
+    );
+    assert_eq!(
+        collaboration_record["outcome_ledger"]["state_counts"]["no-repo-evidence"].as_u64(),
+        Some(1),
+        "collaboration/shared-memory should keep omega's missing evidence explicit"
     );
 
     let provenance_record = comparison_dimension_records
@@ -540,13 +545,18 @@ fn benchmark_registry_truth_matrix_is_coherent() {
         .expect("provenance/trust comparison record should exist");
     assert_eq!(
         provenance_record["current_state"].as_str(),
-        Some("scored"),
-        "provenance/trust should be scored once all 6 competitors have recorded outcomes"
+        Some("awaiting-evidence"),
+        "provenance/trust awaiting-evidence while omega lacks verifiable repo evidence"
     );
     assert_eq!(
         provenance_record["outcome_ledger"]["state_counts"]["recorded"].as_u64(),
-        Some(6),
-        "provenance/trust should record all 6 win outcomes"
+        Some(5),
+        "provenance/trust records 5 wins (omega removed as unverifiable)"
+    );
+    assert_eq!(
+        provenance_record["outcome_ledger"]["state_counts"]["no-repo-evidence"].as_u64(),
+        Some(1),
+        "provenance/trust should keep omega's missing evidence explicit"
     );
 
     let ux_record = comparison_dimension_records
@@ -649,7 +659,7 @@ fn benchmark_registry_truth_matrix_is_coherent() {
         weighted_outcomes_phase["reason"]
             .as_str()
             .is_some_and(|reason| {
-                reason.contains("retrieval=awaiting-evidence (no-repo-evidence=4, recorded=2)")
+                reason.contains("retrieval=awaiting-evidence (no-repo-evidence=5, recorded=1)")
                     && reason.contains(
                         "answer-quality=awaiting-evidence (no-repo-evidence=2, recorded=4)",
                     )

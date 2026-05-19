@@ -102,6 +102,9 @@ mod synthetic_temporal;
 mod synthetic_temporal2;
 mod synthetic_temporal3;
 
+mod pipeline;
+pub(super) use pipeline::*;
+
 mod types;
 pub use types::*;
 

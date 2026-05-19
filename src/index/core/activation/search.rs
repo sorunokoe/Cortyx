@@ -20,322 +20,41 @@ impl NeuronIndex {
         module: Option<&str>,
         kind: Option<&str>,
     ) -> Vec<PathBuf> {
-        let Ok(query) = QueryText::new(task) else {
+        let Some(ctx) = self.build_query_context(task, max_tokens, module, kind) else {
             return Vec::new();
         };
-        let terms = tokenize(query.as_str());
-
-        // Phase 1 — O(|candidates|) BM25 via posting list.
-        //
-        // Union the posting lists for all query terms to find the candidate set —
-        // only entries containing at least one query term can have a non-zero BM25
-        // score, so there is no accuracy loss.  For sparse queries this reduces
-        // BM25 scoring from O(n) to O(|candidates|), typically ~N/50 for real tasks.
-        //
-        // `scoring_terms` starts as a reference to `terms` and is replaced with the
-        // vocabulary-bridge-expanded set when a zero-match query fires the bridge (S2).
-        // BM25 scoring always uses `scoring_terms` so bridge candidates are ranked
-        // by their actual identifier vocabulary, not the zero-scoring original terms.
-        let candidate_set: HashSet<usize> = {
-            let mut s = HashSet::new();
-            for term in &terms {
-                if let Some(idxs) = self.posting_list.get(term) {
-                    s.extend(idxs);
-                }
-            }
-            s
-        };
-
-        // Optional module scope — when module is Some, restrict to entries tagged with that module.
-        // If no entries carry that module tag, the result set is empty (not "unfiltered").
-        let module_set: Option<HashSet<usize>> = module.map(|m| {
-            self.module_index
-                .get(m)
-                .map(|v| v.iter().copied().collect::<HashSet<_>>())
-                .unwrap_or_default() // module requested but unknown → empty set → zero results
-        });
-
-        // Vocabulary gap detector (TRIZ Standard 4.1.1 — Measurement Substance).
-        // If posting lists return zero candidates for every query term, the index has
-        // no vocabulary match for this task.
-        //
-        // S2 — Vocabulary Bridge: attempt query expansion using module-path synonyms.
-        // For each zero-match query term, check if it substring-matches any module
-        // fragment in vocab_bridge. If so, expand the candidate set with that module's
-        // identifier vocabulary and re-run the posting-list lookup on the new terms.
-        // This resolves the "authentication" → "auth_guard" gap without any model.
-        //
-        // When the bridge fires, `scoring_terms` is updated to the expanded set so
-        // BM25 scores are computed against the actual identifier vocabulary (not the
-        // original natural-language query that had zero index coverage).
-        let mut scoring_terms: &[String] = &terms;
-        let expanded_terms_buf: Vec<String>;
-
-        // B2: Synonym cloud expansion — always applied before S2/B1 bridge.
-        // If any query term co-activates with a neuron ≥30× historically, add
-        // the synonym cloud terms to the scoring set to improve recall.
-        let synonym_expansions = self.synonym_cloud_expansion(&terms);
-        let morphological_expansions: Vec<String> = terms
-            .iter()
-            .flat_map(|term| morphological_variants(term))
-            .filter(|variant| self.df_cache.contains_key(variant.as_str()))
-            .collect();
-        let terms_with_synonyms: Vec<String> =
-            if !synonym_expansions.is_empty() || !morphological_expansions.is_empty() {
-                let mut t = terms.clone();
-                t.extend(synonym_expansions.iter().cloned());
-                t.extend(morphological_expansions.iter().cloned());
-                t.sort();
-                t.dedup();
-                t
-            } else {
-                terms.clone()
-            };
-
-        // Expand candidate set with synonym/morphological terms if we have them
-        let candidate_set = {
-            let mut cs = candidate_set;
-            for term in synonym_expansions
-                .iter()
-                .chain(morphological_expansions.iter())
-            {
-                if let Some(idxs) = self.posting_list.get(term.as_str()) {
-                    cs.extend(idxs);
-                }
-            }
-            cs
-        };
-
-        let synonym_expansions_empty =
-            synonym_expansions.is_empty() && morphological_expansions.is_empty();
-
-        let candidate_set = if candidate_set.is_empty() && !terms.is_empty() {
-            let expanded = self.expand_query_terms(&terms_with_synonyms);
-            if expanded.len() > terms_with_synonyms.len() {
-                let mut bridged: HashSet<usize> = HashSet::new();
-                for term in &expanded {
-                    if let Some(idxs) = self.posting_list.get(term) {
-                        bridged.extend(idxs);
-                    }
-                }
-                if !bridged.is_empty() {
-                    tracing::debug!(
-                        task,
-                        original = terms.len(),
-                        expanded = expanded.len(),
-                        candidates = bridged.len(),
-                        "Vocabulary bridge: expanded query via module synonyms + morphemes + B2"
-                    );
-                    expanded_terms_buf = expanded;
-                    scoring_terms = &expanded_terms_buf;
-                    bridged
-                } else {
-                    tracing::debug!(
-                        task,
-                        "Vocabulary gap: no posting-list candidates for query. \
-                         Consider evolving relevant neurons to cover terms: {:?}",
-                        &terms[..terms.len().min(5)]
-                    );
-                    candidate_set
-                }
-            } else {
-                tracing::debug!(
-                    task,
-                    "Vocabulary gap: no posting-list candidates for query. \
-                     Consider evolving relevant neurons to cover terms: {:?}",
-                    &terms[..terms.len().min(5)]
-                );
-                candidate_set
-            }
+        let terms = &ctx.terms;
+        let scoring_terms = &ctx.active_scoring_terms;
+        let ranking_terms = &ctx.ranking_terms;
+        let candidate_set = if !ctx.bridge_candidate_ids.is_empty() {
+            &ctx.bridge_candidate_ids
+        } else if !ctx.seed_candidate_ids.is_empty() {
+            &ctx.seed_candidate_ids
         } else {
-            // Update scoring_terms to include synonym expansions when candidates found
-            if !synonym_expansions_empty {
-                expanded_terms_buf = terms_with_synonyms;
-                scoring_terms = &expanded_terms_buf;
-            }
-            candidate_set
+            &ctx.concept_cloud_candidate_ids
         };
+        let module_set = ctx.module_set.as_ref();
+        let is_knowledge_update = ctx.is_knowledge_update;
+        let is_counting = ctx.is_counting;
+        let task_lower = &ctx.task_lower;
+        let explicit_current_state_query = ctx.explicit_current_state_query;
+        let named_person_move_query = ctx.named_person_move_query;
+        let raw_counting_focus_terms = &ctx.raw_counting_focus_terms;
+        let raw_knowledge_focus_terms = &ctx.raw_knowledge_focus_terms;
+        let force_tfidf = ctx.force_tfidf;
+        let kind_lower = ctx.kind_lower.clone();
+        let kg_router_path = ctx.kg_router_path.clone();
+        let counting_augment = &ctx.counting_augment;
 
-        // R12-S1 — Concept Cloud fallback: graph-aware semantic expansion.
-        //
-        // When both the direct posting list AND the vocab bridge return zero candidates,
-        // scan each neuron's concept cloud (union of identifier terms from 1-hop Calls/
-        // Imports/Implements neighbours). If any neuron's cloud overlaps with the query
-        // terms, that neuron becomes a candidate — no substring tricks, no model.
-        //
-        // This closes the gap where a query term names a callee function that lives in a
-        // different file; the caller neuron's cloud contains callee terms via the graph.
-        //
-        // Scored against the ORIGINAL query terms only (not the cloud terms) to prevent
-        // BM25 score inflation from the expanded vocabulary.
-        let candidate_set = if candidate_set.is_empty() && !terms.is_empty() {
-            let term_set: HashSet<&str> = terms.iter().map(|s| s.as_str()).collect();
-            let cloud_candidates: HashSet<usize> = self
-                .entries
-                .iter()
-                .enumerate()
-                .filter(|(_, e)| {
-                    e.concept_cloud
-                        .iter()
-                        .any(|t| term_set.contains(t.as_str()))
-                })
-                .map(|(i, _)| i)
-                .collect();
-            if !cloud_candidates.is_empty() {
-                tracing::debug!(
-                    task,
-                    candidates = cloud_candidates.len(),
-                    "Concept cloud (R12-S1): found candidates via 1-hop graph vocabulary"
-                );
-            }
-            cloud_candidates
-        } else {
-            candidate_set
-        };
-
-        // R18 P2 Sol B — Category-Aware Query Router (zero ML, pure regex + heuristics).
-        // R19 fix: removed is_multi_session from force_tfidf (2 proper nouns is too common
-        // in single-session queries, causing false TF-IDF reranks and -5.7pp regression).
-        let is_knowledge_update = detect_knowledge_update_query(task);
-        let is_counting = detect_counting_query(task);
-        let task_lower = task.to_ascii_lowercase();
-        let explicit_current_state_query = has_explicit_current_state_marker(task);
-        let named_person_move_query = count_proper_nouns(task) >= 1
-            && (task_lower.contains(" move")
-                || task_lower.contains(" moved")
-                || task_lower.contains("relocation"));
-        let expand_focus_terms = |base_terms: Vec<String>| {
-            let mut expanded = base_terms.clone();
-            for term in &base_terms {
-                for variant in morphological_variants(term) {
-                    if self.df_cache.contains_key(variant.as_str()) {
-                        expanded.push(variant);
-                    }
-                }
-            }
-            expanded.sort();
-            expanded.dedup();
-            expanded
-        };
-        let raw_counting_focus_terms = if is_counting {
-            extract_counting_focus_terms(&terms)
-        } else {
-            Vec::new()
-        };
-        let counting_focus_terms = if is_counting {
-            expand_focus_terms(raw_counting_focus_terms.clone())
-        } else {
-            Vec::new()
-        };
-        let raw_knowledge_focus_terms = if !is_counting && is_knowledge_update {
-            extract_knowledge_update_focus_terms(&terms)
-        } else {
-            Vec::new()
-        };
-        let knowledge_focus_terms = if !is_counting && is_knowledge_update {
-            expand_focus_terms(raw_knowledge_focus_terms.clone())
-        } else {
-            Vec::new()
-        };
-        let ranking_terms: &[String] = if !counting_focus_terms.is_empty() {
-            &counting_focus_terms
-        } else if !knowledge_focus_terms.is_empty() {
-            &knowledge_focus_terms
-        } else {
-            scoring_terms
-        };
-        // force_tfidf: only for confirmed knowledge-update queries (stale facts look
-        // HIGH confidence on BM25, bypassing TF-IDF normally). Multi-session routing
-        // still benefits from synapse BFS without needing forced TF-IDF.
-        let force_tfidf = is_knowledge_update;
-
-        // P2-B: KG Router — bypass BM25 for personal-attribute queries.
-        //
-        // "What degree did I graduate with?" → predicate=education → scan KG neurons →
-        // find entity with active education fact → inject KG neuron as rank-1 result.
-        //
-        // This is O(|KG entities|) = O(small) at query time. KG neurons are Concept
-        // neurons already in the BM25 index; injecting as rank-1 does not break the
-        // existing scoring pipeline — BM25 still runs, KG result is prepended.
-        let kg_router_path: Option<PathBuf> =
-            (!matches!(kind, Some(k) if k.eq_ignore_ascii_case("conversation")))
-                .then_some(())
-                .and_then(|_| detect_personal_fact_query(task))
-                .and_then(|predicate| {
-                    detect_personal_fact_entity(task).and_then(|entity| {
-                        let kg_path = kg::kg_neuron_path(&self.project_root, &entity);
-                        if !self.path_index.contains_key(&kg_path) {
-                            return None;
-                        }
-                        let Ok(kg_entity) = kg::KgEntity::load(&kg_path) else {
-                            return None;
-                        };
-                        let has_fact = kg_entity
-                            .active_facts(None)
-                            .iter()
-                            .any(|f| f.predicate == predicate && !f.value.is_empty());
-                        if has_fact {
-                            tracing::debug!(
-                            task,
-                            predicate,
-                            entity,
-                            kind = kind.unwrap_or("all"),
-                            "P2-B KG Router: routed personal-attribute query to exact KG neuron"
-                        );
-                            Some(kg_path)
-                        } else {
-                            None
-                        }
-                    })
-                });
-
-        // R21 T5: Counting-query candidate expansion.
-        //
-        // "How many X have I done?" needs evidence from ALL sessions mentioning X, not
-        // just the highest-scoring posting-list hit. When detect_counting_query fires,
-        // expand the candidate set to include ALL Verbatim neurons in the index, scored
-        // with BM25 against the query. Aggregate neurons stay available for explicit
-        // injection below, but they do not participate in the general BM25 pool.
-        let counting_augment: Vec<usize> = if is_counting {
-            let in_set: std::collections::HashSet<usize> = candidate_set.iter().copied().collect();
-            self.entries
-                .iter()
-                .enumerate()
-                .filter(|(i, e)| {
-                    matches!(e.kind, NeuronKind::Verbatim | NeuronKind::Aggregate)
-                        && !in_set.contains(i)
-                })
-                .map(|(i, _)| i)
-                .collect()
-        } else {
-            vec![]
-        };
-
-        // BM25 scoring — kind-filtered over candidates in scope.
-        // kind=None or "all" → Core + Project + Verbatim (default)
-        // kind="code"         → Core + Project only (exclude conversation/Verbatim)
-        // kind="conversation" → Verbatim only (episodic recall, excludes code neurons)
-        // Aggregate neurons are NEVER in the general BM25 pool — they are injected
-        // via counting_augment only when detect_counting_query() fires, preventing
-        // pollution of non-counting R@5 results.
-        let kind_lower = kind.map(|k| k.to_lowercase());
         let score_bm25_candidates = |candidate_ids: &HashSet<usize>, query_terms: &[String]| {
             let mut scored: Vec<(f32, usize)> = candidate_ids
                 .iter()
                 .filter(|&&i| {
-                    let k = &self.entries[i].kind;
-                    let kind_ok = match kind_lower.as_deref() {
-                        Some("conversation") => matches!(k, NeuronKind::Verbatim),
-                        Some("code") => matches!(k, NeuronKind::Core | NeuronKind::Project),
-                        _ => matches!(
-                            k,
-                            NeuronKind::Core | NeuronKind::Project | NeuronKind::Verbatim
-                        ),
-                    };
-                    kind_ok && module_set.as_ref().is_none_or(|ms| ms.contains(&i))
+                    let entry = &self.entries[i];
+                    ctx.kind_matches(entry) && module_set.as_ref().is_none_or(|ms| ms.contains(&i))
                 })
                 .filter_map(|&i| {
-                    let mut s = self.bm25_score(query_terms, &self.entries[i]);
+                    let mut s = ctx.score_entry_with_terms(query_terms, &self.entries[i]);
                     if is_session_summary_path(&self.entries[i].neuron_path) {
                         if is_counting {
                             s *= 1.35;
@@ -343,9 +62,6 @@ impl NeuronIndex {
                             s *= 1.15;
                         }
                     }
-                    // R18 P2 Sol B: knowledge-update routing — demote stale Verbatim neurons
-                    // so updated KG/Concept facts rank above old verbatim assertions.
-                    // R21 T4: ×0.8 → ×0.5 — old fact now needs 2× BM25 score to beat new fact.
                     if is_knowledge_update && matches!(self.entries[i].kind, NeuronKind::Verbatim) {
                         s *= 0.5;
                     }
@@ -353,22 +69,17 @@ impl NeuronIndex {
                 })
                 .collect();
 
-            // Merge counting-query expanded candidates into bm25_scored.
-            // Aggregate neurons are intentionally excluded here — Sol-A+ injects the best one
-            // into `selected` after top_cores are determined, preventing Aggregates from
-            // displacing Verbatim chunks in the BM25 top-5 ranking.
             if !counting_augment.is_empty() {
                 let already_scored: std::collections::HashSet<usize> =
                     scored.iter().map(|(_, i)| *i).collect();
-                for &i in &counting_augment {
+                for &i in counting_augment {
                     if already_scored.contains(&i) {
                         continue;
                     }
-                    // Aggregates handled exclusively by Sol-A+ block below
                     if matches!(self.entries[i].kind, NeuronKind::Aggregate) {
                         continue;
                     }
-                    let s = self.bm25_score(query_terms, &self.entries[i]);
+                    let s = ctx.score_entry_with_terms(query_terms, &self.entries[i]);
                     if s > 0.0 {
                         scored.push((s, i));
                     }
@@ -382,8 +93,21 @@ impl NeuronIndex {
 
             scored
         };
-        let mut bm25_scored: Vec<(f32, usize)> =
-            score_bm25_candidates(&candidate_set, ranking_terms);
+
+        let pipeline = ActivationPipeline::phase1();
+        let mut scored_candidates = Vec::new();
+        pipeline.run(&ctx, &mut scored_candidates);
+        if scored_candidates.is_empty() && !ctx.concept_cloud_candidate_ids.is_empty() {
+            scored_candidates.extend(
+                score_bm25_candidates(&ctx.concept_cloud_candidate_ids, ranking_terms)
+                    .into_iter()
+                    .map(|(score, idx)| ScoredCandidate::new(idx, score, self.entries[idx].tokens)),
+            );
+        }
+        let mut bm25_scored: Vec<(f32, usize)> = scored_candidates
+            .into_iter()
+            .map(|candidate| (candidate.score, candidate.entry_idx))
+            .collect();
 
         //
         // "What was the first X?" needs the OLDEST neuron to surface; "What is the latest X?"

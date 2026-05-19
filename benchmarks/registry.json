@@ -341,7 +341,7 @@
             "provenance-trust": "none",
             "ux": "none"
           },
-          "source_refs": [],
+          "source_refs": ["BENCHMARKS.md#competitive-comparison"],
           "notes": "OMEGA was cited as a competitor in earlier benchmark analysis. As of June 2026, no public arXiv paper, GitHub repository, or verifiable source has been found. This entry is retained for audit purposes only and is excluded from all scorecard calculations and public claims."
         },
         {
@@ -469,7 +469,7 @@
             "runtime_dependencies": "Disclose runtime stack (local binary, Python stack, vector DB, hosted service, background model downloads). Hosted memory or external stores cannot be hidden.",
             "tuning_or_prompt_notes": "No private prompt surgery, unpublished oracle cleaning, or per-system retuning. Use the named default product path and cite optional flags separately.",
             "current_repo_evidence": "lme-500-official, locomo-retrieval-sample",
-            "readiness_note": "Scope defined. Wins vs MemPalace (96.8% vs 96.6% R@5) and OMEGA (96.8% vs ~95.4%) recorded. Hindsight, Zep, Letta/MemGPT, and Mem0 report accuracy metrics (not R@5) on LME-500, preventing direct same-surface comparison. Research (arXiv:2501.13956, arXiv:2504.19413, arXiv:2512.12818) confirms these systems benchmark answer accuracy not retrieval recall on LME-500. Must-win gate still blocked: only 2/6 competitors have recorded outcomes."
+            "readiness_note": "Scope defined. Win vs MemPalace (96.8% vs 96.6% R@5) recorded. OMEGA removed as unverifiable (no public paper or repository found as of June 2026). Hindsight, Zep, Letta/MemGPT, and Mem0 report accuracy metrics (not R@5) on LME-500, preventing direct same-surface comparison. Must-win gate still blocked: only 1/5 verifiable competitors have recorded outcomes."
           },
           "recorded_outcomes": [
             {
@@ -482,12 +482,6 @@
                 "BENCHMARKS.md#longmemeval-500-lme-500--cleaned-oracle-external-benchmark",
                 "scripts/eval_lme.py"
               ]
-            },
-            {
-              "competitor_id": "omega",
-              "outcome": "void",
-              "summary": "OMEGA entry removed. As of June 2026, no public arXiv paper, GitHub repository, or verifiable source for OMEGA has been found. This outcome is excluded from scorecard totals.",
-              "source_refs": []
             }
           ]
         },
@@ -656,12 +650,6 @@
               ]
             },
             {
-              "competitor_id": "omega",
-              "outcome": "void",
-              "summary": "OMEGA entry removed. As of June 2026, no public arXiv paper, GitHub repository, or verifiable source for OMEGA has been found. This outcome is excluded from scorecard totals.",
-              "source_refs": []
-            },
-            {
               "competitor_id": "hindsight",
               "outcome": "win",
               "summary": "Hindsight (arXiv:2512.12818) implements four per-agent memory networks (world, experience, opinion, observation). The paper contains no discussion of multi-agent shared state, team memory, or sync protocol. On Cortyx's shared-trust harness, Hindsight has no capability to demonstrate.",
@@ -725,12 +713,6 @@
                 "tests/shared_trust_proof.rs",
                 "BENCHMARKS.md#provenance-trust"
               ]
-            },
-            {
-              "competitor_id": "omega",
-              "outcome": "void",
-              "summary": "OMEGA entry removed. As of June 2026, no public arXiv paper, GitHub repository, or verifiable source for OMEGA has been found. This outcome is excluded from scorecard totals.",
-              "source_refs": []
             },
             {
               "competitor_id": "hindsight",
