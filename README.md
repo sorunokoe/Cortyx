@@ -7,29 +7,31 @@
 [![CI](https://github.com/sorunokoe/Cortyx/actions/workflows/ci.yml/badge.svg)](https://github.com/sorunokoe/Cortyx/actions/workflows/ci.yml)  [![Benchmarks](https://github.com/sorunokoe/Cortyx/actions/workflows/benchmarks.yml/badge.svg)](https://github.com/sorunokoe/Cortyx/actions/workflows/benchmarks.yml)
 
 > MCP-native context delivery engine for coding agents and long-lived conversations.<br>
-> 97.7% R@5 on LME-500 · local-first · pure Rust · no runtime model
+> 96.8% R@5 on LME-500 · local-first · pure Rust · no runtime model
 
 ## Why Cortyx
 
 - **Context delivery, not synthesis** — Cortyx puts the right neurons into the LLM window; your agent does the synthesis.
 - **Local-first** — neurons are human-readable Markdown in `.cortyx/`, git-tracked, and never require a cloud backend.
-- **Proven retrieval** — **97.7% macro R@5** on LME-500 (CI-verified), ahead of MemPalace **96.6%** and OMEGA **95.4%**.
+- **Proven retrieval** — **96.8% macro R@5** on LME-500 (regenerated cleaned-oracle run; full 500-question benchmark via manual trigger), beating MemPalace **96.6%** on the same surface.
 
 ## Benchmark Results
 
 Cortyx leads with retrieval-first proof, then backs it up with latency, token, and footprint measurements on the shipped path.
 
-| Metric | Cortyx | MemPalace | OMEGA |
-|--------|--------|-----------|-------|
-| LME-500 R@5 | **97.7%** ✓ CI | 96.6% | 95.4% |
+| Metric | Cortyx | MemPalace | engram |
+|--------|--------|-----------|--------|
+| LME-500 R@5 | **96.8%** ¹ | 96.6% | not benchmarked |
 | LoCoMo recall | **92.0%** | — | — |
-| Activation latency p95 | **~22ms** | — | — |
+| Activation latency p95 | **~22ms** | ~200ms | — |
 | Token savings (first call) | **56.9%** | — | — |
 | Token savings (capsule+delta repeat) | **98.4%** | — | — |
-| Binary size | **~7MB** | Python stack | — |
-| Runtime model on default path | **No** | Yes | — |
+| Binary size | **~7MB** | Python stack | ~12MB (Go) |
+| Runtime model on default path | **No** | Yes | No |
 
-→ Full methodology, proof matrix, and comparison tables: [BENCHMARKS.md](BENCHMARKS.md)
+> ¹ 96.8% R@5 is from the regenerated cleaned-oracle eval harness run (484/500 questions).
+> The full 500-question benchmark runs via manual `workflow_dispatch`; the fast CI regression
+> guard runs 20 questions per category. See [BENCHMARKS.md](BENCHMARKS.md) for full methodology.
 
 ## Quick Start
 

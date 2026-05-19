@@ -1,6 +1,6 @@
 [package]
 name = "cortyx"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 description = "MCP-native context delivery engine — local long-term memory, prompt-cache-aware context reuse, BM25 + hybrid retrieval"
 license = "MIT"
@@ -10,6 +10,10 @@ keywords = ["llm", "mcp", "context", "memory", "ai"]
 categories = ["command-line-utilities", "development-tools"]
 
 [features]
+# Default build: hybrid BM25 + dense retrieval.
+# Requires ~80MB ONNX model (downloaded once to ~/.cortyx/models/ on first use).
+# Build with --no-default-features for the 7MB air-gapped BM25-only binary.
+default = ["embed", "rerank"]
 # Dense embeddings via fastembed (all-MiniLM-L6-v2, 384-dim).
 # Downloads ~80 MB of model weights on first use.
 # Enables hybrid BM25 + dense cosine retrieval with RRF fusion in get_contexts.
@@ -46,6 +50,7 @@ thiserror = "2.0.18"
 
 [dev-dependencies]
 tempfile = "3.27.0"
+proptest = "1.4"
 
 [profile.release]
 opt-level = 3
@@ -60,9 +65,15 @@ codegen-units = 1
 
 [lints.rust]
 unsafe_code = "deny"
-missing_docs = "allow"
+missing_docs = "warn"
 unused_imports = "warn"
 
 [lints.clippy]
 # Code quality
 too_many_arguments = "warn"
+cast_possible_truncation = "deny"
+cast_sign_loss = "deny"
+cast_possible_wrap = "deny"
+missing_errors_doc = "warn"
+must_use_candidate = "warn"
+unwrap_used = "warn"

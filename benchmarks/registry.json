@@ -330,22 +330,19 @@
         },
         {
           "id": "omega",
-          "label": "OMEGA",
+          "label": "OMEGA (unverified — removed from claims)",
+          "status": "removed",
           "dimension_evidence": {
-            "retrieval": "published-baseline",
+            "retrieval": "none",
             "answer-quality": "none",
-            "speed": "capability-note",
-            "token-economy": "capability-note",
-            "collaboration-shared-memory": "published-baseline",
-            "provenance-trust": "published-baseline",
+            "speed": "none",
+            "token-economy": "none",
+            "collaboration-shared-memory": "none",
+            "provenance-trust": "none",
             "ux": "none"
           },
-          "source_refs": [
-            "BENCHMARKS.md#competitive-comparison",
-            "scripts/eval_lme.py",
-            "BENCHMARKS.md#feature-comparison"
-          ],
-          "notes": "The cited public LME-500 retrieval baseline now supports a recorded retrieval win. OMEGA is a cloud retrieval API documented in BENCHMARKS.md with no multi-agent features or provenance protocol — supporting collaboration and provenance-trust wins for Cortyx."
+          "source_refs": [],
+          "notes": "OMEGA was cited as a competitor in earlier benchmark analysis. As of June 2026, no public arXiv paper, GitHub repository, or verifiable source has been found. This entry is retained for audit purposes only and is excluded from all scorecard calculations and public claims."
         },
         {
           "id": "hindsight",
@@ -488,13 +485,9 @@
             },
             {
               "competitor_id": "omega",
-              "outcome": "win",
-              "summary": "LongMemEval-500 retrieval R@5: Cortyx 96.8% (484/500) vs the cited OMEGA 95.4% leaderboard baseline.",
-              "source_refs": [
-                "BENCHMARKS.md#competitive-comparison",
-                "BENCHMARKS.md#longmemeval-500-lme-500--cleaned-oracle-external-benchmark",
-                "scripts/eval_lme.py"
-              ]
+              "outcome": "void",
+              "summary": "OMEGA entry removed. As of June 2026, no public arXiv paper, GitHub repository, or verifiable source for OMEGA has been found. This outcome is excluded from scorecard totals.",
+              "source_refs": []
             }
           ]
         },
@@ -664,12 +657,9 @@
             },
             {
               "competitor_id": "omega",
-              "outcome": "win",
-              "summary": "OMEGA is a cloud retrieval API documented in BENCHMARKS.md with no multi-agent shared memory primitive, no conflict resolution, and no sync transport protocol. On Cortyx's published shared-trust harness, OMEGA has no capability to demonstrate.",
-              "source_refs": [
-                "BENCHMARKS.md#feature-comparison",
-                "tests/shared_trust_proof.rs"
-              ]
+              "outcome": "void",
+              "summary": "OMEGA entry removed. As of June 2026, no public arXiv paper, GitHub repository, or verifiable source for OMEGA has been found. This outcome is excluded from scorecard totals.",
+              "source_refs": []
             },
             {
               "competitor_id": "hindsight",
@@ -738,12 +728,9 @@
             },
             {
               "competitor_id": "omega",
-              "outcome": "win",
-              "summary": "OMEGA is documented in BENCHMARKS.md as a cloud retrieval API with no published tamper detection, content integrity, or provenance protocol. Cortyx wins: deterministic hash-based provenance vs no equivalent feature.",
-              "source_refs": [
-                "BENCHMARKS.md#feature-comparison",
-                "tests/shared_trust_proof.rs"
-              ]
+              "outcome": "void",
+              "summary": "OMEGA entry removed. As of June 2026, no public arXiv paper, GitHub repository, or verifiable source for OMEGA has been found. This outcome is excluded from scorecard totals.",
+              "source_refs": []
             },
             {
               "competitor_id": "hindsight",

@@ -35,6 +35,9 @@ jobs:
       - name: Install cargo-nextest
         run: cargo install cargo-nextest --locked
 
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
       - name: Run fast/default test suite
         run: cargo nextest run
 

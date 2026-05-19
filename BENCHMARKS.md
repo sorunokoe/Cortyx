@@ -51,8 +51,8 @@ support surfaces.
 
 | Dimension | State | Current live surface | Honest read |
 |----------|-------|----------------------|-------------|
-| Retrieval | **Proven** | **97.7% macro R@5** CI-verified (eval harness, fresh corpus); **92.0% recall** on the corrected LoCoMo sample | Current apples-to-apples external proof surface; frozen-fixture regression guard at 97.2% |
-| Answer quality | **Proven** | **97.7% R@5** context delivery quality: retrieved neurons reliably contain the answer the agent needs. Rule-based answer surface (F1 0.153 LME / F1 0.133 LoCoMo) is an internal self-check; the AI agent performs actual synthesis | Proven as retrieval precision for agent consumption; standalone rule-based synthesis numbers are internal calibration, not the claim |
+| Retrieval | **Proven** | **96.8% macro R@5** on regenerated cleaned-oracle eval harness (484/500 questions); full benchmark via manual `workflow_dispatch`; fast CI regression guard runs 20 questions per category; **92.0% recall** on the corrected LoCoMo sample | The 96.8% figure is the honest same-surface comparison; frozen-fixture regression guard at 97.2% |
+| Answer quality | **Proven** | **96.8% R@5** context delivery quality: retrieved neurons reliably contain the answer the agent needs. Rule-based answer surface (F1 0.153 LME / F1 0.133 LoCoMo) is an internal self-check; the AI agent performs actual synthesis | Proven as retrieval precision for agent consumption; standalone rule-based synthesis numbers are internal calibration, not the claim |
 | Latency | **Proven** | **~22ms p95** activation; **~40ms** `cortyx status` cold start | Strong interactive local-first latency proof |
 | Token economy | **Proven** | **56.9%** first-call savings; **98.4%** capsule+delta repeat savings | Proven on a deterministic sample harness, not a universal all-prompts claim |
 | Collaboration / shared memory | **Proven** | Deterministic shared-memory handoff proof: verified resolution clears conflicts/blockers and improves workflow quality | Proven on the shipped local shared-sync path, not as a hosted multi-user scale benchmark |
@@ -77,7 +77,7 @@ claims above.
 
 Current `official` headline entries:
 
-- `lme-500-official` — **97.7% macro R@5** on the fresh eval-harness corpus (CI-verified); frozen regression fixture at **97.2%**
+- `lme-500-official` — **96.8% macro R@5** on the regenerated cleaned-oracle eval harness (484/500 questions); full benchmark runs via manual `workflow_dispatch`; frozen regression fixture at **97.2%**
 - `locomo-retrieval-sample` — **184/200 = 92.0%** corrected sample recall
 
 Everything else in the registry stays scope-tagged instead of being flattened
@@ -625,27 +625,27 @@ cargo test --test bench bench_binary_size -- --nocapture
 
 | System | LME-500 R@5 | LoCoMo | Latency p95 | Notes |
 |---|---|---|---|---|
-| **Cortyx (fresh corpus eval, live)** | **97.7%** | **92.0% sample recall*** | **~22ms** | Apples-to-apples external retrieval surface; CI-verified |
+| **Cortyx (cleaned-oracle eval, live)** | **96.8%** | **92.0% sample recall*** | **~22ms** | Apples-to-apples external retrieval surface; full run via manual workflow_dispatch |
 | **Cortyx (frozen repo fixture, internal)** | **97.2%** | **92.0% sample recall*** | **~22ms** | Internal regression fixture, not external headline |
 | MemPalace | 96.6% | not entered | ~200ms | ChromaDB dense, Python, arXiv:2604.21284 |
-| OMEGA | 95.4% | — | no data | Cloud, no latency figures published |
+| engram | not benchmarked | — | — | Go, SQLite+FTS5+BM25, MCP-native, direct competitor |
 | Mem0 (new algo, Apr 2026) | 93.4% acc. | 91.6% acc. | p50 ~1.1s | mem0.ai/research; accuracy metric (not R@5) |
 | Hindsight | 91.4% acc. (Gemini-3) | 89.6% F1 | no data | arXiv:2512.12818; accuracy metric (not R@5) |
 | Zep | ~81.6% acc. | ~85% F1 | p95 ~200ms | arXiv:2501.13956; accuracy metric (not R@5) |
 | Letta / MemGPT | ~79% | ~83.2% F1 | no data | arXiv:2310.08560 |
 
-> **Metric note:** MemPalace/OMEGA report **R@5 retrieval recall**. Hindsight/Mem0/Zep/Letta report
-> **answer accuracy** (end-to-end QA). Cortyx reports both: **97.7% R@5 retrieval** (same surface as
+> **Metric note:** MemPalace reports **R@5 retrieval recall**. Hindsight/Mem0/Zep/Letta report
+> **answer accuracy** (end-to-end QA). Cortyx reports both: **96.8% R@5 retrieval** (same surface as
 > MemPalace) and **LoCoMo 92% retrieval recall**. Answer accuracy (F1) is tracked separately — see
 > answer proof bundles in `tests/fixtures/`.
 
 **Pending proof gaps (not live claims):**
 - Scorecard-ready same-surface **retrieval** evidence for Hindsight, Zep, Letta / MemGPT, Mem0 (they report accuracy, not R@5)
-- Same-surface **answer-quality** evidence for MemPalace and OMEGA
+- Same-surface **answer-quality** evidence for MemPalace
 - Same-surface **collaboration/shared-memory**, trust/provenance, and UX competitor ledgers
 
 **Current same-surface scorecard ledger status:**
-- Retrieval: **win** vs MemPalace and OMEGA (both use R@5); Hindsight/Zep/Letta/Mem0 use accuracy (gap).
+- Retrieval: **win** vs MemPalace (both use R@5); engram/Hindsight/Zep/Letta/Mem0 need same-surface data.
 - Answer quality: **loss** vs Hindsight, Zep, Letta / MemGPT, Mem0 on LoCoMo QA F1.
 - Speed: **win** vs Zep (22ms vs p95 200ms), Mem0 (22ms vs p50 1.1s), MemPalace (22ms vs ~200ms).
 - Token economy: **win** vs Zep (57% vs 50%), **win** vs MemPalace; **tie/inconclusive** vs Mem0.
@@ -658,8 +658,8 @@ cargo test --test bench bench_binary_size -- --nocapture
 >
 > ***LoCoMo metric note:** Cortyx's live LoCoMo number is retrieval recall on the
 > corrected sample fixture. It is intentionally not presented as paper-comparable
-> answer F1 yet. For scorecard purposes, only the cited MemPalace / OMEGA
-> retrieval rows and the cited Hindsight / Zep / Letta / MemGPT / Mem0 LoCoMo
+> answer F1 yet. For scorecard purposes, only the cited MemPalace
+> retrieval row and the cited Hindsight / Zep / Letta / MemGPT / Mem0 LoCoMo
 > QA rows are currently treated as ledger-ready same-surface baselines.*
 
 ### Feature Comparison
@@ -675,7 +675,7 @@ cargo test --test bench bench_binary_size -- --nocapture
 | Token cost (simple query) | **~400 tok** | ~2,000 tok | ~3,000 tok |
 | Binary size | **7MB** | n/a (Python) | n/a (Python) |
 | Zero dependencies at runtime | **Yes** | No | No |
-| MCP tools | **25** | 19 | ~10 |
+| MCP tools | **25** | 29+ (see release notes) | ~10 |
 | Temporal KG | **Yes** | No | Limited |
 | Contradiction detection | **Yes** | No | No |
 | Knowledge-update supersession | **Yes** | No | No |
