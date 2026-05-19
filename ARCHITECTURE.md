@@ -34,7 +34,26 @@ src/
 │       ├── config.rs       — index-wide constants
 │       ├── bm25/           — BM25Entry, posting-list, IDF cache
 │       └── activation/
-│           └── search.rs   — get_contexts_with_overflow, Hebbian tracking
+│           └── search.rs   — thin orchestrator (calls ActivationPipeline + Hebbian)
+│       └── pipeline/       — QueryContext activation pipeline (Phase 1)
+│           ├── mod.rs      — NeuronIndex::build_query_context + state-view extractors
+│           ├── stage.rs    — ActivationStage trait + ActivationPipeline runner
+│           ├── types.rs    — QueryContext<'a>, ScoredCandidate, FeedbackSnapshot,
+│           │                 RetrievalStateView, FeedbackStateView, PersistenceStateView,
+│           │                 WatcherStateView; also QueryContextFixture + test_entry for tests
+│           └── stages/     — 12 independently-testable stage structs:
+│               ├── bm25_scoring.rs     — seed + bridge BM25 scoring
+│               ├── vocab_bridge.rs     — vocabulary synonym expansion
+│               ├── morpheme_bridge.rs  — morpheme root bridging
+│               ├── pmi_expansion.rs    — PMI-based co-occurrence expansion
+│               ├── use_case_augment.rs — use-case tag matching
+│               ├── synapse_traversal.rs— graph-hop synapse traversal
+│               ├── session_cluster.rs  — session-cluster scoring
+│               ├── coreturn_boost.rs   — co-return frequency boost
+│               ├── coactivation.rs     — Hebbian co-activation scoring
+│               ├── staleness_decay.rs  — time-based staleness decay
+│               ├── counting_augment.rs — counting/quantitative query augment
+│               └── session_tf_decay.rs — intra-session TF decay
 ├── fleet/                  — optional local-first fleet orchestration (NEW)
 │   ├── mod.rs              — public API re-exports + FLEET_REGISTRY_VERSION
 │   ├── types.rs            — FleetNodeId (blake3 newtype), FleetNode, FleetRegistry,
@@ -50,7 +69,11 @@ src/
 │   │   ├── meta_io.rs      — neuron metadata helpers (CortyxError, no anyhow)
 │   │   └── server_impl.rs  — for_benchmark() constructor (used in tests)
 │   └── tools/
-│       ├── context.rs      — get_contexts handler + fleet escalation hook
+│       ├── context/        — get_contexts handler (Phase 5 decomposition)
+│       │   ├── mod.rs      — thin orchestrator: InflightGuard acquisition + dispatch
+│       │   ├── inflight_guard.rs — RAII byte-cap guard + per-request size estimation
+│       │   ├── session_decay.rs  — session TF snapshot/update + path-history decay
+│       │   └── answer_mode.rs    — answer_mode dispatch + answer-plane routing
 │       └── fleet.rs        — cortyx_fleet_query + cortyx_fleet_status MCP tools
 ├── commands/
 │   └── fleet.rs            — CLI: fleet register / deregister / list / status
@@ -150,12 +173,73 @@ Remote concept sync (`git pull`) is gated by a URL allowlist. Only
 Returns `SecurityError::UntrustedRemote { url }` on violation.
 
 ### In-Flight Memory Cap
-`src/mcp/tools/context.rs` — `InflightGuard`
+`src/mcp/tools/context/inflight_guard.rs` — `InflightGuard`
 
 `MAX_INFLIGHT_BYTES = 64 MB`. An `AtomicUsize` counter on `CortyxServer` tracks
 bytes currently in-flight across all concurrent `get_contexts` calls. The RAII
 `InflightGuard` decrements the counter on any return path. Prevents memory
 amplification attacks from concurrent large payloads.
+
+---
+
+## QueryContext Activation Pipeline (`src/index/core/pipeline/`)
+
+The retrieval path is structured as an **immutable-snapshot pipeline**. Before
+any scoring begins, `NeuronIndex::build_query_context()` snapshots all relevant
+index state into a `QueryContext<'a>` — a zero-copy borrow struct. Stages then
+operate as pure functions over this snapshot.
+
+### Design invariants
+
+- **`QueryContext<'a>` is immutable.** No stage may mutate the index during
+  scoring. Hebbian writes happen after the pipeline returns.
+- **Each stage is independently testable.** Every stage implements
+  `ActivationStage` (`fn apply(&self, ctx: &QueryContext<'_>, candidates: &mut
+  Vec<ScoredCandidate>)`). Tests use `QueryContextFixture` + `test_entry` from
+  `types.rs` — no `NeuronIndex` instantiation required.
+- **TRIZ separation-in-time:** conflicting requirements (mutable index vs. pure
+  scoring) are resolved by separating mutation (before/after) from retrieval
+  (during).
+
+### Data flow
+
+```
+NeuronIndex::get_contexts_with_overflow(task, max_tokens, module, kind)
+  │
+  ├─► build_query_context(task, max_tokens, module, kind)
+  │     tokenise → classify → resolve module/kind sets
+  │     borrows: entries, posting_list, adjacency, vocab_bridge, …
+  │     returns: QueryContext<'a>
+  │
+  ├─► ActivationPipeline::phase1().run(&ctx, &mut candidates)
+  │     Bm25ScoringStage        — seed + bridge BM25 with δ-BM25 + hit-rate boost
+  │     VocabBridgeStage        — synonym expansion via vocab_bridge map
+  │     MorphemeBridgeStage     — morpheme root bridging
+  │     PmiExpansionStage       — PMI co-occurrence graph expansion
+  │     UseCaseAugmentStage     — use-case tag matching
+  │     SynapseTraversalStage   — 2-hop synapse graph traversal
+  │     SessionClusterStage     — session-cluster scoring
+  │     CoreturnBoostStage      — co-return frequency boost (Hebbian read)
+  │     CoactivationStage       — term co-activation scoring
+  │     StalenessDecayStage     — time-based staleness decay
+  │     CountingAugmentStage    — counting/quantitative query augment
+  │     SessionTfDecayStage     — intra-session TF decay
+  │
+  ├─► rank, token-budget slice, format output
+  │
+  └─► record_co_return() — Hebbian write (after pipeline; never during)
+```
+
+### NeuronIndex state-view accessors
+
+`NeuronIndex` exposes four typed borrow extractors used in `build_query_context`:
+
+| Accessor | Struct | Fields |
+|---|---|---|
+| `retrieval_state()` | `RetrievalStateView<'a>` | entries, adjacency, path_index, posting_list, vocab_bridge, morpheme_map, pmi_neighbors, session_index, module_index, df_cache, avg_doc_len, embeddings |
+| `feedback_state()` | `FeedbackStateView<'a>` | coactivation_counts, co_return_counts, session_utilization |
+| `persistence_state()` | `PersistenceStateView<'a>` | project_root, delta flags, dirty_sidecars |
+| `watcher_state()` | `WatcherStateView<'a>` | dirty_set Arc |
 
 ---
 
@@ -303,6 +387,12 @@ resolution applied.
 | **Project** | `_project.context.md` | Top-level project description + conventions |
 
 ## Activation Pipeline
+
+> **Implementation note (v0.3.0):** The activation pipeline was restructured in
+> Phase 1 into the `QueryContext` pipeline architecture described in the
+> [QueryContext Activation Pipeline](#querycontext-activation-pipeline-srcindexcorepipeline)
+> section above. Each numbered phase below maps to one or more `ActivationStage`
+> implementations in `src/index/core/pipeline/stages/`.
 
 **Pure Rust, ≤40 ms**
 

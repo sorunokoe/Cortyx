@@ -9,7 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [0.3.0] — 2026-06-XX
+
+### Breaking Changes
+- **`embed` and `rerank` features are now default.** Builds without ONNX support must use `--no-default-features`. First startup downloads `~130MB` of model weights unless `CORTYX_NO_DOWNLOAD=1` is set.
+- **Index storage version bumped to v9.** Cortyx auto-migrates on first run; the previous index is discarded and rebuilt from `.cortyx/neurons/` in place (no data loss — neuron files are the source of truth).
+
 ### Added
+- **QueryContext activation pipeline** (`src/index/core/pipeline/`) — 12 independently-testable `ActivationStage` implementations replace the former monolithic `search.rs` function. See [ARCHITECTURE.md § QueryContext Activation Pipeline](ARCHITECTURE.md#querycontext-activation-pipeline-srcindexcorepipeline).
+- **MCP `context/` module decomposition** — `src/mcp/tools/context.rs` (1,691 lines) split into `inflight_guard.rs`, `session_decay.rs`, `answer_mode.rs`, and a thin `mod.rs` orchestrator.
+- **Competitive benchmark roster expanded** — `benchmarks/registry.json` now tracks 9 comparators: the original 6 (MemPalace, Omega, Hindsight, Zep, Letta/MemGPT, Mem0) plus engram, vestige, and token-savior.
+- **Hardened CI lint gates** — `cast_possible_truncation = deny`, `unwrap_used = warn`, `missing_docs = warn`; `cargo fmt --check` enforced on every PR via `quality.yml`.
+- **LME-500 regression guard upgraded** — 80 rows/run (up from 20), SSU threshold 85% (up from 80%), KU threshold 65% (up from 60%).
+
+### Changed
+- `src/index/core/activation/search.rs` refactored to thin orchestrator; scoring logic now lives in the 12 pipeline stage files.
+- `embed` and `rerank` Cargo features promoted to `default`.
+
+---
+
+
 - **Fleet module** (`src/fleet/`) — zero-server local-first cross-project context sharing.
   - `cortyx fleet register <path> [--alias <name>]` — register a peer project as a fleet node
   - `cortyx fleet deregister <alias-or-path>` — remove a node from the fleet
