@@ -1777,13 +1777,13 @@ fn bench_retrieval_accuracy_500q() {
 
 // ─── P5: LME-500 CI Regression Guard ─────────────────────────────────────────
 
-/// Fast CI guard for LME-500 regression — 20 representative queries (5 per weak category).
+/// CI guard for LME-500 regression — 80 representative queries (20 per weak category).
 ///
-/// Runs WITHOUT `--ignore` so it is part of the normal CI test suite.
-/// Uses a hard-coded subset of the LME-500 fixture to keep runtime < 30s.
+/// Uses 20 rows per category for a statistically meaningful regression signal
+/// while keeping runtime under 60s on standard CI hardware.
 ///
-/// Thresholds (raised to match current stable live behavior on this 20-row guard set):
-///   SSU ≥ 80%, Temporal ≥ 80%, KU ≥ 60%, Multi ≥ 80%
+/// Thresholds:
+///   SSU ≥ 85%, Temporal ≥ 80%, KU ≥ 65%, Multi ≥ 80%
 ///
 /// Run with: scripts/test-full-proof.sh
 #[test]
@@ -1808,7 +1808,7 @@ fn bench_lme_regression_guard() {
     let raw = fs::read_to_string(&fixture_path).expect("fixture read");
     let all_entries: Vec<LME500Entry> = serde_json::from_str(&raw).expect("fixture parse");
     let quick_mode = std::env::var("QUICK").map(|v| v == "1").unwrap_or(false);
-    let sample_per_category = if quick_mode { 2 } else { 5 };
+    let sample_per_category = if quick_mode { 5 } else { 20 };
 
     // Pick 5 entries per weak category, keeping rows that have either keyword anchors
     // or a fallback expected answer for exact-string retrieval scoring.
@@ -1879,16 +1879,16 @@ fn bench_lme_regression_guard() {
 
     let thresholds: &[(&str, f64)] = if quick_mode {
         &[
-            ("single_session_user", 0.50),
-            ("temporal-reasoning", 0.50),
-            ("knowledge_update", 0.50),
-            ("multi_session", 0.50),
+            ("single_session_user", 0.60),
+            ("temporal-reasoning", 0.60),
+            ("knowledge_update", 0.40),
+            ("multi_session", 0.60),
         ]
     } else {
         &[
-            ("single_session_user", 0.80),
+            ("single_session_user", 0.85),
             ("temporal-reasoning", 0.80),
-            ("knowledge_update", 0.60),
+            ("knowledge_update", 0.65),
             ("multi_session", 0.80),
         ]
     };
