@@ -38,6 +38,36 @@ impl ActivationStage for CountingAugmentStage {
 mod tests {
     use super::*;
     use crate::index::core::pipeline::types::{test_entry, QueryContextFixture};
+    use crate::neuron::NeuronKind;
+
+    #[test]
+    fn name_returns_expected_string() {
+        assert_eq!(CountingAugmentStage.name(), "counting_augment");
+    }
+
+    #[test]
+    fn empty_candidates_is_passthrough() {
+        let fixture = QueryContextFixture::new(vec![]);
+        let ctx = fixture.ctx("anything");
+        let mut candidates = Vec::new();
+
+        CountingAugmentStage.apply(&ctx, &mut candidates);
+
+        assert!(candidates.is_empty());
+    }
+
+    #[test]
+    fn non_counting_query_doesnt_inject_counting_neurons() {
+        let entry = test_entry("session.md", NeuronKind::Verbatim, &[("music", 1.0)]);
+        let fixture = QueryContextFixture::new(vec![entry]);
+        let ctx = fixture.ctx("play music");
+        let mut candidates = Vec::new();
+
+        assert!(!ctx.is_counting);
+        CountingAugmentStage.apply(&ctx, &mut candidates);
+
+        assert!(candidates.is_empty());
+    }
 
     #[test]
     fn skips_already_scored_candidates() {

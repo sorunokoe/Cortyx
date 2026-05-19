@@ -41,6 +41,36 @@ impl ActivationStage for VocabBridgeStage {
 mod tests {
     use super::*;
     use crate::index::core::pipeline::types::{test_entry, QueryContextFixture};
+    use crate::neuron::NeuronKind;
+
+    #[test]
+    fn name_returns_expected_string() {
+        assert_eq!(VocabBridgeStage.name(), "vocab_bridge");
+    }
+
+    #[test]
+    fn empty_candidates_is_passthrough() {
+        let fixture = QueryContextFixture::new(vec![]);
+        let ctx = fixture.ctx("anything");
+        let mut candidates = Vec::new();
+
+        VocabBridgeStage.apply(&ctx, &mut candidates);
+
+        assert!(candidates.is_empty());
+    }
+
+    #[test]
+    fn empty_vocab_bridge_map_produces_no_extra_candidates() {
+        let entry = test_entry("auth_guard.md", NeuronKind::Core, &[("auth_guard", 2.0)]);
+        let fixture = QueryContextFixture::new(vec![entry]);
+        let ctx = fixture.ctx("authentication");
+        let mut candidates = Vec::new();
+
+        assert!(ctx.vocab_bridge.is_empty());
+        VocabBridgeStage.apply(&ctx, &mut candidates);
+
+        assert!(candidates.is_empty());
+    }
 
     #[test]
     fn only_runs_when_seed_stage_found_nothing() {

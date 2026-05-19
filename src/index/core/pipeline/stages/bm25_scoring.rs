@@ -41,6 +41,36 @@ impl ActivationStage for Bm25ScoringStage {
 mod tests {
     use super::*;
     use crate::index::core::pipeline::types::{test_entry, QueryContextFixture};
+    use crate::neuron::NeuronKind;
+
+    #[test]
+    fn name_returns_expected_string() {
+        assert_eq!(Bm25ScoringStage.name(), "bm25_scoring");
+    }
+
+    #[test]
+    fn empty_candidates_is_passthrough() {
+        let fixture = QueryContextFixture::new(vec![]);
+        let ctx = fixture.ctx("anything");
+        let mut candidates = Vec::new();
+
+        Bm25ScoringStage.apply(&ctx, &mut candidates);
+
+        assert!(candidates.is_empty());
+    }
+
+    #[test]
+    fn empty_seed_candidate_ids_produces_empty_output() {
+        let entry = test_entry("core.md", NeuronKind::Core, &[("auth", 1.0)]);
+        let fixture = QueryContextFixture::new(vec![entry]);
+        let mut ctx = fixture.ctx("auth");
+        ctx.seed_ranking_terms = vec!["auth".into()];
+        let mut candidates = Vec::new();
+
+        Bm25ScoringStage.apply(&ctx, &mut candidates);
+
+        assert!(candidates.is_empty());
+    }
 
     #[test]
     fn scores_only_matching_kinds_and_modules() {
