@@ -308,18 +308,22 @@ impl NeuronIndex {
             .collect();
 
         for (a_idx, b_idx) in pairs_to_wire {
-            // Mark as wired with sentinel so we don't re-fire on future calls.
+            // Check entry existence BEFORE setting the sentinel. If an entry was deleted
+            // after the co-return count was recorded, leaving the sentinel would orphan the
+            // pair in co_return_counts (permanently marked wired, no synapse created).
+            let (Some(a_entry), Some(b_entry)) = (self.entries.get(a_idx), self.entries.get(b_idx))
+            else {
+                continue; // entry removed since count was recorded — leave count intact
+            };
+            let a = a_entry.neuron_path.clone();
+            let b = b_entry.neuron_path.clone();
+
+            // Mark as wired with sentinel only after confirming both entries still exist.
             if let Ok(mut counts) = self.co_return_counts.lock() {
                 if let Some(c) = counts.get_mut(&(a_idx, b_idx)) {
                     *c = HEBBIAN_WIRED;
                 }
             }
-
-            // Decode IDs to paths only at the point of adjacency mutation.
-            let (Some(a_entry), Some(b_entry)) = (self.entries.get(a_idx), self.entries.get(b_idx))
-            else {
-                continue; // entry removed since count was recorded — skip
-            };
             let a = a_entry.neuron_path.clone();
             let b = b_entry.neuron_path.clone();
 

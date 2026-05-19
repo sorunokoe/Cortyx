@@ -826,13 +826,21 @@ fn hebbian_weak_pair_does_not_wire_at_10() {
 }
 
 #[test]
-fn hebbian_zero_use_count_never_wires() {
-    // New neuron with use_count=0 — denominator = max(0, count) = count, lb = 1.0, but
-    // count < 3 minimum floor is handled by the caller; here count=3 case:
-    // denominator = 0.min(0).max(3) = 3; p_hat = 1.0; lb(3,3,1.0) should be high.
-    // This test verifies the .max(count) guard doesn't create NaN.
+fn hebbian_zero_use_count_guard_no_nan() {
+    // When use_count=0 (lag race: use_count not yet flushed), denominator falls back to
+    // .max(count) giving denominator=count, p_hat=1.0. This is intentional — the guard
+    // treats the pair as "seen count/count" (optimistic). Entry-existence is checked
+    // separately in apply_pending_hebbian_synapses before the sentinel is set.
+    // Verify: no NaN; and the optimistic case DOES wire (by design).
     let w = wilson_lower_bound_z(3, 3, 1.0);
-    assert!(w.is_finite(), "wilson_lower_bound_z must not produce NaN");
+    assert!(
+        w.is_finite(),
+        "wilson_lower_bound_z must not produce NaN for count=denominator"
+    );
+    assert!(
+        hebbian_wires(3, 0, 0),
+        "zero use_count falls back to count denominator — pair is allowed to wire (optimistic guard)"
+    );
 }
 
 #[test]
