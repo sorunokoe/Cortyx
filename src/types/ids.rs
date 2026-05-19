@@ -4,6 +4,7 @@
 //! have a proof that it satisfies the format invariant.
 
 use std::fmt;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::error::Result;
@@ -144,6 +145,112 @@ impl AsRef<str> for AuthorId {
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
+// ─── NeuronId ────────────────────────────────────────────────────────────────
+
+/// Canonical project-relative identity of a neuron.
+///
+/// Wraps a `PathBuf` that is always relative to the project root (never
+/// absolute). Prevents mixing absolute and relative paths in indexing APIs.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct NeuronId(PathBuf);
+
+impl NeuronId {
+    /// Construct from a project-relative path. Returns an error if `path` is
+    /// absolute.
+    pub fn new(path: impl Into<PathBuf>) -> Result<Self> {
+        let path = path.into();
+        if path.is_absolute() {
+            crate::cortyx_bail!(
+                "NeuronId must be a project-relative path, got absolute: {:?}",
+                path
+            );
+        }
+        Ok(Self(path))
+    }
+
+    /// Construct without validation — only use when the caller has already
+    /// established the path is project-relative (e.g. after `strip_prefix`).
+    pub fn from_relative_unchecked(path: PathBuf) -> Self {
+        debug_assert!(!path.is_absolute(), "NeuronId must be relative");
+        Self(path)
+    }
+
+    pub fn as_path(&self) -> &Path {
+        &self.0
+    }
+
+    pub fn into_path(self) -> PathBuf {
+        self.0
+    }
+}
+
+impl fmt::Display for NeuronId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0.display())
+    }
+}
+
+impl AsRef<Path> for NeuronId {
+    fn as_ref(&self) -> &Path {
+        &self.0
+    }
+}
+
+// ─── NeuronRelPath ───────────────────────────────────────────────────────────
+
+/// A project-relative file path — guaranteed never to be absolute.
+///
+/// Lighter than `NeuronId` (no identity semantics), used wherever a path
+/// component must stay relative to the project root (synapse targets, source
+/// file references, sidecar paths).
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct NeuronRelPath(PathBuf);
+
+impl NeuronRelPath {
+    /// Construct from a relative path. Returns an error if `path` is absolute
+    /// or contains `..` components (path-escape defence).
+    pub fn new(path: impl Into<PathBuf>) -> Result<Self> {
+        let path = path.into();
+        if path.is_absolute() {
+            crate::cortyx_bail!("NeuronRelPath must be relative, got absolute: {:?}", path);
+        }
+        if path.components().any(|c| {
+            matches!(
+                c,
+                std::path::Component::ParentDir | std::path::Component::CurDir
+            )
+        }) {
+            crate::cortyx_bail!(
+                "NeuronRelPath must not contain .. or . components: {:?}",
+                path
+            );
+        }
+        Ok(Self(path))
+    }
+
+    pub fn as_path(&self) -> &Path {
+        &self.0
+    }
+
+    pub fn into_path(self) -> PathBuf {
+        self.0
+    }
+}
+
+impl fmt::Display for NeuronRelPath {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0.display())
+    }
+}
+
+impl AsRef<Path> for NeuronRelPath {
+    fn as_ref(&self) -> &Path {
+        &self.0
+    }
+}
+
+// ─── Tests ───────────────────────────────────────────────────────────────────
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -196,5 +303,32 @@ mod tests {
         let json = serde_json::to_string(&uuid).unwrap();
         let back: NeuronUuid = serde_json::from_str(&json).unwrap();
         assert_eq!(uuid, back);
+    }
+
+    #[test]
+    fn neuron_id_rejects_absolute() {
+        assert!(NeuronId::new("/absolute/path.md").is_err());
+    }
+
+    #[test]
+    fn neuron_id_accepts_relative() {
+        let id = NeuronId::new("src/auth.md").unwrap();
+        assert_eq!(id.as_path(), std::path::Path::new("src/auth.md"));
+    }
+
+    #[test]
+    fn neuron_rel_path_rejects_absolute() {
+        assert!(NeuronRelPath::new("/bad/path").is_err());
+    }
+
+    #[test]
+    fn neuron_rel_path_rejects_parent_dir() {
+        assert!(NeuronRelPath::new("../escape").is_err());
+    }
+
+    #[test]
+    fn neuron_rel_path_accepts_normal_relative() {
+        let p = NeuronRelPath::new("neurons/auth.context.md").unwrap();
+        assert_eq!(p.as_path(), std::path::Path::new("neurons/auth.context.md"));
     }
 }

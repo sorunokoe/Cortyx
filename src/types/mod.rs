@@ -7,6 +7,8 @@
 //! | Type | Replaces | Invalid state eliminated |
 //! |------|----------|------------------------|
 //! | `NeuronUuid` | `String` | Non-hex or wrong-length UUIDs |
+//! | `NeuronId` | `PathBuf` | Absolute paths used as neuron identity (must be relative) |
+//! | `NeuronRelPath` | `PathBuf` | Absolute or `..`-escaped paths in synapse targets |
 //! | `EditId` | `Option<String>` | Empty edit IDs in provenance chains |
 //! | `AuthorId` | `String` | Empty author identifiers |
 //! | `TokenCount` | `usize` | Confusing counts with other usizes |
@@ -31,7 +33,7 @@ pub mod state_machines;
 
 pub use date::IsoDate;
 pub use evidence::{EvidenceFact, EvidenceFamily};
-pub use ids::{AuthorId, EditId, NeuronUuid};
+pub use ids::{AuthorId, EditId, NeuronId, NeuronRelPath, NeuronUuid};
 pub use primitives::{QueryText, TermFrequency, TokenBudget, TokenCount};
 pub use scope::{ModuleScope, PersonSlug};
 pub use scores::{BM25Score, ConfidenceScore, QualityScore, StalenessMultiplier, SynapseWeight};

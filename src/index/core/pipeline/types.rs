@@ -9,6 +9,7 @@ use std::sync::{Arc, Mutex};
 use crate::embedder::EmbeddingStore;
 
 /// Borrowed view over the retrieval portion of `NeuronIndex`.
+#[allow(dead_code)]
 pub struct RetrievalStateView<'a> {
     pub entries: &'a [BM25Entry],
     pub adjacency: &'a HashMap<PathBuf, Vec<Synapse>>,
@@ -29,6 +30,7 @@ pub struct RetrievalStateView<'a> {
 }
 
 /// Borrowed view over feedback / learning state.
+#[allow(dead_code)]
 pub struct FeedbackStateView<'a> {
     pub coactivation_counts: &'a HashMap<PathBuf, HashMap<String, u32>>,
     pub co_return_counts: &'a Mutex<HashMap<(usize, usize), u32>>,
@@ -36,6 +38,7 @@ pub struct FeedbackStateView<'a> {
 }
 
 /// Borrowed view over persistence state.
+#[allow(dead_code)]
 pub struct PersistenceStateView<'a> {
     pub project_root: &'a PathBuf,
     pub pending_append_count: usize,
@@ -47,11 +50,13 @@ pub struct PersistenceStateView<'a> {
 }
 
 /// Borrowed view over watcher state.
+#[allow(dead_code)]
 pub struct WatcherStateView<'a> {
     pub dirty_set: &'a Arc<Mutex<HashSet<PathBuf>>>,
 }
 
 /// Snapshot of feedback state for a single query.
+#[allow(dead_code)]
 pub struct FeedbackSnapshot<'a> {
     pub coactivation_counts: &'a HashMap<PathBuf, HashMap<String, u32>>,
     pub co_return_counts: &'a Mutex<HashMap<(usize, usize), u32>>,
@@ -59,6 +64,7 @@ pub struct FeedbackSnapshot<'a> {
 }
 
 /// Immutable snapshot of index state for a single query.
+#[allow(dead_code)]
 pub struct QueryContext<'a> {
     pub task: &'a str,
     pub task_lower: String,
@@ -293,6 +299,65 @@ impl QueryContextFixture {
             #[cfg(feature = "embed")]
             embeddings: None,
         }
+    }
+}
+
+#[cfg(test)]
+mod proptest_bm25 {
+    use super::*;
+    use proptest::prelude::*;
+
+    // Test BM25 property: score is always non-negative for any valid tf > 0
+    proptest! {
+        #[test]
+        fn score_nonneg_for_any_valid_tf(tf in 0.1f32..20.0, term_count in 1usize..50) {
+            let mut entry = test_entry("a.md", NeuronKind::Core, &[("foo", tf)]);
+            entry.term_count = term_count;
+            let fixture = QueryContextFixture::new(vec![entry]);
+            let mut ctx = fixture.ctx("foo");
+            ctx.ranking_terms = vec!["foo".into()];
+            ctx.seed_ranking_terms = vec!["foo".into()];
+            ctx.idf_n = 1;
+            prop_assert!(ctx.score_index(0) >= 0.0);
+        }
+    }
+
+    // Test BM25 property: score = 0 when no query terms appear in document
+    proptest! {
+        #[test]
+        fn missing_term_scores_zero(tf in 0.1f32..10.0) {
+            let entry = test_entry("b.md", NeuronKind::Core, &[("bar", tf)]);
+            let fixture = QueryContextFixture::new(vec![entry]);
+            let mut ctx = fixture.ctx("foo");
+            ctx.ranking_terms = vec!["foo".into()]; // "foo" not in entry
+            prop_assert_eq!(ctx.score_index(0), 0.0);
+        }
+    }
+
+    // Test BM25 property: higher term frequency → higher score (all else equal)
+    proptest! {
+        #[test]
+        fn higher_tf_scores_higher(low_tf in 0.1f32..1.0, high_tf in 2.0f32..10.0) {
+            let low_entry = test_entry("low.md", NeuronKind::Core, &[("token", low_tf)]);
+            let high_entry = test_entry("high.md", NeuronKind::Core, &[("token", high_tf)]);
+            let fixture = QueryContextFixture::new(vec![low_entry, high_entry]);
+            let mut ctx = fixture.ctx("token");
+            ctx.ranking_terms = vec!["token".into()];
+            ctx.idf_n = 2;
+            let low_score = ctx.score_index(0);
+            let high_score = ctx.score_index(1);
+            prop_assert!(high_score > low_score, "high tf={} scored {} ≤ low tf={} scored {}", high_tf, high_score, low_tf, low_score);
+        }
+    }
+
+    // Test BM25 property: score = 0 for empty terms slice
+    #[test]
+    fn empty_query_terms_scores_zero() {
+        let entry = test_entry("c.md", NeuronKind::Core, &[("auth", 1.0)]);
+        let fixture = QueryContextFixture::new(vec![entry]);
+        let mut ctx = fixture.ctx("auth");
+        ctx.ranking_terms = vec![]; // empty terms
+        assert_eq!(ctx.score_index(0), 0.0);
     }
 }
 

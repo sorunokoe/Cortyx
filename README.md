@@ -4,7 +4,7 @@
   <img src=".github/logo.svg" alt="two neurons connected by a synapse" width="280">
 </p>
 
-[![CI](https://github.com/sorunokoe/Cortyx/actions/workflows/ci.yml/badge.svg)](https://github.com/sorunokoe/Cortyx/actions/workflows/ci.yml)  [![Benchmarks](https://github.com/sorunokoe/Cortyx/actions/workflows/benchmarks.yml/badge.svg)](https://github.com/sorunokoe/Cortyx/actions/workflows/benchmarks.yml)
+[![CI](https://github.com/sorunokoe/Cortyx/actions/workflows/ci.yml/badge.svg)](https://github.com/sorunokoe/Cortyx/actions/workflows/ci.yml)  [![Quality](https://github.com/sorunokoe/Cortyx/actions/workflows/quality.yml/badge.svg)](https://github.com/sorunokoe/Cortyx/actions/workflows/quality.yml)  [![Benchmarks](https://github.com/sorunokoe/Cortyx/actions/workflows/benchmarks.yml/badge.svg)](https://github.com/sorunokoe/Cortyx/actions/workflows/benchmarks.yml)
 
 > MCP-native context delivery engine for coding agents and long-lived conversations.<br>
 > 96.8% R@5 on LME-500 · local-first · pure Rust · no runtime model
@@ -19,15 +19,15 @@
 
 Cortyx leads with retrieval-first proof, then backs it up with latency, token, and footprint measurements on the shipped path.
 
-| Metric | Cortyx | MemPalace | engram |
-|--------|--------|-----------|--------|
-| LME-500 R@5 | **96.8%** ¹ | 96.6% | not benchmarked |
-| LoCoMo recall | **92.0%** | — | — |
-| Activation latency p95 | **~22ms** | ~200ms | — |
-| Token savings (first call) | **56.9%** | — | — |
-| Token savings (capsule+delta repeat) | **98.4%** | — | — |
-| Binary size | **~7MB** | Python stack | ~12MB (Go) |
-| Runtime model on default path | **No** | Yes | No |
+| Metric | Cortyx | MemPalace | engram | vestige | token-savior |
+|--------|--------|-----------|--------|---------|--------------|
+| LME-500 R@5 | **96.8%** ¹ | 96.6% | not benchmarked | not benchmarked | not benchmarked |
+| LoCoMo recall | **92.0%** | — | — | — | — |
+| Activation latency p95 | **~22ms** | ~200ms | — | — | — |
+| Token savings (first call) | **56.9%** | — | — | — | — |
+| Token savings (capsule+delta repeat) | **98.4%** | — | — | — | — |
+| Binary size | **~7MB** | Python stack | ~12MB (Go) | ~8MB (Rust) | Python stack |
+| Runtime model on default path | **No** | Yes | No | No | No |
 
 > ¹ 96.8% R@5 is from the regenerated cleaned-oracle eval harness run (484/500 questions).
 > The full 500-question benchmark runs via manual `workflow_dispatch`; the fast CI regression
@@ -165,7 +165,7 @@ cortyx install                     # Auto-configure all detected LLM clients
 
 ## How It Works
 
-Cortyx runs a ≤40ms activation pipeline: BM25 over a posting list, synapse graph traversal (up to 3 hops), and optional dense re-ranking. On each query, 3–5 neurons are selected, ordered by relevance, and injected after the prompt-cache breakpoint — the static prefix stays byte-identical so provider caches always hit. `cortyx_close_task` records which neurons helped, feeding a self-improving ranking loop.
+Cortyx runs a ≤40ms activation pipeline: hybrid BM25 + dense retrieval (embed and rerank are enabled by default; compile with `--no-default-features` for the 7MB air-gapped binary), synapse graph traversal (up to 3 hops), and a 12-stage query-context pipeline. On each query, 3–5 neurons are selected, ordered by relevance, and injected after the prompt-cache breakpoint — the static prefix stays byte-identical so provider caches always hit, typically saving 56–98% of input tokens on repeat calls. `cortyx_close_task` records which neurons helped, feeding a self-improving ranking loop.
 
 Neurons are plain Markdown files in `.cortyx/neurons/` — human-readable, git-tracked, editable.
 
@@ -188,6 +188,7 @@ Neurons are plain Markdown files in `.cortyx/neurons/` — human-readable, git-t
 | [BENCHMARKS.md](BENCHMARKS.md) | Full benchmark results, methodology, comparison tables |
 | [BENCHMARKING.md](BENCHMARKING.md) | How to run benchmarks and submit results |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Module map and design decisions |
+| [MIGRATION.md](MIGRATION.md) | v0.2.0 → v0.3.0 breaking changes and migration steps |
 | [CHANGELOG.md](CHANGELOG.md) | Release history |
 
 ## License

@@ -1,0 +1,91 @@
+name: LME-V2 Benchmark
+
+# Manual trigger only — requires HF_TOKEN secret with read access to the
+# LME-V2 dataset (arXiv:2605.12493). Run this before claiming a retrieval
+# accuracy number against the LME-V2 leaderboard (SOTA: 74.9% as of May 2026).
+on:
+  workflow_dispatch:
+    inputs:
+      sample_size:
+        description: "Number of rows to evaluate (default: full dataset)"
+        required: false
+        default: "0"
+      min_r5_pct:
+        description: "Minimum R@5 threshold to pass (default: 65)"
+        required: false
+        default: "65"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  lmev2:
+    name: LME-V2 Retrieval Accuracy
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Stub private PureReason deps
+        run: |
+          mkdir -p ../../AI/PureReason/crates
+          cp -r stubs/pure-reason-core ../../AI/PureReason/crates/
+          cp -r stubs/pure-reason-verifier ../../AI/PureReason/crates/
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-lmev2-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build release binary
+        run: cargo build --release --no-default-features
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: pip install datasets huggingface_hub tqdm
+
+      - name: Download LME-V2 fixture
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python3 scripts/gen_lmev2.py \
+            --output /tmp/lmev2_fixture.jsonl \
+            --sample-size "${{ github.event.inputs.sample_size }}"
+
+      - name: Run LME-V2 retrieval benchmark
+        run: |
+          cargo test --no-default-features --test bench bench_retrieval_accuracy_lmev2 \
+            -- --nocapture \
+            --ignored \
+            2>&1 | tee /tmp/lmev2_results.txt
+
+      - name: Check minimum R@5 threshold
+        run: |
+          THRESHOLD="${{ github.event.inputs.min_r5_pct }}"
+          R5=$(grep -oP 'R@5:\s*\K[\d.]+' /tmp/lmev2_results.txt | tail -1)
+          echo "LME-V2 R@5: ${R5}% (threshold: ${THRESHOLD}%)"
+          python3 -c "
+          r5 = float('${R5}' or '0')
+          thresh = float('${THRESHOLD}')
+          if r5 < thresh:
+              raise SystemExit(f'FAIL: R@5 {r5:.1f}% < threshold {thresh:.0f}%')
+          print(f'PASS: R@5 {r5:.1f}% >= threshold {thresh:.0f}%')
+          "
+
+      - name: Upload results artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lmev2-results-${{ github.run_id }}
+          path: /tmp/lmev2_results.txt
