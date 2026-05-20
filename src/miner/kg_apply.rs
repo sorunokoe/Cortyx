@@ -8,6 +8,7 @@ use super::kg_extract::{
 };
 use super::Turn;
 
+#[allow(clippy::type_complexity)]
 pub(super) fn collect_special_user_facts(
     text: &str,
     lower: &str,

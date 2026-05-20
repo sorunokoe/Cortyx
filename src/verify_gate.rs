@@ -64,6 +64,7 @@ mod inner {
     use super::EcsVerdict;
 
     /// No-op stub — always returns a passing verdict with zero overhead.
+    #[must_use]
     #[inline(always)]
     pub fn check(_content: &str) -> EcsVerdict {
         EcsVerdict {
@@ -91,6 +92,7 @@ pub type ContradictionPair = (String, String);
 mod semantic_inner {
     use super::ContradictionPair;
 
+    #[must_use]
     #[inline(always)]
     pub fn find_semantic_contradictions(_bodies: &[&str]) -> Vec<ContradictionPair> {
         Vec::new()

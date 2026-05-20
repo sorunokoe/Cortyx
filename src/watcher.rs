@@ -32,6 +32,10 @@ pub const HOT_PATCH_WATCH_SUMMARY: &str = "in-memory dirty-set hot patching is a
 /// `NeuronIndex::dirty_set_handle()`).  `compile_dirty()` drains that set atomically,
 /// which eliminates the TOCTOU race that existed when the watcher wrote to `dirty.json`
 /// and `compile_dirty()` simultaneously read, wrote, and deleted the same file.
+///
+/// # Errors
+///
+/// Returns an error if the underlying operation fails.
 pub fn start_watcher(
     project_root: PathBuf,
     index: Arc<RwLock<NeuronIndex>>,

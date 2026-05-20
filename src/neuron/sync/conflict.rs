@@ -3,6 +3,7 @@
 use super::types::{SyncConflict, SyncConflictKind, SyncConflictVersion, SyncHeaders};
 
 /// Detect a true divergence between two revisions of the same syncable neuron.
+#[must_use]
 pub fn detect_sync_conflict(local: &SyncHeaders, remote: &SyncHeaders) -> Option<SyncConflict> {
     if local.neuron_uuid != remote.neuron_uuid {
         return None;

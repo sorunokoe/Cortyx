@@ -5,6 +5,9 @@ use crate::{index, neuron};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
+/// # Errors
+///
+/// Returns an error if the underlying operation fails.
 pub fn run(root: &Path, min_use: u32, older_than: Option<u64>, dry_run: bool) -> Result<usize> {
     let mut idx = index::NeuronIndex::load_or_create(root)?;
     let now = SystemTime::now();

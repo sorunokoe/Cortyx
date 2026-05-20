@@ -138,6 +138,7 @@ impl NeuronIndex {
             |line, lower| line_match(line, lower) && !extract(line, lower).is_empty(),
         );
 
+        #[allow(clippy::type_complexity)]
         let mut best: Option<(usize, usize, Vec<SignatureDetail>, Vec<String>)> = None;
         for (session_id, session_rank) in candidates {
             let lines = self.find_session_lines(&session_id, false, max_lines, |line, lower| {

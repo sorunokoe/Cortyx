@@ -18,6 +18,7 @@ impl KgFact {
     /// - If `ended` is non-empty and `as_of >= ended`, the fact is inactive.
     /// - With no `as_of`, only open-ended facts are considered currently active.
     /// - Otherwise the fact is considered active.
+    #[must_use]
     pub fn is_active(&self, as_of: Option<&str>) -> bool {
         if self.ended.is_empty() {
             return true;

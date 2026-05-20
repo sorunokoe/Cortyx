@@ -23,6 +23,7 @@ use crate::types::TermFrequency;
 use serde::{Deserialize, Serialize};
 
 /// Default global concept directory.
+#[must_use]
 pub fn global_dir() -> PathBuf {
     dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
@@ -31,11 +32,13 @@ pub fn global_dir() -> PathBuf {
 }
 
 /// Path to the global neuron storage directory.
+#[must_use]
 pub fn global_neurons_dir() -> PathBuf {
     global_dir().join("neurons")
 }
 
 /// Path to the global index file.
+#[must_use]
 pub fn global_index_path() -> PathBuf {
     global_dir().join("index.json")
 }
@@ -99,6 +102,10 @@ impl GlobalIndex {
     }
 
     /// Save the global index to disk, creating directories as needed.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the underlying operation fails.
     pub fn save(&self) -> Result<()> {
         let path = global_index_path();
         if let Some(parent) = path.parent() {
@@ -113,6 +120,7 @@ impl GlobalIndex {
     ///
     /// Returns up to `limit` global neuron paths, sorted by BM25 score.
     /// Called from Phase 3 of `get_contexts` when local results are sparse.
+    #[must_use]
     pub fn query(&self, terms: &[String], limit: usize) -> Vec<PathBuf> {
         if self.entries.is_empty() || terms.is_empty() {
             return Vec::new();
@@ -180,6 +188,10 @@ impl GlobalIndex {
     /// 2. Builds a GlobalEntry from the neuron content
     /// 3. Deduplicates by fingerprint (D2) — returns error if duplicate found
     /// 4. Appends to the global index and saves
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the underlying operation fails.
     pub fn publish(&mut self, neuron_path: &Path, project_root: &Path) -> Result<PathBuf> {
         let name = neuron_path
             .file_name()
@@ -224,6 +236,7 @@ impl GlobalIndex {
     }
 
     /// Return true when the library already contains a concept with the same content fingerprint.
+    #[must_use]
     pub fn contains_content(&self, content: &str) -> bool {
         let (tf, _) = build_term_freq(content);
         let fingerprint = compute_fingerprint(&tf);
@@ -233,6 +246,10 @@ impl GlobalIndex {
     }
 
     /// Return true when the library already contains the given neuron's content.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the underlying operation fails.
     pub fn contains_neuron(&self, neuron_path: &Path) -> Result<bool> {
         let content = std::fs::read_to_string(neuron_path)?;
         Ok(self.contains_content(&content))
@@ -282,6 +299,7 @@ fn compute_fingerprint(tf: &HashMap<String, TermFrequency>) -> String {
 }
 
 /// List all published global concepts.
+#[must_use]
 pub fn list_global_concepts() -> Vec<(PathBuf, String)> {
     let idx = GlobalIndex::load();
     idx.entries

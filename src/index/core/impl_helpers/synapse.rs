@@ -26,7 +26,7 @@ impl NeuronIndex {
         // field in BM25Entry, but term_freq already contains them from AST Bootstrap.
         // Function names are pure alphabetic tokens, distinct from normal prose terms.
         let mut fn_vocab: HashMap<String, PathBuf> = HashMap::new();
-        for entry in &self.entries {
+        for entry in &self.retrieval.entries {
             let rel_source = entry
                 .neuron_path
                 .strip_prefix(root)
@@ -118,8 +118,8 @@ impl NeuronIndex {
                 );
             }
             // Update in-memory entry as well.
-            if let Some(&idx) = self.path_index.get(&caller_neuron) {
-                self.entries[idx].synapses.push(Synapse::new(
+            if let Some(&idx) = self.retrieval.path_index.get(&caller_neuron) {
+                self.retrieval.entries[idx].synapses.push(Synapse::new(
                     callee_neuron,
                     SynapseType::Calls,
                     "auto-inferred from call-site scan".to_string(),
@@ -145,7 +145,7 @@ impl NeuronIndex {
         // Small repos (≤50 neurons) produce sparse commit histories; 2 co-changes
         // is strong signal. Large repos (>500 neurons) have noisy histories and
         // benefit from a higher bar to avoid false semantic edges.
-        let min_cochange: u32 = match self.path_index.len() {
+        let min_cochange: u32 = match self.retrieval.path_index.len() {
             n if n <= 50 => 2,
             n if n <= 500 => 3,
             _ => 5,
@@ -216,7 +216,9 @@ impl NeuronIndex {
             let reason = format!("git co-change: committed together {count}×");
 
             // Only create synapses for neurons that exist in our index
-            if self.path_index.contains_key(&na) && self.path_index.contains_key(&nb) {
+            if self.retrieval.path_index.contains_key(&na)
+                && self.retrieval.path_index.contains_key(&nb)
+            {
                 changes.push((
                     na.clone(),
                     Synapse {
@@ -260,13 +262,13 @@ impl NeuronIndex {
                     }
                 }
             }
-            if let Some(&i) = self.path_index.get(&source_neuron) {
-                let already = self.entries[i]
+            if let Some(&i) = self.retrieval.path_index.get(&source_neuron) {
+                let already = self.retrieval.entries[i]
                     .synapses
                     .iter()
                     .any(|s| s.target == syn.target);
                 if !already {
-                    self.entries[i].synapses.push(syn);
+                    self.retrieval.entries[i].synapses.push(syn);
                 }
             }
         }
@@ -291,10 +293,10 @@ impl NeuronIndex {
         const A2_WEIGHT: f32 = 0.2;
 
         // Collect indices of cold stubs
-        let cold_indices: Vec<usize> = (0..self.entries.len())
+        let cold_indices: Vec<usize> = (0..self.retrieval.entries.len())
             .filter(|&i| {
-                self.entries[i].term_freq.len() < A2_COLD_STUB_THRESHOLD
-                    && self.entries[i].kind == NeuronKind::Core
+                self.retrieval.entries[i].term_freq.len() < A2_COLD_STUB_THRESHOLD
+                    && self.retrieval.entries[i].kind == NeuronKind::Core
             })
             .collect();
 
@@ -304,10 +306,10 @@ impl NeuronIndex {
 
         // Precompute filtered term sets for all non-cold neurons (peers)
         // Only use neurons with >= A2_COLD_STUB_THRESHOLD terms as donors
-        let peer_term_sets: Vec<(usize, HashSet<String>)> = (0..self.entries.len())
-            .filter(|&i| self.entries[i].term_freq.len() >= A2_COLD_STUB_THRESHOLD)
+        let peer_term_sets: Vec<(usize, HashSet<String>)> = (0..self.retrieval.entries.len())
+            .filter(|&i| self.retrieval.entries[i].term_freq.len() >= A2_COLD_STUB_THRESHOLD)
             .map(|i| {
-                let terms: HashSet<String> = self.entries[i]
+                let terms: HashSet<String> = self.retrieval.entries[i]
                     .term_freq
                     .keys()
                     .filter(|t| t.len() >= 4)
@@ -318,9 +320,10 @@ impl NeuronIndex {
             .collect();
 
         // For each cold stub, find top-3 peers by Jaccard and borrow vocabulary
+        #[allow(clippy::type_complexity)]
         let mut borrowed: Vec<(usize, Vec<(String, f32)>)> = Vec::new();
         for cold_idx in cold_indices {
-            let cold_terms: HashSet<String> = self.entries[cold_idx]
+            let cold_terms: HashSet<String> = self.retrieval.entries[cold_idx]
                 .term_freq
                 .keys()
                 .filter(|t| t.len() >= 4)
@@ -328,7 +331,7 @@ impl NeuronIndex {
                 .collect();
 
             // Same module preferred — compute similarity against all peers
-            let cold_module = self.entries[cold_idx].module.clone();
+            let cold_module = self.retrieval.entries[cold_idx].module.clone();
             let mut scored: Vec<(f32, usize)> = peer_term_sets
                 .iter()
                 .filter(|(pi, _)| *pi != cold_idx)
@@ -341,12 +344,13 @@ impl NeuronIndex {
                         0.0
                     };
                     // Module bonus: same module → +0.1
-                    let module_bonus =
-                        if cold_module.is_some() && cold_module == self.entries[*pi].module {
-                            0.1
-                        } else {
-                            0.0
-                        };
+                    let module_bonus = if cold_module.is_some()
+                        && cold_module == self.retrieval.entries[*pi].module
+                    {
+                        0.1
+                    } else {
+                        0.0
+                    };
                     (jaccard + module_bonus, *pi)
                 })
                 .collect();
@@ -355,7 +359,7 @@ impl NeuronIndex {
 
             let mut terms_to_add: Vec<(String, f32)> = Vec::new();
             for (_, peer_idx) in scored.iter().take(A2_PEER_COUNT) {
-                let peer_terms: Vec<(String, f32)> = self.entries[*peer_idx]
+                let peer_terms: Vec<(String, f32)> = self.retrieval.entries[*peer_idx]
                     .term_freq
                     .iter()
                     .filter(|(t, _)| t.len() >= 4)
@@ -373,7 +377,7 @@ impl NeuronIndex {
         // Apply borrowed vocabulary (avoids borrow conflict — collected above)
         for (cold_idx, terms) in borrowed {
             for (term, weight) in terms {
-                let v = self.entries[cold_idx]
+                let v = self.retrieval.entries[cold_idx]
                     .term_freq
                     .entry(term)
                     .or_insert(TermFrequency::ZERO);

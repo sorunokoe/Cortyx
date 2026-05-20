@@ -16,6 +16,7 @@ impl FleetNodeId {
     }
 
     /// Borrow the raw identifier string.
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }

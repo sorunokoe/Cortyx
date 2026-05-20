@@ -8,6 +8,7 @@ static ATOMIC_WRITE_COUNTER: AtomicU64 = AtomicU64::new(0);
 /// Root of the neuron store inside a project.
 ///
 /// Example: `/my/project/.cortyx/neurons/`
+#[must_use]
 pub fn neuron_dir(project_root: &Path) -> PathBuf {
     project_root.join(".cortyx").join("neurons")
 }
@@ -25,6 +26,7 @@ pub fn neuron_dir(project_root: &Path) -> PathBuf {
 /// traversal: `PathBuf::join` with an absolute component replaces the entire
 /// path, so keeping the absolute fallback would have allowed writes outside
 /// the neuron store.
+#[must_use]
 pub fn core_neuron_path(source: &Path, project_root: &Path) -> PathBuf {
     let rel: std::borrow::Cow<Path> = match source.strip_prefix(project_root) {
         Ok(r) => std::borrow::Cow::Borrowed(r),
@@ -52,6 +54,7 @@ pub fn core_neuron_path(source: &Path, project_root: &Path) -> PathBuf {
 ///
 /// Example: `.cortyx/neurons/src/engine_rs.context.md` + `"validate_user"` →
 ///          `.cortyx/neurons/src/engine_rs.fn-validate_user.context.md`
+#[must_use]
 pub fn sub_neuron_path(core_path: &Path, fn_name: &str) -> PathBuf {
     let safe_name: String = fn_name
         .chars()
@@ -83,10 +86,12 @@ pub fn sub_neuron_path(core_path: &Path, fn_name: &str) -> PathBuf {
 /// Map a `.context.md` path to its sidecar `.context.json` path.
 ///
 /// Example: `neurons/engine_rs.context.md` → `neurons/engine_rs.context.json`
+#[must_use]
 pub fn meta_path(neuron_md: &Path) -> PathBuf {
     sidecar_path(neuron_md, ".json")
 }
 
+#[must_use]
 pub fn sidecar_path(neuron_md: &Path, suffix: &str) -> PathBuf {
     let name = neuron_md.file_name().unwrap_or_default().to_string_lossy();
     let sidecar_name = name
@@ -103,6 +108,10 @@ pub fn sidecar_path(neuron_md: &Path, suffix: &str) -> PathBuf {
 ///
 /// Prevents torn writes from corrupting neuron files or the index on power loss.
 /// Both files live on the same filesystem so `rename` is guaranteed atomic on POSIX.
+///
+/// # Errors
+///
+/// Returns an error if the underlying operation fails.
 pub fn atomic_write(path: &Path, data: &[u8]) -> Result<()> {
     let tmp = atomic_write_tmp_path(path);
     std::fs::write(&tmp, data)?;
@@ -111,6 +120,10 @@ pub fn atomic_write(path: &Path, data: &[u8]) -> Result<()> {
 }
 
 /// Serialize `value` to pretty JSON and write it to `path` atomically.
+///
+/// # Errors
+///
+/// Returns an error if the underlying operation fails.
 pub fn atomic_write_json<T: Serialize>(path: &Path, value: &T) -> Result<()> {
     atomic_write(path, serde_json::to_string_pretty(value)?.as_bytes())
 }

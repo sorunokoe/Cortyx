@@ -10,6 +10,10 @@ use crate::neuron::{
 use super::{cooccurrence, evidence, kg_apply, summary, surface, AnswerSurfaceRow, Turn};
 
 /// Write a sequence of turns as Verbatim neurons with TemporalFollows synapses.
+///
+/// # Errors
+///
+/// Returns an error if the underlying operation fails.
 pub fn write_verbatim_neurons(
     turns: &[Turn],
     source: &Path,
@@ -193,7 +197,7 @@ pub(super) fn batch_embed_paths(neuron_paths: &[PathBuf], project_root: &Path) {
                 store.insert(path.clone(), unit_norm(vec));
             }
             if let Err(e) = save_embeddings(project_root, &store) {
-                tracing::warn!("embed: failed to save embeddings.bin: {e}");
+                tracing::warn!("embed: failed to save embedding cache: {e}");
             } else {
                 tracing::debug!(
                     count = texts_and_paths.len(),

@@ -31,6 +31,7 @@ impl AdaptiveReasoner {
         }
     }
 
+    #[must_use]
     pub fn trace(
         &self,
         seeds: &[ReasonerSeed],

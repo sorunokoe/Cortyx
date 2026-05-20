@@ -274,6 +274,7 @@ fn split_identifier(name: &str) -> Vec<String> {
 /// 3. Collect all aliases (excluding the original tokens — they're already in BM25)
 ///
 /// Returns deduplicated, lowercase alias terms for BM25 injection at 0.5× weight.
+#[must_use]
 pub fn generate_alias_terms(names: &[String]) -> Vec<String> {
     let lookup = alias_lookup();
     let mut aliases: HashSet<String> = HashSet::new();

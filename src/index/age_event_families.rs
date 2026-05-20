@@ -148,7 +148,7 @@ fn select_age_event_facts(
     let mut merged = AgeEventFacts::default();
     let mut best_complete: Option<AgeEventFacts> = None;
 
-    for (_, content) in idx.matching_verbatim_texts(&borrowed_terms, idx.entries.len()) {
+    for (_, content) in idx.matching_verbatim_texts(&borrowed_terms, idx.retrieval.entries.len()) {
         let facts = collect_age_event_facts(&content, subject);
         merge_age_event_facts(&mut merged, &facts);
         if age_event_completion_score(&facts, need) == required_age_event_score(need)

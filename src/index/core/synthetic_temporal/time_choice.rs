@@ -195,7 +195,15 @@ impl NeuronIndex {
                     &anchor_terms,
                     reference_day,
                 );
-                let mut best_pair: Option<(usize, i32, i32, String, String, String)> = None;
+                #[allow(clippy::type_complexity)]
+                let mut best_pair: Option<(
+                    usize,
+                    i32,
+                    i32,
+                    String,
+                    String,
+                    String,
+                )> = None;
                 for (session_id, event_score, event_day, event_line) in &event_candidates {
                     for (anchor_session_id, anchor_score, anchor_day, anchor_line) in
                         &anchor_candidates
@@ -321,7 +329,7 @@ impl NeuronIndex {
         session_id: &str,
     ) -> Vec<Vec<&BM25Entry>> {
         let mut groups: BTreeMap<String, Vec<&BM25Entry>> = BTreeMap::new();
-        for entry in self.entries.iter().filter(|entry| {
+        for entry in self.retrieval.entries.iter().filter(|entry| {
             matches!(entry.kind, NeuronKind::Verbatim) && entry.session_id == session_id
         }) {
             groups
@@ -375,7 +383,7 @@ impl NeuronIndex {
         latest_day: Option<i32>,
     ) -> Vec<(String, usize, i32, String)> {
         let mut groups = std::collections::BTreeMap::<String, Vec<&BM25Entry>>::new();
-        for entry in self.entries.iter().filter(|entry| {
+        for entry in self.retrieval.entries.iter().filter(|entry| {
             matches!(entry.kind, NeuronKind::Verbatim)
                 && !is_session_summary_path(&entry.neuron_path)
         }) {

@@ -13,7 +13,7 @@ impl NeuronIndex {
     pub fn find_contradictions(&self, activated: &[PathBuf]) -> Vec<(PathBuf, PathBuf, String)> {
         let mut pairs = Vec::new();
         for i in 0..activated.len() {
-            if let Some(syns) = self.adjacency.get(&activated[i]) {
+            if let Some(syns) = self.retrieval.adjacency.get(&activated[i]) {
                 for syn in syns {
                     if syn.edge_type == SynapseType::Contradicts {
                         // Only report each pair once (i < j by index in activated)
@@ -42,7 +42,7 @@ impl NeuronIndex {
     ) -> Vec<(PathBuf, PathBuf, String)> {
         let mut seen: std::collections::HashSet<(PathBuf, PathBuf)> = Default::default();
         let mut pairs = Vec::new();
-        for (src, syns) in &self.adjacency {
+        for (src, syns) in &self.retrieval.adjacency {
             if let Some(pf) = path_filter {
                 if src != pf {
                     continue;
@@ -79,7 +79,7 @@ impl NeuronIndex {
             let body = std::fs::read_to_string(pf).ok()?;
             return Some(vec![body]);
         }
-        let mut entries: Vec<&BM25Entry> = self.entries.iter().collect();
+        let mut entries: Vec<&BM25Entry> = self.retrieval.entries.iter().collect();
         entries.sort_by(|a, b| {
             b.hit_count
                 .partial_cmp(&a.hit_count)

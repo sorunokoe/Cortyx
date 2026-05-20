@@ -8,6 +8,7 @@ use serde::Serialize;
 use std::path::{Path, PathBuf};
 
 /// BLAKE3 over the shareable neuron body after newline normalization.
+#[must_use]
 pub fn hash_sync_body(body: &str) -> String {
     blake3_hex(normalize_sync_body(body).as_bytes())
 }

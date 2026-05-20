@@ -18,6 +18,7 @@ use std::path::{Path, PathBuf};
 /// Returns absolute paths of source files imported by `source_abs`. Only files
 /// that actually exist on disk are returned — stdlib and third-party imports
 /// are silently ignored.
+#[must_use]
 pub fn parse_imports(source_abs: &Path, content: &str, project_root: &Path) -> Vec<PathBuf> {
     let source_rel = source_abs.strip_prefix(project_root).unwrap_or(source_abs);
     let ext = source_rel

@@ -18,6 +18,7 @@ pub(super) static NEURON_UUID_COUNTER: AtomicU64 = AtomicU64::new(0);
 ///
 /// Budgets derived from this estimate should include a conservative headroom
 /// (e.g., multiply by 1.3) before comparing against a hard token limit.
+#[must_use]
 pub fn estimate_tokens(text: &str) -> TokenCount {
     let mut ascii_chars = 0usize;
     let mut cjk_chars = 0usize;
@@ -38,6 +39,7 @@ pub fn estimate_tokens(text: &str) -> TokenCount {
     TokenCount::new((ascii_tokens + cjk_chars + other_unicode_tokens).max(1))
 }
 
+#[must_use]
 pub fn estimate_context_tokens(text: &str) -> TokenCount {
     estimate_tokens(&strip_context_only_sections(text))
 }
@@ -94,6 +96,7 @@ fn is_cjk_char(ch: char) -> bool {
 
 /// BLAKE3 hash of a file's contents, returned as a 16-char hex prefix.
 /// Returns `None` on error (file may not exist yet).
+#[must_use]
 pub fn hash_file(path: &Path) -> Option<String> {
     let data = std::fs::read(path).ok()?;
     let hash = blake3::hash(&data);
@@ -103,6 +106,7 @@ pub fn hash_file(path: &Path) -> Option<String> {
 /// Current time as RFC 3339 / ISO 8601 string (UTC, second precision).
 ///
 /// Uses Hinnant's civil calendar algorithm — no external crate required.
+#[must_use]
 pub fn now_iso8601() -> String {
     let secs = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -128,6 +132,7 @@ pub fn generate_neuron_uuid(source: &Path) -> String {
 }
 
 /// Decompose Unix epoch seconds into `(year, month, day, hour, minute, second)`.
+#[must_use]
 pub fn unix_secs_to_datetime(secs: u64) -> (u32, u32, u32, u32, u32, u32) {
     let h = (secs / 3600) % 24;
     let mi = (secs / 60) % 60;
@@ -137,6 +142,7 @@ pub fn unix_secs_to_datetime(secs: u64) -> (u32, u32, u32, u32, u32, u32) {
 }
 
 /// Convert days since Unix epoch to (year, month, day) using Hinnant's algorithm.
+#[must_use]
 pub fn days_to_ymd(z: i64) -> (i32, i32, i32) {
     let z = z + 719468;
     let era = if z >= 0 { z } else { z - 146096 } / 146097;

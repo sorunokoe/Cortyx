@@ -127,6 +127,7 @@ pub fn push_shadow(shadows: &mut HashMap<String, Vec<String>>, key: &str, value:
     }
 }
 
+#[must_use]
 pub fn latest_shadow<'a>(shadows: &'a HashMap<String, Vec<String>>, key: &str) -> Option<&'a str> {
     shadows
         .get(key)
@@ -143,6 +144,7 @@ pub fn pop_shadow(shadows: &mut HashMap<String, Vec<String>>, key: &str) -> Opti
 }
 
 impl NeuronMeta {
+    #[must_use]
     pub fn new_stub(source: &Path, kind: NeuronKind) -> Self {
         Self {
             source_path: source.to_path_buf(),
@@ -168,6 +170,7 @@ impl NeuronMeta {
         }
     }
 
+    #[must_use]
     pub fn new_verbatim_chunk(
         neuron_path: &Path,
         speaker: Option<String>,

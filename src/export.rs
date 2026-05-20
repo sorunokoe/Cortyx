@@ -80,6 +80,9 @@ fn ux_proof_meta() -> Value {
     })
 }
 
+/// # Errors
+///
+/// Returns an error if the underlying operation fails.
 pub fn build_prompt_json(root: &Path, idx: &NeuronIndex, provider: Provider) -> Result<String> {
     let instructions_note = format!(
         "\n\n<!-- CORTYX EXPORT — project: {} -->\n\

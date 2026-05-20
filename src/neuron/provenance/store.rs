@@ -8,11 +8,16 @@ use super::chain::{NeuronProvenance, PROVENANCE_VERSION};
 use super::edit::ProvenanceEdit;
 
 /// Map a `.context.md` path to its provenance sidecar.
+#[must_use]
 pub fn provenance_path(neuron_md: &Path) -> PathBuf {
     sidecar_path(neuron_md, ".provenance.json")
 }
 
 /// Load provenance if the additive sidecar exists.
+///
+/// # Errors
+///
+/// Returns an error if the underlying operation fails.
 pub fn load_provenance(neuron_md: &Path) -> Result<Option<NeuronProvenance>> {
     let path = provenance_path(neuron_md);
     if !path.exists() {
@@ -27,6 +32,10 @@ pub fn load_provenance(neuron_md: &Path) -> Result<Option<NeuronProvenance>> {
 }
 
 /// Persist a provenance sidecar next to the neuron markdown file.
+///
+/// # Errors
+///
+/// Returns an error if the underlying operation fails.
 pub fn save_provenance(neuron_md: &Path, provenance: &NeuronProvenance) -> Result<()> {
     let path = provenance_path(neuron_md);
     if let Some(parent) = path.parent() {
@@ -36,6 +45,10 @@ pub fn save_provenance(neuron_md: &Path, provenance: &NeuronProvenance) -> Resul
 }
 
 /// Create the sidecar if needed and sync the stored identity fields from `NeuronMeta`.
+///
+/// # Errors
+///
+/// Returns an error if the underlying operation fails.
 pub fn ensure_provenance(neuron_md: &Path, meta: &NeuronMeta) -> Result<NeuronProvenance> {
     let mut provenance =
         load_provenance(neuron_md)?.unwrap_or_else(|| NeuronProvenance::from_meta(meta));
@@ -45,6 +58,10 @@ pub fn ensure_provenance(neuron_md: &Path, meta: &NeuronMeta) -> Result<NeuronPr
 }
 
 /// Append and persist a new provenance edit entry.
+///
+/// # Errors
+///
+/// Returns an error if the underlying operation fails.
 pub fn record_provenance_edit(
     neuron_md: &Path,
     meta: &NeuronMeta,
@@ -62,6 +79,7 @@ pub fn record_provenance_edit(
 ///
 /// Uses the same normalization as `sync::hash_sync_body` (CRLF→LF, strip trailing newlines,
 /// BLAKE3) so provenance and sync hashes remain interchangeable.
+#[must_use]
 pub fn provenance_content_hash(content: &str) -> String {
     let normalized = content.replace("\r\n", "\n").replace('\r', "\n");
     let normalized = normalized.trim_end_matches('\n');
@@ -69,6 +87,10 @@ pub fn provenance_content_hash(content: &str) -> String {
 }
 
 /// Append a provenance edit for the current neuron content, defaulting the content hash.
+///
+/// # Errors
+///
+/// Returns an error if the underlying operation fails.
 pub fn record_content_provenance_edit(
     neuron_md: &Path,
     meta: &NeuronMeta,

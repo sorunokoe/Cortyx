@@ -24,19 +24,23 @@ impl SynapseWeight {
     pub const ONE: Self = Self(1.0);
 
     /// Clamp `v` to `[0.0, 1.0]`.
+    #[must_use]
     pub fn new(v: f32) -> Self {
         Self(v.clamp(0.0, 1.0))
     }
 
+    #[must_use]
     pub fn get(self) -> f32 {
         self.0
     }
 
+    #[must_use]
     pub fn is_zero(self) -> bool {
         self.0 == 0.0
     }
 
     /// Blend two weights: `self * (1 - alpha) + other * alpha`.
+    #[must_use]
     pub fn ema(self, other: Self, alpha: f32) -> Self {
         let alpha = alpha.clamp(0.0, 1.0);
         Self::new(self.0 * (1.0 - alpha) + other.0 * alpha)
@@ -69,18 +73,22 @@ impl ConfidenceScore {
     pub const FULL: Self = Self(1.0);
     pub const ZERO: Self = Self(0.0);
 
+    #[must_use]
     pub fn new(v: f32) -> Self {
         Self(v.clamp(0.0, 1.0))
     }
 
+    #[must_use]
     pub fn get(self) -> f32 {
         self.0
     }
 
+    #[must_use]
     pub fn is_high(self) -> bool {
         self.0 >= 0.8
     }
 
+    #[must_use]
     pub fn is_low(self) -> bool {
         self.0 < 0.5
     }
@@ -104,15 +112,18 @@ pub struct QualityScore(f32);
 impl QualityScore {
     pub const FULL: Self = Self(1.0);
 
+    #[must_use]
     pub fn new(v: f32) -> Self {
         Self(v.clamp(0.0, 1.0))
     }
 
+    #[must_use]
     pub fn get(self) -> f32 {
         self.0
     }
 
     /// Returns `true` if quality is below the penalty threshold (0.4).
+    #[must_use]
     pub fn is_below_penalty_threshold(self) -> bool {
         self.0 < 0.4
     }
@@ -131,24 +142,29 @@ impl BM25Score {
     pub const ZERO: Self = Self(0.0);
 
     /// Construct from a raw BM25 output. Negative values are clamped to zero.
+    #[must_use]
     pub fn new(v: f32) -> Self {
         Self(v.max(0.0))
     }
 
+    #[must_use]
     pub fn get(self) -> f32 {
         self.0
     }
 
+    #[must_use]
     pub fn is_zero(self) -> bool {
         self.0 == 0.0
     }
 
     /// Score exceeds the high-confidence threshold (8.0 by default).
+    #[must_use]
     pub fn is_high_confidence(self, threshold: f32) -> bool {
         self.0 >= threshold
     }
 
     /// Score is below the low-confidence threshold (4.0 by default).
+    #[must_use]
     pub fn is_low_confidence(self, threshold: f32) -> bool {
         self.0 < threshold
     }
@@ -182,15 +198,18 @@ impl StalenessMultiplier {
     /// A stale neuron (source file changed).
     pub const STALE: Self = Self(0.5);
 
+    #[must_use]
     pub fn new(v: f32) -> Self {
         // Clamp to (0.0, 1.0] — never zero.
         Self(v.clamp(f32::EPSILON, 1.0))
     }
 
+    #[must_use]
     pub fn get(self) -> f32 {
         self.0
     }
 
+    #[must_use]
     pub fn is_fresh(self) -> bool {
         self.0 >= 1.0
     }

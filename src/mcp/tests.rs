@@ -452,6 +452,7 @@ fn build_augmented_task_includes_editor_and_error_terms() {
         min_answer_confidence: None,
         provenance_mode: None,
         depth: None,
+        temporal_bias: None,
     };
 
     let augmented = build_augmented_task(&index, &input);

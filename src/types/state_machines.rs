@@ -32,6 +32,7 @@ pub struct IndexState<S> {
 
 impl IndexState<Uninitialized> {
     /// Create a new uninitialized index state.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             _state: PhantomData,
@@ -39,6 +40,7 @@ impl IndexState<Uninitialized> {
     }
 
     /// Begin loading the index.
+    #[must_use]
     pub fn begin_load(self) -> IndexState<Loading> {
         IndexState {
             _state: PhantomData,
@@ -54,6 +56,7 @@ impl Default for IndexState<Uninitialized> {
 
 impl IndexState<Loading> {
     /// Mark the index as ready after successful load.
+    #[must_use]
     pub fn mark_ready(self) -> IndexState<Ready> {
         IndexState {
             _state: PhantomData,
@@ -61,6 +64,7 @@ impl IndexState<Loading> {
     }
 
     /// Mark as failed (returns to uninitialized).
+    #[must_use]
     pub fn mark_failed(self) -> IndexState<Uninitialized> {
         IndexState {
             _state: PhantomData,
@@ -70,6 +74,7 @@ impl IndexState<Loading> {
 
 impl IndexState<Ready> {
     /// Mark the index as stale.
+    #[must_use]
     pub fn mark_stale(self) -> IndexState<Stale> {
         IndexState {
             _state: PhantomData,
@@ -79,6 +84,7 @@ impl IndexState<Ready> {
 
 impl IndexState<Stale> {
     /// Begin rebuilding the index.
+    #[must_use]
     pub fn rebuild(self) -> IndexState<Loading> {
         IndexState {
             _state: PhantomData,
@@ -113,6 +119,7 @@ pub struct NeuronLifecycle<S> {
 
 impl NeuronLifecycle<Stub> {
     /// Create a new stub neuron.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             _state: PhantomData,
@@ -120,6 +127,7 @@ impl NeuronLifecycle<Stub> {
     }
 
     /// Index the neuron.
+    #[must_use]
     pub fn index(self) -> NeuronLifecycle<Indexed> {
         NeuronLifecycle {
             _state: PhantomData,
@@ -135,6 +143,7 @@ impl Default for NeuronLifecycle<Stub> {
 
 impl NeuronLifecycle<Indexed> {
     /// Validate the neuron.
+    #[must_use]
     pub fn validate(self) -> NeuronLifecycle<Validated> {
         NeuronLifecycle {
             _state: PhantomData,
@@ -142,6 +151,7 @@ impl NeuronLifecycle<Indexed> {
     }
 
     /// Revert to stub state.
+    #[must_use]
     pub fn revert(self) -> NeuronLifecycle<Stub> {
         NeuronLifecycle {
             _state: PhantomData,
@@ -151,6 +161,7 @@ impl NeuronLifecycle<Indexed> {
 
 impl NeuronLifecycle<Validated> {
     /// Archive the neuron.
+    #[must_use]
     pub fn archive(self) -> NeuronLifecycle<Archived> {
         NeuronLifecycle {
             _state: PhantomData,
@@ -190,6 +201,7 @@ pub struct SyncState<S> {
 
 impl SyncState<Idle> {
     /// Create a new idle sync state.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             _state: PhantomData,
@@ -197,6 +209,7 @@ impl SyncState<Idle> {
     }
 
     /// Begin a sync operation.
+    #[must_use]
     pub fn begin_sync(self) -> SyncState<Syncing> {
         SyncState {
             _state: PhantomData,
@@ -212,6 +225,7 @@ impl Default for SyncState<Idle> {
 
 impl SyncState<Syncing> {
     /// Complete the sync successfully.
+    #[must_use]
     pub fn complete(self) -> SyncState<Idle> {
         SyncState {
             _state: PhantomData,
@@ -219,6 +233,7 @@ impl SyncState<Syncing> {
     }
 
     /// Encounter a conflict during sync.
+    #[must_use]
     pub fn conflict(self) -> SyncState<Conflicted> {
         SyncState {
             _state: PhantomData,
@@ -228,6 +243,7 @@ impl SyncState<Syncing> {
 
 impl SyncState<Conflicted> {
     /// Resolve the conflict.
+    #[must_use]
     pub fn resolve(self) -> SyncState<Resolved> {
         SyncState {
             _state: PhantomData,
@@ -235,6 +251,7 @@ impl SyncState<Conflicted> {
     }
 
     /// Abort and return to idle.
+    #[must_use]
     pub fn abort(self) -> SyncState<Idle> {
         SyncState {
             _state: PhantomData,
@@ -244,6 +261,7 @@ impl SyncState<Conflicted> {
 
 impl SyncState<Resolved> {
     /// Retry the sync after resolution.
+    #[must_use]
     pub fn retry(self) -> SyncState<Syncing> {
         SyncState {
             _state: PhantomData,

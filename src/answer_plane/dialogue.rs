@@ -158,6 +158,7 @@ pub(super) fn select_turn_pair_answer(
     Some(top.text)
 }
 
+#[must_use]
 pub fn mine_dialogue_question_pattern(question: &str) -> Option<String> {
     let clean = sanitize_answer_text(question);
     if clean.is_empty() || !looks_like_question_turn(&clean) {
@@ -167,6 +168,7 @@ pub fn mine_dialogue_question_pattern(question: &str) -> Option<String> {
     (terms.len() >= 2).then(|| terms.join(" "))
 }
 
+#[must_use]
 pub fn mine_dialogue_answer_surface_span(question: &str, answer: &str) -> Option<String> {
     let clean_question = sanitize_answer_text(question);
     let task_terms = salient_query_terms(&clean_question);

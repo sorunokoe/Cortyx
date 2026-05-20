@@ -18,6 +18,7 @@ const RRF_K: usize = 60;
 /// - fleet_score ≥ 8.0 → weight → 0.50 (high quality — amplify)
 ///
 /// Formula: sigmoid-shaped blend: 0.30 + 0.20 × (score − 4.0) / (4.0 + |score − 4.0|)
+#[must_use]
 pub fn dynamic_fleet_weight(fleet_top_score: f32) -> f32 {
     const MIDPOINT: f32 = 4.0; // LOW_CONFIDENCE — neutral weight reference
     if fleet_top_score <= 0.0 {
@@ -56,6 +57,7 @@ fn rrf_score(rank: usize) -> f32 {
 }
 
 /// Merge local context with supplementary fleet context.
+#[must_use]
 pub fn rrf_merge(
     local_text: &str,
     local_score: f32,

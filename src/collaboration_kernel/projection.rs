@@ -165,6 +165,7 @@ pub fn summarize_collaboration_workflow(
     metrics
 }
 
+#[must_use]
 pub fn compare_shared_trust_outcomes(
     baseline_sync_statuses: &[SyncTransportStatus],
     baseline_projection: &CollaborationStateProjection,
@@ -283,6 +284,7 @@ pub fn compare_shared_trust_outcomes(
     }
 }
 
+#[must_use]
 pub fn project_collaboration_state(
     diaries: &[CollaborationDiaryRecord],
     sync_statuses: &[SyncTransportStatus],

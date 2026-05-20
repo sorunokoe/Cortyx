@@ -1,7 +1,9 @@
 use super::super::{ActivationStage, QueryContext, ScoredCandidate};
+use super::sort_candidates;
 use crate::index::core::is_session_summary_path;
 use crate::neuron::NeuronKind;
 
+/// Seeds Phase 1 with direct BM25-scored candidates from the posting list.
 pub struct Bm25ScoringStage;
 
 impl ActivationStage for Bm25ScoringStage {
@@ -34,6 +36,8 @@ impl ActivationStage for Bm25ScoringStage {
                 candidates.push(ScoredCandidate::new(idx, score, entry.tokens));
             }
         }
+
+        sort_candidates(candidates);
     }
 }
 
@@ -110,5 +114,26 @@ mod tests {
             .map(|candidate| (candidate.entry_idx, candidate.score))
             .collect::<std::collections::HashMap<_, _>>();
         assert!(scores.remove(&0).unwrap() > scores.remove(&1).unwrap());
+    }
+
+    #[test]
+    fn sorts_candidates_by_score_descending() {
+        let strong = test_entry("strong.md", NeuronKind::Core, &[("auth", 3.0)]);
+        let weak = test_entry("weak.md", NeuronKind::Core, &[("auth", 1.0)]);
+        let fixture = QueryContextFixture::new(vec![weak, strong]);
+        let mut ctx = fixture.ctx("auth");
+        ctx.seed_candidate_ids = [0usize, 1].into_iter().collect();
+        ctx.seed_ranking_terms = vec!["auth".into()];
+
+        let mut candidates = Vec::new();
+        Bm25ScoringStage.apply(&ctx, &mut candidates);
+
+        assert_eq!(
+            candidates
+                .iter()
+                .map(|candidate| candidate.entry_idx)
+                .collect::<Vec<_>>(),
+            vec![1, 0]
+        );
     }
 }

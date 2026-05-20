@@ -29,6 +29,7 @@ pub struct SyncableNeuron {
 }
 
 impl SyncableNeuron {
+    #[must_use]
     pub fn from_parts(
         meta: &NeuronMeta,
         body: &str,
@@ -78,12 +79,14 @@ impl SyncableNeuron {
         Some(syncable)
     }
 
+    #[must_use]
     pub fn detect_conflict(&self, remote: &SyncableNeuron) -> Option<SyncConflict> {
         super::conflict::detect_sync_conflict(&self.headers, &remote.headers)
     }
 }
 
 impl SyncHeaders {
+    #[must_use]
     pub fn from_meta(
         meta: &NeuronMeta,
         body: &str,
@@ -94,6 +97,7 @@ impl SyncHeaders {
 }
 
 /// Decide whether a neuron belongs to the shared-sync boundary.
+#[must_use]
 pub fn is_syncable(meta: &NeuronMeta, body: &str) -> bool {
     sync_boundary_reason(meta, body).is_none()
 }

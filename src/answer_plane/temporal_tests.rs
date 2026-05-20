@@ -98,6 +98,7 @@ fn mine_and_collect_fixture(
         Some("conversation"),
         None,
         false,
+        None,
     );
     let (evidence, _) = collect_evidence_with_reasoning(&idx, &question, &included);
     (dir, idx, question, included, evidence)

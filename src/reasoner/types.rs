@@ -177,6 +177,7 @@ pub struct TraversalStats {
 impl TraversalStats {
     /// Coverage ratio: fraction of max possible depth that was explored
     /// (simple proxy for traversal completeness).
+    #[must_use]
     pub fn depth_coverage(&self, max_hops: u8) -> f32 {
         if max_hops == 0 {
             return 1.0;
@@ -185,6 +186,7 @@ impl TraversalStats {
     }
 
     /// Total nodes discovered across all depths.
+    #[must_use]
     pub fn total_nodes(&self) -> usize {
         self.nodes_by_depth.iter().sum()
     }
@@ -201,18 +203,22 @@ pub struct ReasoningReport {
 }
 
 impl ReasoningReport {
+    #[must_use]
     pub fn total_facts(&self) -> usize {
         self.facts.len()
     }
 
+    #[must_use]
     pub fn active_facts(&self) -> Vec<&ReasonedFact> {
         self.facts.iter().filter(|f| f.active).collect()
     }
 
+    #[must_use]
     pub fn ended_facts(&self) -> Vec<&ReasonedFact> {
         self.facts.iter().filter(|f| !f.active).collect()
     }
 
+    #[must_use]
     pub fn conflicting_paths(&self) -> Vec<(&PathBuf, &PathBuf)> {
         self.conflicts
             .iter()
@@ -220,10 +226,12 @@ impl ReasoningReport {
             .collect()
     }
 
+    #[must_use]
     pub fn top_nodes(&self, n: usize) -> &[ReasonedNode] {
         &self.nodes[..n.min(self.nodes.len())]
     }
 
+    #[must_use]
     pub fn top_facts(&self, n: usize) -> Vec<&ReasonedFact> {
         let mut facts: Vec<&ReasonedFact> = self.active_facts();
         facts.sort_by(|a, b| {
@@ -234,18 +242,22 @@ impl ReasoningReport {
         facts.into_iter().take(n).collect()
     }
 
+    #[must_use]
     pub fn node_paths(&self) -> Vec<&PathBuf> {
         self.nodes.iter().map(|n| &n.path).collect()
     }
 
+    #[must_use]
     pub fn seed_nodes(&self) -> Vec<&ReasonedNode> {
         self.nodes.iter().filter(|n| n.depth == 0).collect()
     }
 
+    #[must_use]
     pub fn hop1_nodes(&self) -> Vec<&ReasonedNode> {
         self.nodes.iter().filter(|n| n.depth == 1).collect()
     }
 
+    #[must_use]
     pub fn hop2_nodes(&self) -> Vec<&ReasonedNode> {
         self.nodes.iter().filter(|n| n.depth == 2).collect()
     }
@@ -307,6 +319,7 @@ impl ReasoningReport {
     /// Each chain is a path from a seed node to a leaf node, traced backwards
     /// through `strongest_step.from`. Returns at most `max_chains` chains,
     /// sorted by the leaf node's score (descending) for determinism.
+    #[must_use]
     pub fn chain_lines(&self, max_chains: usize) -> Vec<String> {
         if self.nodes.is_empty() || max_chains == 0 {
             return Vec::new();

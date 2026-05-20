@@ -57,6 +57,7 @@ pub struct SyncHeaders {
 impl SyncHeaders {
     /// True when `self` is a direct descendant of `base`, so the update can be
     /// fast-forwarded instead of treated as a divergence.
+    #[must_use]
     pub fn fast_forwards(&self, base: &SyncHeaders) -> bool {
         match (
             self.parent_edit_id.as_deref(),

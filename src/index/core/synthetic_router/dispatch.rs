@@ -522,6 +522,7 @@ impl NeuronIndex {
                 vec!["night", "hotel", "hostel", "resort"]
             };
             let hawaii_aliases = ["hawaii", "maui", "oahu", "kauai", "honolulu"];
+            #[allow(clippy::type_complexity)]
             let mut best_rates: Option<(usize, Vec<(f32, String)>)> = None;
             for session_id in self.candidate_session_ids(task, &required_terms, 8) {
                 let evidence = self.find_session_lines(&session_id, false, 6, |line, lower| {

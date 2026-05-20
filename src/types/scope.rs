@@ -25,6 +25,10 @@ impl PersonSlug {
     /// Parse a person slug, accepting an optional leading `@`.
     ///
     /// Valid chars after stripping `@`: `[a-z0-9_]`, non-empty.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the underlying operation fails.
     pub fn parse(s: &str) -> Result<Self> {
         let s = s.strip_prefix('@').unwrap_or(s);
         if s.is_empty() {
@@ -42,11 +46,13 @@ impl PersonSlug {
         Ok(Self(s.to_string()))
     }
 
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
     /// Returns the slug with its `@` prefix, as used in neuron paths and display.
+    #[must_use]
     pub fn with_at_prefix(&self) -> String {
         format!("@{}", self.0)
     }
@@ -93,6 +99,7 @@ impl ModuleScope {
     /// Return the string representation used in neuron path filters.
     ///
     /// `ProjectWide` returns `None` (no filter applied).
+    #[must_use]
     pub fn as_filter_str(&self) -> Option<&str> {
         match self {
             Self::ProjectWide => None,
@@ -101,6 +108,7 @@ impl ModuleScope {
         }
     }
 
+    #[must_use]
     pub fn is_project_wide(&self) -> bool {
         matches!(self, Self::ProjectWide)
     }

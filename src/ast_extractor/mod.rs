@@ -25,12 +25,14 @@ pub struct AstSummary {
 }
 
 impl AstSummary {
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.functions.is_empty() && self.types.is_empty() && self.doc_lines.is_empty()
     }
 }
 
 /// Extract the public API surface from `content` using `source_rel` for language detection.
+#[must_use]
 pub fn extract_signatures(source_rel: &str, content: &str) -> AstSummary {
     let ext = std::path::Path::new(source_rel)
         .extension()
@@ -163,6 +165,7 @@ pub fn format_extra_vocab_for_stub(summary: &AstSummary) -> String {
 /// - "authenticating users with JWT tokens"
 /// - "validating request credentials"
 /// - "parsing configuration from environment"
+#[must_use]
 pub fn format_relevant_for_stub(summary: &AstSummary, source_rel: &str) -> String {
     let mut phrases: Vec<String> = Vec::new();
 
@@ -238,7 +241,7 @@ pub fn format_relevant_for_stub(summary: &AstSummary, source_rel: &str) -> Strin
 
 /// Split a snake_case identifier into words (handles digits as word breaks too).
 fn split_identifier(s: &str) -> Vec<String> {
-    s.split(|c: char| c == '_' || c == '-')
+    s.split(['_', '-'])
         .filter(|w| !w.is_empty() && w.len() > 1)
         .map(|w| w.to_lowercase())
         .collect()

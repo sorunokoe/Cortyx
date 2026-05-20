@@ -79,6 +79,7 @@ impl CortyxServer {
                     min_answer_confidence: input.min_answer_confidence,
                     provenance_mode: input.provenance_mode,
                     depth: None,
+                    temporal_bias: None,
                 }))
                 .await
             },
@@ -218,6 +219,7 @@ impl CortyxServer {
                 input.kind.as_deref(),
                 min_confidence,
                 multi_hop,
+                input.temporal_bias,
             );
             idx.rerank_contexts_with_session_tf(
                 &augmented_task,

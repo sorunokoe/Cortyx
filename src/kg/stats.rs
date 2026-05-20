@@ -13,6 +13,7 @@ pub struct KgStats {
 }
 
 /// Compute KG stats for a project.
+#[must_use]
 pub fn compute_stats(project_root: &Path) -> KgStats {
     let mut stats = KgStats::default();
     for path in list_kg_paths(project_root) {

@@ -1,7 +1,7 @@
 use super::*;
 
 impl NeuronIndex {
-    /// Add or replace a single entry in `self.entries` (does NOT rebuild derived).
+    /// Add or replace a single entry in `self.retrieval.entries` (does NOT rebuild derived).
     pub fn index_neuron(&mut self, neuron_path: &Path, content: &str, meta: &NeuronMeta) {
         let index_content = content;
 
@@ -106,7 +106,7 @@ impl NeuronIndex {
         // S-1: Validate that the resolved target stays inside the neuron directory.
         // This prevents path traversal attacks via crafted .cortyx/neurons/*.json files
         // (e.g. a compromised CI artifact injecting "../../etc/sensitive").
-        let ndir = neuron_dir(&self.project_root);
+        let ndir = neuron_dir(&self.persistence.project_root);
         let synapses: Vec<Synapse> = meta
             .synapses
             .iter()
@@ -226,15 +226,19 @@ impl NeuronIndex {
             },
         };
 
-        if let Some(&pos) = self.path_index.get(neuron_path) {
-            self.entries[pos] = entry;
-            self.has_pending_updates.store(true, Ordering::Release);
-            self.delta_dirty.store(true, Ordering::Relaxed);
+        if let Some(&pos) = self.retrieval.path_index.get(neuron_path) {
+            self.retrieval.entries[pos] = entry;
+            self.persistence
+                .has_pending_updates
+                .store(true, Ordering::Release);
+            self.persistence.delta_dirty.store(true, Ordering::Relaxed);
         } else {
-            let pos = self.entries.len();
-            self.path_index.insert(neuron_path.to_path_buf(), pos);
-            self.entries.push(entry);
-            self.pending_append_count += 1;
+            let pos = self.retrieval.entries.len();
+            self.retrieval
+                .path_index
+                .insert(neuron_path.to_path_buf(), pos);
+            self.retrieval.entries.push(entry);
+            self.persistence.pending_append_count += 1;
         }
     }
 }

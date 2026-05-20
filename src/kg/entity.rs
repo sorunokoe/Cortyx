@@ -23,6 +23,10 @@ impl KgEntity {
     // ─── I/O ─────────────────────────────────────────────────────────────
 
     /// Load (or create empty) a `KgEntity` from the neuron path.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the underlying operation fails.
     pub fn load(path: &Path) -> Result<Self> {
         let entity = entity_slug_from_path(path);
         if !path.exists() {
@@ -43,6 +47,10 @@ impl KgEntity {
     }
 
     /// Persist the entity back to its neuron file, replacing the `## facts` table.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the underlying operation fails.
     pub fn save(&self) -> Result<()> {
         let content = self.render();
         if let Some(parent) = self.path.parent() {
@@ -67,6 +75,10 @@ impl KgEntity {
     }
 
     /// Set the `ended` date on the first active fact matching `predicate`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the underlying operation fails.
     pub fn invalidate_fact(&mut self, predicate: &str, ended: &str) -> Result<()> {
         let hit = self
             .facts
@@ -170,11 +182,13 @@ impl KgEntity {
     // ─── Queries ─────────────────────────────────────────────────────────
 
     /// Return facts active as of `as_of` (or all active facts if `None`).
+    #[must_use]
     pub fn active_facts(&self, as_of: Option<&str>) -> Vec<&KgFact> {
         self.facts.iter().filter(|f| f.is_active(as_of)).collect()
     }
 
     /// Return active facts for a single predicate.
+    #[must_use]
     pub fn active_values_for_predicate(
         &self,
         predicate: &str,
@@ -187,6 +201,7 @@ impl KgEntity {
     }
 
     /// Return the full temporal timeline for a predicate, sorted by `valid_from`.
+    #[must_use]
     pub fn timeline_for(&self, predicate: &str) -> Vec<&KgFact> {
         let mut v: Vec<&KgFact> = self
             .facts
@@ -198,6 +213,7 @@ impl KgEntity {
     }
 
     /// Count the number of distinct active values for a predicate.
+    #[must_use]
     pub fn count_active_values_for_predicate(&self, predicate: &str) -> usize {
         let mut seen: HashSet<&str> = HashSet::new();
         for f in self.active_facts(None) {
@@ -209,6 +225,7 @@ impl KgEntity {
     }
 
     /// Return the latest active value for a predicate, preferring the newest `valid_from`.
+    #[must_use]
     pub fn latest_active_value(&self, predicate: &str) -> Option<String> {
         self.active_values_for_predicate(predicate, None)
             .into_iter()
@@ -221,6 +238,7 @@ impl KgEntity {
     }
 
     /// Return the distinct active values for a predicate in deterministic order.
+    #[must_use]
     pub fn active_value_strings(&self, predicate: &str) -> Vec<String> {
         let mut values: Vec<String> = self
             .active_values_for_predicate(predicate, None)
@@ -233,6 +251,7 @@ impl KgEntity {
     }
 
     /// Return the latest `valid_from` timestamp among currently active facts.
+    #[must_use]
     pub fn latest_active_timestamp(&self) -> Option<String> {
         self.active_facts(None)
             .into_iter()

@@ -22,22 +22,27 @@ pub struct TokenCount(usize);
 impl TokenCount {
     pub const ZERO: Self = Self(0);
 
+    #[must_use]
     pub fn new(count: usize) -> Self {
         Self(count)
     }
 
+    #[must_use]
     pub fn get(self) -> usize {
         self.0
     }
 
+    #[must_use]
     pub fn is_zero(self) -> bool {
         self.0 == 0
     }
 
+    #[must_use]
     pub fn saturating_add(self, other: Self) -> Self {
         Self(self.0.saturating_add(other.0))
     }
 
+    #[must_use]
     pub fn saturating_sub(self, other: Self) -> Self {
         Self(self.0.saturating_sub(other.0))
     }
@@ -67,6 +72,9 @@ impl TokenBudget {
     /// Maximum reasonable token budget (100k tokens).
     pub const MAX: usize = 100_000;
 
+    /// # Errors
+    ///
+    /// Returns an error if the underlying operation fails.
     pub fn new(budget: usize) -> Result<Self> {
         if budget > Self::MAX {
             crate::cortyx_bail!("Token budget {} exceeds maximum {}", budget, Self::MAX);
@@ -75,18 +83,22 @@ impl TokenBudget {
     }
 
     /// Create without validation (for internal use).
+    #[must_use]
     pub fn new_unchecked(budget: usize) -> Self {
         Self(budget)
     }
 
+    #[must_use]
     pub fn get(self) -> usize {
         self.0
     }
 
+    #[must_use]
     pub fn remaining(self, used: TokenCount) -> TokenCount {
         TokenCount::new(self.0.saturating_sub(used.get()))
     }
 
+    #[must_use]
     pub fn can_fit(self, tokens: TokenCount) -> bool {
         tokens.get() <= self.0
     }
@@ -116,6 +128,9 @@ impl TryFrom<usize> for TokenBudget {
 pub struct QueryText(String);
 
 impl QueryText {
+    /// # Errors
+    ///
+    /// Returns an error if the underlying operation fails.
     pub fn new(text: impl Into<String>) -> Result<Self> {
         let text = text.into();
         let trimmed = text.trim().to_string();
@@ -127,10 +142,12 @@ impl QueryText {
         Ok(Self(trimmed))
     }
 
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
+    #[must_use]
     pub fn into_string(self) -> String {
         self.0
     }
@@ -176,14 +193,17 @@ pub struct TermFrequency(f32);
 impl TermFrequency {
     pub const ZERO: Self = Self(0.0);
 
+    #[must_use]
     pub fn new(freq: f32) -> Self {
         Self(freq.max(0.0))
     }
 
+    #[must_use]
     pub fn get(self) -> f32 {
         self.0
     }
 
+    #[must_use]
     pub fn is_zero(self) -> bool {
         self.0 == 0.0
     }

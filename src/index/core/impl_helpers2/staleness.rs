@@ -17,7 +17,7 @@ impl NeuronIndex {
     pub fn apply_synapse_decay(&mut self) -> (usize, usize) {
         let now_days = now_unix_days();
         let (mut decayed, mut pruned) = (0usize, 0usize);
-        for entry in &mut self.entries {
+        for entry in &mut self.retrieval.entries {
             let before = entry.synapses.len();
             for syn in &mut entry.synapses {
                 if syn.last_co_activation_day == 0 || syn.learned_weight.is_zero() {
@@ -52,7 +52,7 @@ impl NeuronIndex {
     pub fn touch_co_activation_day(&mut self, cited_paths: &[PathBuf]) {
         let today = now_unix_days();
         let cited_set: std::collections::HashSet<&PathBuf> = cited_paths.iter().collect();
-        for entry in &mut self.entries {
+        for entry in &mut self.retrieval.entries {
             if !cited_set.contains(&entry.neuron_path) {
                 continue;
             }
@@ -75,7 +75,7 @@ impl NeuronIndex {
     ///
     /// Cost: O(n) over all entries; n < 1 000 in typical projects → <1 ms.
     pub fn cascade_staleness(&mut self, changed_neuron: &Path) {
-        for entry in &mut self.entries {
+        for entry in &mut self.retrieval.entries {
             let is_dependent = entry.synapses.iter().any(|s| {
                 s.target == changed_neuron
                     && matches!(

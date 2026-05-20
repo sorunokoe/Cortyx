@@ -210,9 +210,10 @@ impl NeuronIndex {
         }
 
         let month_filter = extract_query_month_name(task_lower)?;
+        #[allow(clippy::type_complexity)]
         let mut per_session: HashMap<String, (HashSet<String>, bool, bool, Vec<String>)> =
             HashMap::new();
-        for entry in self.entries.iter().filter(|entry| {
+        for entry in self.retrieval.entries.iter().filter(|entry| {
             matches!(entry.kind, NeuronKind::Verbatim) && !entry.session_id.is_empty()
         }) {
             let Ok(content) = std::fs::read_to_string(&entry.neuron_path) else {

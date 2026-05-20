@@ -16,53 +16,33 @@ pub use types::{
 use super::*;
 use crate::types::QueryText;
 use std::collections::HashSet;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 impl NeuronIndex {
+    pub(crate) fn set_ctx_temporal_bias(ctx: &mut QueryContext<'_>, bias: Option<f32>) {
+        if let Some(b) = bias {
+            ctx.temporal_bias_scale = b.clamp(0.0, 3.0);
+        }
+    }
+
+    #[allow(dead_code)]
     pub(in crate::index) fn retrieval_state(&self) -> RetrievalStateView<'_> {
-        RetrievalStateView {
-            entries: &self.entries,
-            adjacency: &self.adjacency,
-            path_index: &self.path_index,
-            parent_index: &self.parent_index,
-            df_cache: &self.df_cache,
-            posting_list: &self.posting_list,
-            avg_doc_len: self.avg_doc_len,
-            avg_verbatim_doc_len: self.avg_verbatim_doc_len,
-            module_index: &self.module_index,
-            vocab_bridge: &self.vocab_bridge,
-            morpheme_map: &self.morpheme_map,
-            session_index: &self.session_index,
-            pmi_neighbors: &self.pmi_neighbors,
-            #[cfg(feature = "embed")]
-            embeddings: &self.embeddings,
-            idf_n: self.idf_n,
-        }
+        self.retrieval.view()
     }
 
+    #[allow(dead_code)]
     pub(in crate::index) fn feedback_state(&self) -> FeedbackStateView<'_> {
-        FeedbackStateView {
-            coactivation_counts: &self.coactivation_counts,
-            co_return_counts: &self.co_return_counts,
-            session_utilization: &self.session_utilization,
-        }
+        self.feedback.view()
     }
 
+    #[allow(dead_code)]
     pub(in crate::index) fn persistence_state(&self) -> PersistenceStateView<'_> {
-        PersistenceStateView {
-            project_root: &self.project_root,
-            pending_append_count: self.pending_append_count,
-            has_pending_updates: &self.has_pending_updates,
-            delta_base: &self.delta_base,
-            delta_dirty: &self.delta_dirty,
-            structural_artifacts_dirty: &self.structural_artifacts_dirty,
-            dirty_sidecars: &self.dirty_sidecars,
-        }
+        self.persistence.view()
     }
 
+    #[allow(dead_code)]
     pub(in crate::index) fn watcher_state(&self) -> WatcherStateView<'_> {
-        WatcherStateView {
-            dirty_set: &self.dirty_set,
-        }
+        self.watcher.view()
     }
 
     pub(in crate::index) fn build_query_context<'a>(
@@ -79,13 +59,14 @@ impl NeuronIndex {
 
         let mut seed_candidate_ids: HashSet<usize> = HashSet::new();
         for term in &terms {
-            if let Some(idxs) = self.posting_list.get(term) {
+            if let Some(idxs) = self.retrieval.posting_list.get(term) {
                 seed_candidate_ids.extend(idxs.iter().copied());
             }
         }
 
         let module_set = module.map(|m| {
-            self.module_index
+            self.retrieval
+                .module_index
                 .get(m)
                 .map(|v| v.iter().copied().collect::<HashSet<_>>())
                 .unwrap_or_default()
@@ -95,7 +76,7 @@ impl NeuronIndex {
         let morphological_expansions: Vec<String> = terms
             .iter()
             .flat_map(|term| morphological_variants(term))
-            .filter(|variant| self.df_cache.contains_key(variant.as_str()))
+            .filter(|variant| self.retrieval.df_cache.contains_key(variant.as_str()))
             .collect();
         let terms_with_synonyms: Vec<String> =
             if !synonym_expansions.is_empty() || !morphological_expansions.is_empty() {
@@ -113,7 +94,7 @@ impl NeuronIndex {
             .iter()
             .chain(morphological_expansions.iter())
         {
-            if let Some(idxs) = self.posting_list.get(term.as_str()) {
+            if let Some(idxs) = self.retrieval.posting_list.get(term.as_str()) {
                 seed_candidate_ids.extend(idxs.iter().copied());
             }
         }
@@ -132,7 +113,7 @@ impl NeuronIndex {
             let expanded = self.expand_query_terms(&terms_with_synonyms);
             if expanded.len() > terms_with_synonyms.len() {
                 for term in &expanded {
-                    if let Some(idxs) = self.posting_list.get(term) {
+                    if let Some(idxs) = self.retrieval.posting_list.get(term) {
                         bridge_candidate_ids.extend(idxs.iter().copied());
                     }
                 }
@@ -167,6 +148,7 @@ impl NeuronIndex {
         {
             let term_set: HashSet<&str> = terms.iter().map(|s| s.as_str()).collect();
             let cloud_candidates: HashSet<usize> = self
+                .retrieval
                 .entries
                 .iter()
                 .enumerate()
@@ -201,7 +183,7 @@ impl NeuronIndex {
             let mut expanded = base_terms.clone();
             for term in &base_terms {
                 for variant in morphological_variants(term) {
-                    if self.df_cache.contains_key(variant.as_str()) {
+                    if self.retrieval.df_cache.contains_key(variant.as_str()) {
                         expanded.push(variant);
                     }
                 }
@@ -265,8 +247,8 @@ impl NeuronIndex {
                 .and_then(|_| detect_personal_fact_query(task))
                 .and_then(|predicate| {
                     detect_personal_fact_entity(task).and_then(|entity| {
-                        let kg_path = kg::kg_neuron_path(&self.project_root, &entity);
-                        if !self.path_index.contains_key(&kg_path) {
+                        let kg_path = kg::kg_neuron_path(&self.persistence.project_root, &entity);
+                        if !self.retrieval.path_index.contains_key(&kg_path) {
                             return None;
                         }
                         let Ok(kg_entity) = kg::KgEntity::load(&kg_path) else {
@@ -297,7 +279,8 @@ impl NeuronIndex {
             &seed_candidate_ids
         };
         let counting_augment: Vec<usize> = if is_counting {
-            self.entries
+            self.retrieval
+                .entries
                 .iter()
                 .enumerate()
                 .filter(|(i, e)| {
@@ -324,6 +307,12 @@ impl NeuronIndex {
             kind_filter: kind,
             kind_lower: kind.map(|k| k.to_lowercase()),
             max_tokens,
+            now_secs: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .ok()
+                .and_then(|duration| i64::try_from(duration.as_secs()).ok())
+                .unwrap_or(i64::MAX),
+            temporal_bias_scale: 1.0,
             session_id: None,
             is_counting,
             is_knowledge_update,
@@ -332,34 +321,35 @@ impl NeuronIndex {
             named_person_move_query,
             raw_counting_focus_terms,
             raw_knowledge_focus_terms,
-            idf_n: self.idf_n,
-            avg_doc_len: self.avg_doc_len,
-            avg_verbatim_doc_len: self.avg_verbatim_doc_len,
+            idf_n: self.retrieval.idf_n,
+            avg_doc_len: self.retrieval.avg_doc_len,
+            avg_verbatim_doc_len: self.retrieval.avg_verbatim_doc_len,
             seed_candidate_ids,
             bridge_candidate_ids,
             concept_cloud_candidate_ids,
             module_set,
             counting_augment,
             kg_router_path,
-            entries: &self.entries,
-            posting_list: &self.posting_list,
-            adjacency: &self.adjacency,
-            path_index: &self.path_index,
-            parent_index: &self.parent_index,
-            module_index: &self.module_index,
-            df_cache: &self.df_cache,
-            vocab_bridge: &self.vocab_bridge,
-            morpheme_map: &self.morpheme_map,
-            pmi_neighbors: &self.pmi_neighbors,
-            session_index: &self.session_index,
-            project_root: self.project_root.as_path(),
+            entries: &self.retrieval.entries,
+            posting_list: &self.retrieval.posting_list,
+            adjacency: &self.retrieval.adjacency,
+            path_index: &self.retrieval.path_index,
+            parent_index: &self.retrieval.parent_index,
+            module_index: &self.retrieval.module_index,
+            df_cache: &self.retrieval.df_cache,
+            vocab_bridge: &self.retrieval.vocab_bridge,
+            morpheme_map: &self.retrieval.morpheme_map,
+            pmi_neighbors: &self.retrieval.pmi_neighbors,
+            session_index: &self.retrieval.session_index,
+            project_root: self.persistence.project_root.as_path(),
             feedback: FeedbackSnapshot {
-                coactivation_counts: &self.coactivation_counts,
-                co_return_counts: &self.co_return_counts,
-                session_utilization: &self.session_utilization,
+                coactivation_counts: &self.feedback.coactivation_counts,
+                co_return_counts: &self.feedback.co_return_counts,
+                session_utilization: &self.feedback.session_utilization,
             },
             #[cfg(feature = "embed")]
-            embeddings: (!self.embeddings.is_empty()).then_some(&self.embeddings),
+            embeddings: (!self.retrieval.embeddings.is_empty())
+                .then_some(self.retrieval.embeddings.as_ref()),
         })
     }
 }

@@ -48,7 +48,7 @@ mod inner {
             let dir = cache_dir();
             std::fs::create_dir_all(&dir)?;
             let model = TextEmbedding::try_new(
-                InitOptions::new(EmbeddingModel::AllMiniLML6V2).with_cache_dir(dir),
+                InitOptions::new(EmbeddingModel::NomicEmbedTextV15).with_cache_dir(dir),
             )?;
             Ok(Self {
                 model: std::sync::Mutex::new(model),
@@ -119,93 +119,339 @@ pub use inner::{cache_dir, cosine_sim, EmbeddingBackend, RerankerBackend};
 // ─── No-op stubs (no `embed` feature) ────────────────────────────────────────
 
 /// Cosine similarity (no-op f32 stub when embed feature absent).
+#[must_use]
 #[cfg(not(feature = "embed"))]
 #[allow(dead_code)]
 pub fn cosine_sim(_a: &[f32], _b: &[f32]) -> f32 {
     0.0
 }
 
-// ─── Embedding storage (.cortyx/embeddings.bin) ───────────────────────────────
+// ─── Embedding storage (.cortyx/embeddings.bin + embeddings.tvim) ──────────────
 //
-// Binary format:
-//   magic:   u32  = 0xC07EEB
-//   version: u32  = 1
-//   dim:     u32  = 384
-//   count:   u32  = N
-//   entries: N × { path_len: u32, path: utf8 bytes, dim × f32 }
-//
-// All functions gated on the `embed` feature.
+// `embeddings.bin` remains the authoritative raw store because it preserves
+// path strings and full-precision vectors. `embeddings.tvim` is the derived
+// TurboVec ANN cache rebuilt from `embeddings.bin` when missing or stale.
 
 #[cfg(feature = "embed")]
 use crate::error::Result;
 #[cfg(feature = "embed")]
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     path::{Path, PathBuf},
 };
+#[cfg(feature = "embed")]
+use turbovec::IdMapIndex;
 
 #[cfg(feature = "embed")]
 const MAGIC: u32 = 0xC07EEB;
 #[cfg(feature = "embed")]
-const EMBED_VERSION: u32 = 1;
+const EMBED_VERSION: u32 = 2;
 #[cfg(feature = "embed")]
-const EMBEDDING_DIM: usize = 384;
-
-/// In-memory embedding store: neuron path → unit-norm 384-dim vector.
+const EMBEDDING_DIM: usize = 768;
 #[cfg(feature = "embed")]
-pub type EmbeddingStore = HashMap<PathBuf, Vec<f32>>;
+const EMBEDDING_BIT_WIDTH: usize = 4;
 
-/// Load the embedding store from `.cortyx/embeddings.bin`.
-///
-/// Returns an empty map if the file is absent or malformed (BM25-only mode).
+/// TurboVec-backed embedding store with stable path IDs.
+#[cfg(feature = "embed")]
+pub struct EmbeddingStore {
+    index: IdMapIndex,
+    path_to_id: HashMap<PathBuf, u64>,
+    id_to_path: HashMap<u64, PathBuf>,
+    raw_vectors: HashMap<PathBuf, Vec<f32>>,
+}
+
+#[cfg(feature = "embed")]
+impl std::fmt::Debug for EmbeddingStore {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("EmbeddingStore")
+            .field("len", &self.len())
+            .field("dim", &self.index.dim())
+            .field("bit_width", &self.index.bit_width())
+            .finish()
+    }
+}
+
+#[cfg(feature = "embed")]
+impl Default for EmbeddingStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[cfg(feature = "embed")]
+impl EmbeddingStore {
+    /// Create an empty embedding store.
+    pub fn new() -> Self {
+        Self {
+            index: IdMapIndex::new(EMBEDDING_DIM, EMBEDDING_BIT_WIDTH),
+            path_to_id: HashMap::new(),
+            id_to_path: HashMap::new(),
+            raw_vectors: HashMap::new(),
+        }
+    }
+
+    /// Insert or replace the vector for `path`.
+    pub fn insert(&mut self, path: PathBuf, vec: Vec<f32>) {
+        self.try_insert(path, vec)
+            .unwrap_or_else(|err| panic!("failed to insert embedding: {err}"));
+    }
+
+    /// Borrow the stored full-precision vector for `path`, if available.
+    pub fn get(&self, path: &Path) -> Option<&Vec<f32>> {
+        self.raw_vectors.get(path)
+    }
+
+    /// Return the stored full-precision vector for `path`, if available.
+    pub fn get_vec(&self, path: &Path) -> Option<Vec<f32>> {
+        self.get(path).cloned()
+    }
+
+    /// Return the stable external ID for `path`.
+    pub fn get_id(&self, path: &Path) -> Option<u64> {
+        self.path_to_id.get(path).copied()
+    }
+
+    /// Return `true` when an embedding exists for `path`.
+    pub fn contains(&self, path: &Path) -> bool {
+        self.path_to_id.contains_key(path)
+    }
+
+    /// Return `true` when the store has no embeddings.
+    pub fn is_empty(&self) -> bool {
+        self.path_to_id.is_empty()
+    }
+
+    /// Return the number of embeddings in the store.
+    pub fn len(&self) -> usize {
+        self.path_to_id.len()
+    }
+
+    /// Return the stable IDs for the provided paths, skipping paths not present in the store.
+    pub fn ids_for_paths(&self, paths: &HashSet<PathBuf>) -> Vec<u64> {
+        paths
+            .iter()
+            .filter_map(|path| self.get_id(path.as_path()))
+            .collect()
+    }
+
+    /// Search the full corpus and return `(score, path)` pairs.
+    pub fn search(&self, query: &[f32], k: usize) -> Vec<(f32, PathBuf)> {
+        self.search_ids(query, k, None)
+    }
+
+    /// Search a path-restricted subset of the corpus and return `(score, path)` pairs.
+    pub fn search_filtered(
+        &self,
+        query: &[f32],
+        k: usize,
+        allow_paths: &HashSet<PathBuf>,
+    ) -> Vec<(f32, PathBuf)> {
+        if allow_paths.is_empty() {
+            return Vec::new();
+        }
+        let allow_ids = self.ids_for_paths(allow_paths);
+        if allow_ids.is_empty() {
+            return Vec::new();
+        }
+        self.search_ids(query, k, Some(&allow_ids))
+    }
+
+    /// Eagerly populate TurboVec's lazy SIMD caches.
+    pub fn prepare(&self) {
+        self.index.prepare();
+    }
+
+    /// Persist the raw authoritative store and the derived TurboVec index.
+    pub fn save(&self, path: &Path) -> Result<()> {
+        crate::cortyx_ensure!(
+            self.index.len() == self.raw_vectors.len(),
+            "embedding index/raw vector count mismatch (index={}, raw={})",
+            self.index.len(),
+            self.raw_vectors.len()
+        );
+        let raw_path = raw_embeddings_path(path);
+        std::fs::create_dir_all(raw_path.parent().unwrap_or(Path::new(".")))?;
+        write_raw_embeddings(&raw_path, &self.raw_vectors)?;
+        write_index_atomically(path, &self.index)?;
+        Ok(())
+    }
+
+    /// Load the raw authoritative store and the derived TurboVec index.
+    pub fn load(path: &Path) -> Result<Self> {
+        let raw_path = raw_embeddings_path(path);
+        if !raw_path.exists() {
+            if path.exists() {
+                crate::cortyx_bail!(
+                    "{} exists but {} is missing; cannot map ANN ids back to neuron paths.",
+                    path.display(),
+                    raw_path.display()
+                );
+            }
+            return Ok(Self::new());
+        }
+
+        let raw_vectors = read_raw_embeddings(&raw_path)?;
+        if !path.exists() {
+            let store = Self::from_raw_vectors(raw_vectors)?;
+            store.save(path)?;
+            tracing::info!(
+                raw = %raw_path.display(),
+                index = %path.display(),
+                "embed: migrated legacy embeddings.bin to TurboVec index"
+            );
+            store.prepare();
+            return Ok(store);
+        }
+
+        match IdMapIndex::load(path) {
+            Ok(index) => match Self::from_index_and_raw(index, raw_vectors) {
+                Ok(store) => {
+                    store.prepare();
+                    Ok(store)
+                },
+                Err(err) => {
+                    tracing::warn!(
+                        index = %path.display(),
+                        raw = %raw_path.display(),
+                        "embed: invalid embeddings.tvim ({err}) — rebuilding from embeddings.bin"
+                    );
+                    let rebuilt = Self::from_raw_vectors(read_raw_embeddings(&raw_path)?)?;
+                    rebuilt.save(path)?;
+                    rebuilt.prepare();
+                    Ok(rebuilt)
+                },
+            },
+            Err(err) => {
+                tracing::warn!(
+                    index = %path.display(),
+                    raw = %raw_path.display(),
+                    "embed: failed to load embeddings.tvim ({err}) — rebuilding from embeddings.bin"
+                );
+                let rebuilt = Self::from_raw_vectors(raw_vectors)?;
+                rebuilt.save(path)?;
+                rebuilt.prepare();
+                Ok(rebuilt)
+            },
+        }
+    }
+
+    fn search_ids(
+        &self,
+        query: &[f32],
+        k: usize,
+        allowlist: Option<&[u64]>,
+    ) -> Vec<(f32, PathBuf)> {
+        if self.is_empty() || k == 0 || query.len() != EMBEDDING_DIM {
+            return Vec::new();
+        }
+        let normalized = unit_norm(query.to_vec());
+        let (scores, ids) = match allowlist {
+            Some(ids) => self.index.search_with_allowlist(&normalized, k, Some(ids)),
+            None => self.index.search(&normalized, k),
+        };
+        scores
+            .into_iter()
+            .zip(ids)
+            .filter_map(|(score, id)| self.id_to_path.get(&id).cloned().map(|path| (score, path)))
+            .collect()
+    }
+
+    fn try_insert(&mut self, path: PathBuf, vec: Vec<f32>) -> Result<()> {
+        crate::cortyx_ensure!(
+            vec.len() == EMBEDDING_DIM,
+            "Embedding dimension mismatch: got {}, expected {}",
+            vec.len(),
+            EMBEDDING_DIM
+        );
+        let normalized = unit_norm(vec);
+        if let Some(old_id) = self.path_to_id.remove(&path) {
+            self.index.remove(old_id);
+            self.id_to_path.remove(&old_id);
+        }
+
+        let id = stable_path_id(path.as_path());
+        if let Some(existing_path) = self.id_to_path.get(&id) {
+            crate::cortyx_ensure!(
+                existing_path == &path,
+                "Embedding ID collision between {} and {}",
+                existing_path.display(),
+                path.display()
+            );
+        }
+
+        self.index.add_with_ids(&normalized, &[id]);
+        self.path_to_id.insert(path.clone(), id);
+        self.id_to_path.insert(id, path.clone());
+        self.raw_vectors.insert(path, normalized);
+        Ok(())
+    }
+
+    fn from_raw_vectors(raw_vectors: HashMap<PathBuf, Vec<f32>>) -> Result<Self> {
+        let mut store = Self::new();
+        let mut items: Vec<_> = raw_vectors.into_iter().collect();
+        items.sort_by(|a, b| a.0.cmp(&b.0));
+        for (path, vec) in items {
+            store.try_insert(path, vec)?;
+        }
+        Ok(store)
+    }
+
+    fn from_index_and_raw(
+        index: IdMapIndex,
+        raw_vectors: HashMap<PathBuf, Vec<f32>>,
+    ) -> Result<Self> {
+        crate::cortyx_ensure!(
+            index.len() == raw_vectors.len(),
+            "Embedding index/raw size mismatch (index={}, raw={})",
+            index.len(),
+            raw_vectors.len()
+        );
+        let mut path_to_id = HashMap::with_capacity(raw_vectors.len());
+        let mut id_to_path = HashMap::with_capacity(raw_vectors.len());
+        for path in raw_vectors.keys() {
+            let id = stable_path_id(path.as_path());
+            crate::cortyx_ensure!(
+                index.contains(id),
+                "Embedding index missing id for {}",
+                path.display()
+            );
+            if let Some(existing_path) = id_to_path.insert(id, path.clone()) {
+                crate::cortyx_bail!(
+                    "Embedding ID collision between {} and {}",
+                    existing_path.display(),
+                    path.display()
+                );
+            }
+            path_to_id.insert(path.clone(), id);
+        }
+        Ok(Self {
+            index,
+            path_to_id,
+            id_to_path,
+            raw_vectors,
+        })
+    }
+}
+
+/// Load the embedding store from `.cortyx/embeddings.tvim`.
 #[cfg(feature = "embed")]
 pub fn load_embeddings(project_root: &Path) -> EmbeddingStore {
-    let path = embeddings_path(project_root);
-    if !path.exists() {
-        return HashMap::new();
-    }
-    match read_embeddings(&path) {
+    let path = embeddings_index_path(project_root);
+    match EmbeddingStore::load(&path) {
         Ok(store) => store,
         Err(e) => {
-            tracing::warn!("Failed to load embeddings.bin: {e} — falling back to BM25-only");
-            HashMap::new()
+            tracing::warn!(
+                "Failed to load embeddings cache: {e} — falling back to BM25-only retrieval"
+            );
+            EmbeddingStore::new()
         },
     }
 }
 
-/// Persist the embedding store to `.cortyx/embeddings.bin`.
+/// Persist the embedding store to `.cortyx/embeddings.bin` and `.cortyx/embeddings.tvim`.
 #[cfg(feature = "embed")]
 pub fn save_embeddings(project_root: &Path, store: &EmbeddingStore) -> Result<()> {
-    let path = embeddings_path(project_root);
-    std::fs::create_dir_all(path.parent().unwrap_or(Path::new(".")))?;
-    crate::cortyx_ensure!(
-        store.len() <= u32::MAX as usize,
-        "Embedding store too large to serialize ({} entries)",
-        store.len()
-    );
-    let mut buf = Vec::new();
-    write_u32(&mut buf, MAGIC);
-    write_u32(&mut buf, EMBED_VERSION);
-    write_u32(&mut buf, EMBEDDING_DIM as u32);
-    write_u32(&mut buf, store.len() as u32);
-    for (p, vec) in store {
-        let path_bytes = p.to_string_lossy().into_owned().into_bytes();
-        crate::cortyx_ensure!(
-            path_bytes.len() <= u32::MAX as usize,
-            "Path too long to serialize: {} bytes",
-            path_bytes.len()
-        );
-        write_u32(&mut buf, path_bytes.len() as u32);
-        buf.extend_from_slice(&path_bytes);
-        for &f in vec {
-            buf.extend_from_slice(&f.to_le_bytes());
-        }
-    }
-    // Atomic write: write to a temp file, then rename to avoid corruption on crash.
-    let tmp = path.with_extension("bin.tmp");
-    std::fs::write(&tmp, &buf)?;
-    std::fs::rename(&tmp, &path)?;
-    Ok(())
+    store.save(&embeddings_index_path(project_root))
 }
 
 /// Insert or update a single embedding in the store file.
@@ -214,7 +460,7 @@ pub fn save_embeddings(project_root: &Path, store: &EmbeddingStore) -> Result<()
 #[cfg(feature = "embed")]
 pub fn upsert_embedding(project_root: &Path, neuron_path: &Path, vector: Vec<f32>) -> Result<()> {
     let mut store = load_embeddings(project_root);
-    store.insert(neuron_path.to_path_buf(), unit_norm(vector));
+    store.insert(neuron_path.to_path_buf(), vector);
     save_embeddings(project_root, &store)
 }
 
@@ -225,6 +471,7 @@ pub fn upsert_embedding(project_root: &Path, neuron_path: &Path, vector: Vec<f32
 #[cfg(feature = "embed")]
 pub const RRF_K: f32 = 60.0;
 
+/// Compute Reciprocal Rank Fusion for BM25 and dense ranks.
 #[cfg(feature = "embed")]
 pub fn rrf_score(bm25_rank: usize, cos_rank: usize) -> f32 {
     1.0 / (RRF_K + bm25_rank as f32) + 1.0 / (RRF_K + cos_rank as f32)
@@ -242,11 +489,37 @@ pub fn unit_norm(mut v: Vec<f32>) -> Vec<f32> {
     v
 }
 
+/// No-op embedding store stub when the `embed` feature is disabled.
+#[cfg(not(feature = "embed"))]
+#[derive(Debug, Default, Clone)]
+pub struct EmbeddingStore;
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 #[cfg(feature = "embed")]
-fn embeddings_path(project_root: &Path) -> PathBuf {
-    project_root.join(".cortyx").join("embeddings.bin")
+fn embeddings_index_path(project_root: &Path) -> PathBuf {
+    project_root.join(".cortyx").join("embeddings.tvim")
+}
+
+#[cfg(feature = "embed")]
+fn raw_embeddings_path(index_path: &Path) -> PathBuf {
+    index_path.with_extension("bin")
+}
+
+#[cfg(feature = "embed")]
+fn stable_path_id(path: &Path) -> u64 {
+    let hash = blake3::hash(path.to_string_lossy().as_bytes());
+    let mut bytes = [0u8; 8];
+    bytes.copy_from_slice(&hash.as_bytes()[..8]);
+    u64::from_le_bytes(bytes)
+}
+
+#[cfg(feature = "embed")]
+fn write_index_atomically(path: &Path, index: &IdMapIndex) -> Result<()> {
+    let tmp = path.with_extension("tvim.tmp");
+    index.write(&tmp)?;
+    std::fs::rename(&tmp, path)?;
+    Ok(())
 }
 
 #[cfg(feature = "embed")]
@@ -265,7 +538,47 @@ fn read_u32(data: &[u8], offset: &mut usize) -> Result<u32> {
 }
 
 #[cfg(feature = "embed")]
-fn read_embeddings(path: &Path) -> Result<EmbeddingStore> {
+fn write_raw_embeddings(path: &Path, store: &HashMap<PathBuf, Vec<f32>>) -> Result<()> {
+    crate::cortyx_ensure!(
+        store.len() <= u32::MAX as usize,
+        "Embedding store too large to serialize ({} entries)",
+        store.len()
+    );
+    let mut entries: Vec<_> = store.iter().collect();
+    entries.sort_by(|a, b| a.0.cmp(b.0));
+    let mut buf = Vec::new();
+    write_u32(&mut buf, MAGIC);
+    write_u32(&mut buf, EMBED_VERSION);
+    write_u32(&mut buf, EMBEDDING_DIM as u32);
+    write_u32(&mut buf, entries.len() as u32);
+    for (path_buf, vec) in entries {
+        crate::cortyx_ensure!(
+            vec.len() == EMBEDDING_DIM,
+            "Embedding dimension mismatch for {}: got {}, expected {}",
+            path_buf.display(),
+            vec.len(),
+            EMBEDDING_DIM
+        );
+        let path_bytes = path_buf.to_string_lossy().into_owned().into_bytes();
+        crate::cortyx_ensure!(
+            path_bytes.len() <= u32::MAX as usize,
+            "Path too long to serialize: {} bytes",
+            path_bytes.len()
+        );
+        write_u32(&mut buf, path_bytes.len() as u32);
+        buf.extend_from_slice(&path_bytes);
+        for &f in vec {
+            buf.extend_from_slice(&f.to_le_bytes());
+        }
+    }
+    let tmp = path.with_extension("bin.tmp");
+    std::fs::write(&tmp, &buf)?;
+    std::fs::rename(&tmp, path)?;
+    Ok(())
+}
+
+#[cfg(feature = "embed")]
+fn read_raw_embeddings(path: &Path) -> Result<HashMap<PathBuf, Vec<f32>>> {
     // Reasonable upper bounds to guard against malicious or corrupted files.
     const MAX_ENTRIES: usize = 1_000_000;
     const MAX_DIM: usize = 10_000;
@@ -284,6 +597,10 @@ fn read_embeddings(path: &Path) -> Result<EmbeddingStore> {
     );
     let dim = read_u32(&data, &mut off)? as usize;
     crate::cortyx_ensure!(dim <= MAX_DIM, "dim too large in embeddings.bin: {dim}");
+    crate::cortyx_ensure!(
+        dim == EMBEDDING_DIM,
+        "Unsupported embedding dimension in embeddings.bin: {dim} (expected {EMBEDDING_DIM})"
+    );
     let count = read_u32(&data, &mut off)? as usize;
     crate::cortyx_ensure!(
         count <= MAX_ENTRIES,
@@ -311,7 +628,6 @@ fn read_embeddings(path: &Path) -> Result<EmbeddingStore> {
         crate::cortyx_ensure!(vec_end <= data.len(), "Truncated vector");
         let vec: Vec<f32> = (0..dim)
             .map(|i| {
-                // Safety: bounds checked above; slice is always exactly 4 bytes.
                 let mut bytes = [0u8; 4];
                 bytes.copy_from_slice(&data[off + i * 4..off + i * 4 + 4]);
                 f32::from_le_bytes(bytes)
@@ -333,7 +649,7 @@ mod tests {
     #[test]
     fn save_load_round_trip() {
         let dir = TempDir::new().unwrap();
-        let mut store: EmbeddingStore = HashMap::new();
+        let mut store = EmbeddingStore::new();
         let p1 = PathBuf::from(".cortyx/neurons/a.context.md");
         let p2 = PathBuf::from(".cortyx/neurons/b.context.md");
         let v1: Vec<f32> = (0..EMBEDDING_DIM)
@@ -342,15 +658,15 @@ mod tests {
         let v2: Vec<f32> = (0..EMBEDDING_DIM)
             .map(|i| (EMBEDDING_DIM - i) as f32 / EMBEDDING_DIM as f32)
             .collect();
-        store.insert(p1.clone(), unit_norm(v1.clone()));
-        store.insert(p2.clone(), unit_norm(v2));
+        store.insert(p1.clone(), v1.clone());
+        store.insert(p2.clone(), v2);
 
         save_embeddings(dir.path(), &store).unwrap();
         let loaded = load_embeddings(dir.path());
 
         assert_eq!(loaded.len(), 2);
-        assert!(loaded.contains_key(&p1));
-        let loaded_v1 = &loaded[&p1];
+        assert!(loaded.contains(p1.as_path()));
+        let loaded_v1 = loaded.get_vec(p1.as_path()).unwrap();
         let expected = unit_norm(v1);
         for (a, b) in loaded_v1.iter().zip(expected.iter()) {
             assert!((a - b).abs() < 1e-6, "Vector mismatch");
@@ -381,7 +697,6 @@ mod tests {
 
     #[test]
     fn rrf_score_correct() {
-        // rank 0: 1/(60+0) + 1/(60+0) ≈ 0.0333
         let s = rrf_score(0, 0);
         assert!((s - 1.0 / 60.0 * 2.0).abs() < 1e-6);
     }
@@ -402,6 +717,6 @@ mod tests {
         let v: Vec<f32> = vec![1.0; EMBEDDING_DIM];
         upsert_embedding(dir.path(), &p, v).unwrap();
         let store = load_embeddings(dir.path());
-        assert!(store.contains_key(&p));
+        assert!(store.contains(p.as_path()));
     }
 }

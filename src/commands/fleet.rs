@@ -9,6 +9,9 @@ use crate::fleet::{
     sync_fleet_node,
 };
 
+/// # Errors
+///
+/// Returns an error if the underlying operation fails.
 pub fn run(sub: FleetCommand) -> Result<()> {
     match sub {
         FleetCommand::Register {

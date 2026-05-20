@@ -25,6 +25,10 @@ impl NeuronUuid {
     /// Parse a pre-existing UUID string, e.g. from a `.meta.json` file.
     ///
     /// Returns an error if `s` is not exactly 32 lowercase hex characters.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the underlying operation fails.
     pub fn parse(s: &str) -> Result<Self> {
         if s.len() != 32 || !s.chars().all(|c| c.is_ascii_hexdigit()) {
             crate::cortyx_bail!("invalid NeuronUuid (expected 32 hex chars): {:?}", s);
@@ -45,6 +49,7 @@ impl NeuronUuid {
     }
 
     /// Borrow the inner string slice.
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -73,6 +78,10 @@ pub struct EditId(String);
 
 impl EditId {
     /// Construct from an existing string, rejecting empty values.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the underlying operation fails.
     pub fn new(s: impl Into<String>) -> Result<Self> {
         let s = s.into();
         if s.is_empty() {
@@ -91,6 +100,7 @@ impl EditId {
         Self(format!("{nanos:032x}{nonce:016x}"))
     }
 
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -118,6 +128,9 @@ impl AsRef<str> for EditId {
 pub struct AuthorId(String);
 
 impl AuthorId {
+    /// # Errors
+    ///
+    /// Returns an error if the underlying operation fails.
     pub fn new(s: impl Into<String>) -> Result<Self> {
         let s = s.into();
         if s.is_empty() {
@@ -126,6 +139,7 @@ impl AuthorId {
         Ok(Self(s))
     }
 
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -157,6 +171,10 @@ pub struct NeuronId(PathBuf);
 impl NeuronId {
     /// Construct from a project-relative path. Returns an error if `path` is
     /// absolute.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the underlying operation fails.
     pub fn new(path: impl Into<PathBuf>) -> Result<Self> {
         let path = path.into();
         if path.is_absolute() {
@@ -170,15 +188,18 @@ impl NeuronId {
 
     /// Construct without validation — only use when the caller has already
     /// established the path is project-relative (e.g. after `strip_prefix`).
+    #[must_use]
     pub fn from_relative_unchecked(path: PathBuf) -> Self {
         debug_assert!(!path.is_absolute(), "NeuronId must be relative");
         Self(path)
     }
 
+    #[must_use]
     pub fn as_path(&self) -> &Path {
         &self.0
     }
 
+    #[must_use]
     pub fn into_path(self) -> PathBuf {
         self.0
     }
@@ -209,6 +230,10 @@ pub struct NeuronRelPath(PathBuf);
 impl NeuronRelPath {
     /// Construct from a relative path. Returns an error if `path` is absolute
     /// or contains `..` components (path-escape defence).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the underlying operation fails.
     pub fn new(path: impl Into<PathBuf>) -> Result<Self> {
         let path = path.into();
         if path.is_absolute() {
@@ -228,10 +253,12 @@ impl NeuronRelPath {
         Ok(Self(path))
     }
 
+    #[must_use]
     pub fn as_path(&self) -> &Path {
         &self.0
     }
 
+    #[must_use]
     pub fn into_path(self) -> PathBuf {
         self.0
     }

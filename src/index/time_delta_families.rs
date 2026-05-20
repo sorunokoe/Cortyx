@@ -222,7 +222,8 @@ fn session_score(session_rank: usize, line_score: usize) -> usize {
 }
 
 fn all_session_candidates(idx: &NeuronIndex) -> Vec<(String, usize)> {
-    idx.session_index
+    idx.retrieval
+        .session_index
         .keys()
         .cloned()
         .map(|session_id| (session_id, 0))
@@ -258,7 +259,7 @@ fn best_entry_scanned_performance_pair(
 ) -> Option<PerformancePair> {
     let mut best_previous = None;
     let mut best_current = None;
-    let Ok(entries) = std::fs::read_dir(neuron_dir(&idx.project_root)) else {
+    let Ok(entries) = std::fs::read_dir(neuron_dir(&idx.persistence.project_root)) else {
         return None;
     };
     for entry in entries.flatten() {
@@ -302,7 +303,7 @@ fn best_entry_scanned_same_session_performance_pair(
     idx: &NeuronIndex,
     query: &PerformanceDeltaQuery,
 ) -> Option<PerformancePair> {
-    let Ok(entries) = std::fs::read_dir(neuron_dir(&idx.project_root)) else {
+    let Ok(entries) = std::fs::read_dir(neuron_dir(&idx.persistence.project_root)) else {
         return None;
     };
     entries

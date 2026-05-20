@@ -4,6 +4,9 @@ use crate::cli::PatternsCommand;
 use crate::error::Result;
 use crate::miner::pattern_registry::{PatternRegistry, PATTERN_TOML_TEMPLATE};
 
+/// # Errors
+///
+/// Returns an error if the underlying operation fails.
 pub fn run(sub: PatternsCommand, project_root: &std::path::Path) -> Result<()> {
     match sub {
         PatternsCommand::List => {
@@ -13,7 +16,7 @@ pub fn run(sub: PatternsCommand, project_root: &std::path::Path) -> Result<()> {
                 "Evidence pattern registry: {} built-in, {} user-defined\n",
                 builtin, user
             );
-            println!("{:<30} {:<22} {:<6} {}", "NAME", "FAMILY", "CONF", "SOURCE");
+            println!("{:<30} {:<22} {:<6} SOURCE", "NAME", "FAMILY", "CONF");
             println!("{}", "-".repeat(80));
             for p in &registry.patterns {
                 let family = format!("{:?}", p.family);

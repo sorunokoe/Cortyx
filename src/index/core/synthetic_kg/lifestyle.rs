@@ -87,6 +87,7 @@ impl NeuronIndex {
         }
 
         for entry in self
+            .retrieval
             .entries
             .iter()
             .filter(|entry| matches!(entry.kind, NeuronKind::Verbatim))

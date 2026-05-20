@@ -3,6 +3,10 @@
 
 // Cortyx public library API.
 //
+
+#[cfg(all(feature = "embed", target_os = "macos"))]
+extern crate blas_src;
+
 // Exposes `index` and `miner` for in-process use by integration tests and benchmarks.
 // This eliminates the need for subprocess spawning (500 × binary-startup overhead)
 // and allows tests to load the NeuronIndex once and query it N times in-process.

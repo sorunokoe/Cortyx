@@ -69,6 +69,9 @@ pub fn render_answer_output(
     )
 }
 
+/// # Errors
+///
+/// Returns an error if the underlying operation fails.
 pub fn render_answer_output_decision(
     index: &NeuronIndex,
     task: &str,

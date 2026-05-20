@@ -79,6 +79,10 @@ pub struct QueryContext<'a> {
     pub kind_filter: Option<&'a str>,
     pub kind_lower: Option<String>,
     pub max_tokens: usize,
+    /// Unix epoch seconds captured when the query context is built.
+    pub now_secs: i64,
+    /// Scaling factor for TEMPORAL_DECAY_WEIGHT (default 1.0, range [0.0, 3.0]).
+    pub temporal_bias_scale: f32,
     pub session_id: Option<&'a str>,
     pub is_counting: bool,
     pub is_knowledge_update: bool,
@@ -173,7 +177,6 @@ impl<'a> QueryContext<'a> {
 
         raw * entry.confidence_score
             * hit_multiplier
-            * entry.staleness_multiplier
             * if entry.quality_score < 0.4 { 0.7 } else { 1.0 }
     }
 
@@ -203,6 +206,7 @@ pub struct QueryContextFixture {
     pub co_return_counts: Mutex<HashMap<(usize, usize), u32>>,
     pub session_utilization: Vec<[usize; 2]>,
     pub project_root: PathBuf,
+    pub temporal_bias_scale: f32,
 }
 
 #[cfg(test)]
@@ -229,6 +233,7 @@ impl QueryContextFixture {
             co_return_counts: Mutex::new(HashMap::new()),
             session_utilization: Vec::new(),
             project_root: PathBuf::from("."),
+            temporal_bias_scale: 1.0,
         };
         for entry in &fixture.entries {
             for term in entry.term_freq.keys() {
@@ -262,6 +267,8 @@ impl QueryContextFixture {
             kind_filter: None,
             kind_lower: None,
             max_tokens: 1024,
+            now_secs: 2_000_000_000,
+            temporal_bias_scale: self.temporal_bias_scale,
             session_id: None,
             is_counting: false,
             is_knowledge_update: false,

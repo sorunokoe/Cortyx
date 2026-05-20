@@ -6,6 +6,10 @@ use crate::{global_index, index};
 use std::path::Path;
 
 /// Helper to auto-commit changes to global concepts directory
+///
+/// # Errors
+///
+/// Returns an error if the underlying operation fails.
 pub fn auto_commit_global_concepts(global_dir: &Path, message: &str) -> Result<bool> {
     if !global_dir.join(".git").exists() {
         return Ok(false);
@@ -71,6 +75,9 @@ fn collect_ready_concepts(
     Ok(ready)
 }
 
+/// # Errors
+///
+/// Returns an error if the underlying operation fails.
 pub fn run(sub: ConceptsCommand) -> Result<()> {
     let global_dir = global_index::global_dir();
     let global_idx = global_index::GlobalIndex::load();

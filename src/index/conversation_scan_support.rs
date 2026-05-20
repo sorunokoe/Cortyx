@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, HashMap};
 
 pub(super) fn scanned_conversation_lines(idx: &NeuronIndex) -> std::vec::IntoIter<Vec<String>> {
     let mut grouped = BTreeMap::<String, Vec<(String, Vec<String>)>>::new();
-    let entries = std::fs::read_dir(neuron_dir(&idx.project_root))
+    let entries = std::fs::read_dir(neuron_dir(&idx.persistence.project_root))
         .ok()
         .into_iter()
         .flat_map(|entries| entries.flatten().collect::<Vec<_>>());
@@ -57,6 +57,7 @@ pub(super) fn grouped_verbatim_candidate_lines(
 ) -> HashMap<String, Vec<(String, bool)>> {
     let mut grouped: HashMap<String, Vec<(String, bool)>> = HashMap::new();
     for entry in idx
+        .retrieval
         .entries
         .iter()
         .filter(|entry| matches!(entry.kind, NeuronKind::Verbatim))

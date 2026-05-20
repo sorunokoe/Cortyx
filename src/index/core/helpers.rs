@@ -455,14 +455,17 @@ pub(in crate::index) fn sidecar_module_for(neuron_path: &Path) -> Option<String>
 }
 
 /// Path to the dirty-file list written by the watcher and consumed by `compile_dirty`.
+#[must_use]
 pub fn dirty_path(project_root: &Path) -> PathBuf {
     project_root.join(".cortyx").join("dirty.json")
 }
 
+#[must_use]
 pub fn is_capsule_module(module: &str) -> bool {
     !module.is_empty() && module != "__global" && !module.starts_with('@')
 }
 
+#[must_use]
 pub fn module_capsule_path(project_root: &Path, module: &str) -> PathBuf {
     project_root
         .join(".cortyx")
@@ -729,6 +732,7 @@ pub(in crate::index) fn neuron_headline_for(path: &Path) -> String {
 ///
 /// The LLM can always override via `cortyx_evolve_context` — this is a warm start,
 /// not a hard assignment.
+#[must_use]
 pub fn infer_module(rel: &Path) -> Option<String> {
     let mut components = rel.components().peekable();
     let first = components

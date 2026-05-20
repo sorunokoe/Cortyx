@@ -155,6 +155,7 @@ fn query_node(
         None,
         None,
         false,
+        None,
     );
     neurons.sort_by(|left, right| {
         right

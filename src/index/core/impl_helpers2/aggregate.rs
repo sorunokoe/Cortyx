@@ -10,6 +10,10 @@ impl NeuronIndex {
     ///
     /// Call this after `idx.commit()` and call `idx.commit()` once more if it returns
     /// `true` (at least one aggregate neuron was staged).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the underlying operation fails.
     pub fn emit_aggregate_neurons(&mut self, project_root: &Path) -> Result<bool> {
         use crate::neuron::NeuronStatus;
         use std::collections::hash_map::Entry;
@@ -125,6 +129,7 @@ impl NeuronIndex {
 
         // Collect entries data without borrowing self mutably (for peek_neuron)
         let entries_snapshot: Vec<(NeuronKind, String, PathBuf, Vec<String>)> = self
+            .retrieval
             .entries
             .iter()
             .filter(|e| matches!(e.kind, NeuronKind::Verbatim) && !e.session_id.is_empty())
@@ -271,6 +276,10 @@ impl NeuronIndex {
     /// This enables Sol-A+ to inject the correct sum for queries like
     /// "how much total have I spent on bike-related expenses?" → finds _arith_bike.aggregate.md
     /// containing "Total: $185".
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the underlying operation fails.
     pub fn emit_arithmetic_aggregate_neurons(&mut self, project_root: &Path) -> Result<bool> {
         fn parse_dollar(s: &str) -> Option<i64> {
             let cleaned: String = s
@@ -643,12 +652,14 @@ impl NeuronIndex {
         let agg_stop: HashSet<&str> = AGG_STOP.iter().copied().collect();
 
         // Build: topic phrase → [(session_id, dollars_on_supporting_lines)]
+        #[allow(clippy::type_complexity)]
         let mut topic_session_dollars: HashMap<String, Vec<(String, Vec<i64>)>> = HashMap::new();
         let mut topic_aliases: HashMap<String, std::collections::BTreeSet<String>> = HashMap::new();
         let mut topic_snippets: HashMap<String, Vec<(String, String)>> = HashMap::new();
         let mut topic_seen_snippets: HashMap<String, HashSet<String>> = HashMap::new();
 
         let entries_snapshot: Vec<(String, PathBuf)> = self
+            .retrieval
             .entries
             .iter()
             .filter(|e| {

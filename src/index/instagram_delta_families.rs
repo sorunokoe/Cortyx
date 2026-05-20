@@ -56,6 +56,7 @@ fn best_grouped_fallback_instagram_delta(
 ) -> Option<InstagramDeltaCandidate> {
     let mut grouped: HashMap<String, Vec<(String, bool)>> = HashMap::new();
     for entry in idx
+        .retrieval
         .entries
         .iter()
         .filter(|entry| matches!(entry.kind, NeuronKind::Verbatim))

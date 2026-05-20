@@ -258,6 +258,7 @@ impl NeuronIndex {
         let mut search_contents = self.matching_verbatim_texts(required_terms, limit.max(128));
         if search_contents.is_empty() {
             search_contents = self
+                .retrieval
                 .entries
                 .iter()
                 .filter(|entry| matches!(entry.kind, NeuronKind::Verbatim))

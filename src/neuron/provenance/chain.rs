@@ -53,6 +53,7 @@ impl Default for NeuronProvenance {
 }
 
 impl NeuronProvenance {
+    #[must_use]
     pub fn from_meta(meta: &NeuronMeta) -> Self {
         let mut provenance = Self::default();
         provenance.sync_from_meta(meta);
@@ -67,10 +68,12 @@ impl NeuronProvenance {
         self.source_path = Some(meta.source_path.clone());
     }
 
+    #[must_use]
     pub fn latest_edit(&self) -> Option<&ProvenanceEditRecord> {
         self.edit_history.last()
     }
 
+    #[must_use]
     pub fn author_count(&self) -> usize {
         let mut authors = BTreeSet::new();
         if let Some(authorship) = &self.authorship {
@@ -112,6 +115,7 @@ impl NeuronProvenance {
             .to_string()
     }
 
+    #[must_use]
     pub fn shared_ancestor_edit_id(&self, other: &Self) -> Option<String> {
         let other_ids: BTreeSet<&str> = other
             .edit_history
@@ -125,6 +129,7 @@ impl NeuronProvenance {
             .map(|e| e.edit_id.clone())
     }
 
+    #[must_use]
     pub fn integrity_summary(
         &self,
         expectation: ProvenanceIntegrityExpectation<'_>,

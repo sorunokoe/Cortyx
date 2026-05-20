@@ -15,7 +15,7 @@ impl NeuronIndex {
 
         // Build: old_neuron_hash → (old_entry_index, meta) for neurons whose SOURCE is gone
         let mut orphaned: Vec<(String, usize)> = Vec::new(); // (neuron_content_hash, entry_idx)
-        for (i, entry) in self.entries.iter().enumerate() {
+        for (i, entry) in self.retrieval.entries.iter().enumerate() {
             let source = &entry.source_files.first().cloned();
             let gone = source.as_ref().is_some_and(|s| !s.exists());
             if !gone {
@@ -34,7 +34,7 @@ impl NeuronIndex {
 
         // Build: neuron_content_hash → new_entry_index for all current neurons
         let mut hash_to_new: HashMap<String, usize> = HashMap::new();
-        for (i, entry) in self.entries.iter().enumerate() {
+        for (i, entry) in self.retrieval.entries.iter().enumerate() {
             if let Ok(bytes) = std::fs::read(&entry.neuron_path) {
                 let h = blake3::hash(&bytes).to_hex()[..16].to_string();
                 hash_to_new.insert(h, i);
@@ -50,11 +50,11 @@ impl NeuronIndex {
                 } // same entry, skip
                   // Transfer accumulated signal (requires split borrow)
                 let (use_count, hit_count, synapses) = {
-                    let old = &self.entries[*old_idx];
+                    let old = &self.retrieval.entries[*old_idx];
                     (old.use_count, old.hit_count, old.synapses.clone())
                 };
                 {
-                    let new_entry = &mut self.entries[new_idx];
+                    let new_entry = &mut self.retrieval.entries[new_idx];
                     // Only carry over if the new entry hasn't yet accumulated its own signal
                     if new_entry.use_count == 0 {
                         new_entry.use_count = use_count;
@@ -73,8 +73,8 @@ impl NeuronIndex {
                     }
                 }
                 // Also update sidecar UUID: load new meta, set UUID from old meta if available
-                let old_neuron_path = self.entries[*old_idx].neuron_path.clone();
-                let new_neuron_path = self.entries[new_idx].neuron_path.clone();
+                let old_neuron_path = self.retrieval.entries[*old_idx].neuron_path.clone();
+                let new_neuron_path = self.retrieval.entries[new_idx].neuron_path.clone();
                 let old_meta_path = meta_path(&old_neuron_path);
                 let new_meta_path = meta_path(&new_neuron_path);
                 if old_meta_path.exists() && new_meta_path.exists() {
@@ -134,7 +134,7 @@ impl NeuronIndex {
         answer: &str,
         evidence: &[String],
     ) -> Option<PathBuf> {
-        let path = neuron_dir(&self.project_root).join(format!("_answer_{slug}.md"));
+        let path = neuron_dir(&self.persistence.project_root).join(format!("_answer_{slug}.md"));
         let mut content = format!("# Derived answer\n\nQuestion: {task}\nAnswer: {answer}\n");
         if !evidence.is_empty() {
             content.push_str("\n## evidence\n");

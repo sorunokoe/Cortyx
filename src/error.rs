@@ -292,6 +292,10 @@ impl From<std::array::TryFromSliceError> for CortyxError {
 )]
 pub trait AnyhowCompat<T> {
     /// Wrap any error with additional context and convert to `CortyxError::Other`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the underlying operation fails.
     fn context_cortyx(self, msg: &str) -> std::result::Result<T, CortyxError>;
 }
 

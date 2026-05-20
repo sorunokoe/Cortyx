@@ -245,6 +245,7 @@ fn best_global_duration_facts_all_entries(
 ) -> Option<HashMap<String, ScalarTotalFact>> {
     let mut best = HashMap::new();
     for entry in idx
+        .retrieval
         .entries
         .iter()
         .filter(|entry| matches!(entry.kind, NeuronKind::Verbatim))

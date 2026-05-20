@@ -96,10 +96,12 @@ impl SyncRevisionState {
         }
     }
 
+    #[must_use]
     pub fn author_id_or_created_by(&self) -> Option<&str> {
         self.author_id.as_deref().or(self.created_by_id.as_deref())
     }
 
+    #[must_use]
     pub fn author_display_or_created_by(&self) -> Option<&str> {
         self.author_display
             .as_deref()
@@ -147,6 +149,7 @@ pub struct SyncHandoffSummary {
 }
 
 impl SyncHandoffSummary {
+    #[must_use]
     pub fn requires_attention(&self) -> bool {
         !self.integrity_verified
             || !self.continuity_verified
@@ -180,28 +183,35 @@ pub struct SyncTransportStatus {
 }
 
 impl SyncTransportStatus {
+    #[must_use]
     pub fn pending_outgoing(&self) -> bool {
         self.outgoing_pending
     }
+    #[must_use]
     pub fn pending_incoming(&self) -> bool {
         self.incoming_pending
     }
+    #[must_use]
     pub fn conflict_count(&self) -> usize {
         self.conflict_paths.len()
     }
 
+    #[must_use]
     pub fn module(&self) -> Option<&str> {
         self.primary_revision().and_then(|r| r.module.as_deref())
     }
 
+    #[must_use]
     pub fn source_path(&self) -> Option<&Path> {
         self.primary_revision().map(|r| r.source_path.as_path())
     }
 
+    #[must_use]
     pub fn latest_edit_id(&self) -> Option<&str> {
         self.latest_revision().and_then(|r| r.edit_id.as_deref())
     }
 
+    #[must_use]
     pub fn latest_activity_at(&self) -> Option<&str> {
         self.latest_revision().and_then(|r| r.edited_at.as_deref())
     }
@@ -216,14 +226,17 @@ impl SyncTransportStatus {
             .and_then(SyncRevisionState::author_display_or_created_by)
     }
 
+    #[must_use]
     pub fn latest_summary(&self) -> Option<&str> {
         self.latest_revision().and_then(|r| r.summary.as_deref())
     }
 
+    #[must_use]
     pub fn handoff_shared_edit_id(&self) -> Option<&str> {
         self.handoff.shared_edit_id.as_deref()
     }
 
+    #[must_use]
     pub fn integrity_issue_count(&self) -> usize {
         self.unique_revisions()
             .into_iter()
@@ -231,6 +244,7 @@ impl SyncTransportStatus {
             .sum()
     }
 
+    #[must_use]
     pub fn verified_revision_count(&self) -> usize {
         self.unique_revisions()
             .into_iter()
@@ -238,6 +252,7 @@ impl SyncTransportStatus {
             .count()
     }
 
+    #[must_use]
     pub fn fully_verified(&self) -> bool {
         let revisions = self.unique_revisions();
         !revisions.is_empty()
@@ -247,6 +262,7 @@ impl SyncTransportStatus {
             && !matches!(self.handoff.state, SyncHandoffState::Conflict)
     }
 
+    #[must_use]
     pub fn trust_score(&self) -> f32 {
         let revisions = self.unique_revisions();
         if revisions.is_empty() {
@@ -260,10 +276,12 @@ impl SyncTransportStatus {
         avg * 0.7 + self.handoff.score as f32 * 0.3
     }
 
+    #[must_use]
     pub fn requires_trust_attention(&self) -> bool {
         self.handoff.requires_attention() || self.integrity_issue_count() > 0
     }
 
+    #[must_use]
     pub fn primary_revision(&self) -> Option<&SyncRevisionState> {
         self.snapshot
             .as_ref()
@@ -271,6 +289,7 @@ impl SyncTransportStatus {
             .or(self.incoming.as_ref())
     }
 
+    #[must_use]
     pub fn latest_revision(&self) -> Option<&SyncRevisionState> {
         let mut best = None;
         for revision in [
@@ -340,6 +359,7 @@ pub struct SyncTrustMetrics {
     pub average_handoff_score: Option<f32>,
 }
 
+#[must_use]
 pub fn summarize_sync_trust(statuses: &[SyncTransportStatus]) -> SyncTrustMetrics {
     let mut metrics = SyncTrustMetrics {
         neuron_count: statuses.len(),

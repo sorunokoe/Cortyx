@@ -253,7 +253,11 @@ fn invalidate_marks_stale() {
     idx.invalidate(&file).unwrap();
     // Stale-demotion: neuron remains in the index (preserves context) but is
     // demoted via staleness_multiplier so it won't win over fresh neurons.
-    let entry = idx.entries.iter().find(|e| e.neuron_path == neuron);
+    let entry = idx
+        .retrieval
+        .entries
+        .iter()
+        .find(|e| e.neuron_path == neuron);
     assert!(
         entry.is_some(),
         "neuron should still exist after invalidation"
@@ -316,7 +320,7 @@ fn bm25_idf_is_non_negative() {
         idx.index_neuron(&p, "common term here", &meta);
     }
     idx.rebuild_derived();
-    for entry in &idx.entries {
+    for entry in &idx.retrieval.entries {
         let score = idx.bm25_score(&tokenize("common"), entry);
         assert!(score >= 0.0, "BM25 score must not be negative");
     }
@@ -559,6 +563,7 @@ fn relative_synapse_targets_resolved_in_adjacency() {
 
     // The adjacency entry for source_p should point to the ABSOLUTE target path
     let adj = idx
+        .retrieval
         .adjacency
         .get(&source_p)
         .expect("source must be in adjacency");
@@ -670,9 +675,9 @@ fn hit_multiplier_reward_grows_with_citations() {
     let cold_score = idx.bm25_score(&terms, idx.entry_by_path(&p).unwrap());
 
     // Simulate MIN_SAMPLE_SIZE activations with 100% citation rate
-    if let Some(&i) = idx.path_index.get(&p) {
-        idx.entries[i].use_count = MIN_SAMPLE_SIZE;
-        idx.entries[i].hit_count = MIN_SAMPLE_SIZE;
+    if let Some(&i) = idx.retrieval.path_index.get(&p) {
+        idx.retrieval.entries[i].use_count = MIN_SAMPLE_SIZE;
+        idx.retrieval.entries[i].hit_count = MIN_SAMPLE_SIZE;
     }
     let hot_score = idx.bm25_score(&terms, idx.entry_by_path(&p).unwrap());
 
@@ -702,16 +707,17 @@ fn auto_quarantine_waits_for_sample_floor_on_zero_hit_neurons() {
 
     // Adaptive CI (S4): QUARANTINE_MIN_SAMPLES = 5. Below this threshold
     // (use_count 0–4), adaptive_quarantine_params returns None — no action.
-    if let Some(&i) = idx.path_index.get(&p) {
-        idx.entries[i].use_count = QUARANTINE_MIN_SAMPLES - 2; // = 3
-        idx.entries[i].hit_count = 0;
-        idx.entries[i].staleness_multiplier = 1.0;
+    if let Some(&i) = idx.retrieval.path_index.get(&p) {
+        idx.retrieval.entries[i].use_count = QUARANTINE_MIN_SAMPLES - 2; // = 3
+        idx.retrieval.entries[i].hit_count = 0;
+        idx.retrieval.entries[i].staleness_multiplier = 1.0;
     }
     idx.record_activation(&[p.clone()]); // → use_count = 4 (still below threshold)
     let mult_early = idx
+        .retrieval
         .path_index
         .get(&p)
-        .map(|&i| idx.entries[i].staleness_multiplier)
+        .map(|&i| idx.retrieval.entries[i].staleness_multiplier)
         .unwrap_or(1.0);
     assert_eq!(
         mult_early, 1.0,
@@ -719,16 +725,17 @@ fn auto_quarantine_waits_for_sample_floor_on_zero_hit_neurons() {
     );
 
     // Zero-hit neurons remain protected until they accumulate 3× the minimum sample floor.
-    if let Some(&i) = idx.path_index.get(&p) {
-        idx.entries[i].use_count = QUARANTINE_MIN_SAMPLES; // = 5
-        idx.entries[i].hit_count = 0;
-        idx.entries[i].staleness_multiplier = 1.0;
+    if let Some(&i) = idx.retrieval.path_index.get(&p) {
+        idx.retrieval.entries[i].use_count = QUARANTINE_MIN_SAMPLES; // = 5
+        idx.retrieval.entries[i].hit_count = 0;
+        idx.retrieval.entries[i].staleness_multiplier = 1.0;
     }
     idx.record_activation(&[p.clone()]); // → use_count = 6 (< 15), still no quarantine
     let mult_before_floor = idx
+        .retrieval
         .path_index
         .get(&p)
-        .map(|&i| idx.entries[i].staleness_multiplier)
+        .map(|&i| idx.retrieval.entries[i].staleness_multiplier)
         .unwrap_or(1.0);
     assert_eq!(
         mult_before_floor, 1.0,
@@ -736,16 +743,17 @@ fn auto_quarantine_waits_for_sample_floor_on_zero_hit_neurons() {
     );
 
     // Once the sample floor is reached, a persistently bad zero-hit ratio is actionable.
-    if let Some(&i) = idx.path_index.get(&p) {
-        idx.entries[i].use_count = QUARANTINE_MIN_SAMPLES * 3 - 1; // = 14
-        idx.entries[i].hit_count = 0;
-        idx.entries[i].staleness_multiplier = 1.0;
+    if let Some(&i) = idx.retrieval.path_index.get(&p) {
+        idx.retrieval.entries[i].use_count = QUARANTINE_MIN_SAMPLES * 3 - 1; // = 14
+        idx.retrieval.entries[i].hit_count = 0;
+        idx.retrieval.entries[i].staleness_multiplier = 1.0;
     }
     idx.record_activation(&[p.clone()]); // → use_count = 15, can now quarantine
     let mult_at_floor = idx
+        .retrieval
         .path_index
         .get(&p)
-        .map(|&i| idx.entries[i].staleness_multiplier)
+        .map(|&i| idx.retrieval.entries[i].staleness_multiplier)
         .unwrap_or(1.0);
     assert_eq!(
         mult_at_floor, 0.3,
@@ -769,16 +777,17 @@ fn quarantine_is_reversible_when_citation_rate_recovers() {
     // Manually quarantine the neuron, then simulate recovery: 20 uses, 10 hits.
     // Wilson lower bound for 10/20 at z=1.645 (90% CI) ≈ 0.31 > QUARANTINE_RECOVERY_THRESHOLD (0.15).
     // Use hardcoded values (not QUARANTINE_MIN_SAMPLES) so the hit/use ratio is valid.
-    if let Some(&i) = idx.path_index.get(&p) {
-        idx.entries[i].staleness_multiplier = 0.3;
-        idx.entries[i].use_count = 20;
-        idx.entries[i].hit_count = 10;
+    if let Some(&i) = idx.retrieval.path_index.get(&p) {
+        idx.retrieval.entries[i].staleness_multiplier = 0.3;
+        idx.retrieval.entries[i].use_count = 20;
+        idx.retrieval.entries[i].hit_count = 10;
     }
     idx.record_activation(&[p.clone()]);
     let mult = idx
+        .retrieval
         .path_index
         .get(&p)
-        .map(|&i| idx.entries[i].staleness_multiplier)
+        .map(|&i| idx.retrieval.entries[i].staleness_multiplier)
         .unwrap_or(0.0);
     assert!(
         mult > 0.3,
@@ -1137,16 +1146,17 @@ fn adaptive_ci_quarantines_bad_ratio_when_hits_exist() {
 
     // Real signal exists (1 citation), but the ratio remains poor: 1/20 after activation.
     // The Wilson lower bound stays below the adaptive threshold, so quarantine should fire.
-    if let Some(&i) = idx.path_index.get(&p) {
-        idx.entries[i].use_count = 19;
-        idx.entries[i].hit_count = 1;
-        idx.entries[i].staleness_multiplier = 1.0;
+    if let Some(&i) = idx.retrieval.path_index.get(&p) {
+        idx.retrieval.entries[i].use_count = 19;
+        idx.retrieval.entries[i].hit_count = 1;
+        idx.retrieval.entries[i].staleness_multiplier = 1.0;
     }
     idx.record_activation(&[p.clone()]); // → use_count=20, hit_count=1
     let mult = idx
+        .retrieval
         .path_index
         .get(&p)
-        .map(|&i| idx.entries[i].staleness_multiplier)
+        .map(|&i| idx.retrieval.entries[i].staleness_multiplier)
         .unwrap_or(1.0);
     assert_eq!(
         mult, 0.3,
@@ -1170,15 +1180,16 @@ fn adaptive_ci_does_not_quarantine_moderate_hit_rate() {
     idx.rebuild_derived();
 
     // 5 hits out of 20 total → 25% hit rate; lb at z=1.645 is well above 0.05
-    if let Some(&i) = idx.path_index.get(&p) {
-        idx.entries[i].use_count = 19;
-        idx.entries[i].hit_count = 5;
+    if let Some(&i) = idx.retrieval.path_index.get(&p) {
+        idx.retrieval.entries[i].use_count = 19;
+        idx.retrieval.entries[i].hit_count = 5;
     }
     idx.record_activation(&[p.clone()]); // → use_count=20
     let mult = idx
+        .retrieval
         .path_index
         .get(&p)
-        .map(|&i| idx.entries[i].staleness_multiplier)
+        .map(|&i| idx.retrieval.entries[i].staleness_multiplier)
         .unwrap_or(1.0);
     assert_eq!(
         mult, 1.0,
@@ -1217,8 +1228,8 @@ fn concept_cloud_populated_from_structural_neighbours() {
     idx.rebuild_derived();
 
     // caller's concept cloud should contain callee terms
-    let caller_idx = *idx.path_index.get(&caller).unwrap();
-    let cloud = &idx.entries[caller_idx].concept_cloud;
+    let caller_idx = *idx.retrieval.path_index.get(&caller).unwrap();
+    let cloud = &idx.retrieval.entries[caller_idx].concept_cloud;
     assert!(
         cloud
             .iter()
@@ -1259,9 +1270,9 @@ fn concept_cloud_enables_retrieval_via_graph() {
     idx.rebuild_derived();
 
     // "bcrypt" is in hashing's vocab → engine's concept cloud → engine is reachable
-    let engine_idx = *idx.path_index.get(&engine).unwrap();
+    let engine_idx = *idx.retrieval.path_index.get(&engine).unwrap();
     assert!(
-        idx.entries[engine_idx]
+        idx.retrieval.entries[engine_idx]
             .concept_cloud
             .contains(&"bcrypt".to_string()),
         "engine concept cloud must contain 'bcrypt' from hashing neighbour"
@@ -1312,9 +1323,9 @@ fn concept_cloud_excludes_semantic_related_edges() {
     idx.index_neuron(&b, "exclusive_term_xyz zeta", &meta_b);
     idx.rebuild_derived();
 
-    let a_idx = *idx.path_index.get(&a).unwrap();
+    let a_idx = *idx.retrieval.path_index.get(&a).unwrap();
     assert!(
-        !idx.entries[a_idx]
+        !idx.retrieval.entries[a_idx]
             .concept_cloud
             .contains(&"exclusive_term_xyz".to_string()),
         "SemanticRelated edges must not populate concept cloud (already handled by vocab bridge)"
@@ -1378,9 +1389,9 @@ fn lsh_fingerprint_stored_in_entry() {
     std::fs::write(&neuron, "auth token validate jwt bearer").unwrap();
     let meta = NeuronMeta::new_stub(dir.path(), NeuronKind::Core);
     idx.index_neuron(&neuron, "auth token validate jwt bearer", &meta);
-    let entry_idx = *idx.path_index.get(&neuron).unwrap();
+    let entry_idx = *idx.retrieval.path_index.get(&neuron).unwrap();
     assert!(
-        idx.entries[entry_idx]
+        idx.retrieval.entries[entry_idx]
             .lsh_fingerprints
             .iter()
             .any(|&fp| fp != 0),
@@ -1401,9 +1412,9 @@ fn quality_score_defaults_to_one_when_no_source() {
     // Concept kind → no source file → quality_score defaults to 1.0
     let meta = NeuronMeta::new_stub(dir.path(), NeuronKind::Concept);
     idx.index_neuron(&neuron, "some concept terms here", &meta);
-    let entry_idx = *idx.path_index.get(&neuron).unwrap();
+    let entry_idx = *idx.retrieval.path_index.get(&neuron).unwrap();
     assert!(
-        (idx.entries[entry_idx].quality_score - 1.0).abs() < 1e-6,
+        (idx.retrieval.entries[entry_idx].quality_score - 1.0).abs() < 1e-6,
         "Concept neuron should have quality_score=1.0 (no source file)"
     );
 }
@@ -1439,25 +1450,25 @@ fn publish_ready_candidates_filter_for_shareable_quality() {
     std::fs::write(&strong, "auth token validation middleware").unwrap();
     let strong_meta = NeuronMeta::new_stub(dir.path(), NeuronKind::Concept);
     idx.index_neuron(&strong, "auth token validation middleware", &strong_meta);
-    let strong_idx = *idx.path_index.get(&strong).unwrap();
-    idx.entries[strong_idx].use_count = 12;
-    idx.entries[strong_idx].hit_count = 9;
+    let strong_idx = *idx.retrieval.path_index.get(&strong).unwrap();
+    idx.retrieval.entries[strong_idx].use_count = 12;
+    idx.retrieval.entries[strong_idx].hit_count = 9;
 
     let weak_hit = ndir.join("weak-hit.context.md");
     std::fs::write(&weak_hit, "routing fallback legacy handler").unwrap();
     let weak_hit_meta = NeuronMeta::new_stub(dir.path(), NeuronKind::Concept);
     idx.index_neuron(&weak_hit, "routing fallback legacy handler", &weak_hit_meta);
-    let weak_hit_idx = *idx.path_index.get(&weak_hit).unwrap();
-    idx.entries[weak_hit_idx].use_count = 12;
-    idx.entries[weak_hit_idx].hit_count = 2;
+    let weak_hit_idx = *idx.retrieval.path_index.get(&weak_hit).unwrap();
+    idx.retrieval.entries[weak_hit_idx].use_count = 12;
+    idx.retrieval.entries[weak_hit_idx].hit_count = 2;
 
     let verbatim = ndir.join("verbatim.context.md");
     std::fs::write(&verbatim, "I fixed the auth bug today").unwrap();
     let verbatim_meta = NeuronMeta::new_stub(dir.path(), NeuronKind::Verbatim);
     idx.index_neuron(&verbatim, "I fixed the auth bug today", &verbatim_meta);
-    let verbatim_idx = *idx.path_index.get(&verbatim).unwrap();
-    idx.entries[verbatim_idx].use_count = 25;
-    idx.entries[verbatim_idx].hit_count = 25;
+    let verbatim_idx = *idx.retrieval.path_index.get(&verbatim).unwrap();
+    idx.retrieval.entries[verbatim_idx].use_count = 25;
+    idx.retrieval.entries[verbatim_idx].hit_count = 25;
 
     let ready = idx.publish_ready_candidates(10, 0.5, 0.6, 10);
 

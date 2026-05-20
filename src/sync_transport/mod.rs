@@ -20,6 +20,7 @@ pub use types::*;
 
 pub const SYNC_TRANSPORT_VERSION: u32 = 1;
 
+#[must_use]
 pub fn sync_transport_dir(project_root: &Path) -> PathBuf {
     project_root.join(".cortyx").join("sync")
 }

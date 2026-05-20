@@ -1248,7 +1248,7 @@ fn oversized_activation_cache_is_skipped_and_rebuilt_from_json() {
     let meta = NeuronMeta::new_stub(dir.path(), NeuronKind::Core);
     idx.index_neuron(&neuron_a, "alpha routing authentication cache", &meta);
     idx.index_neuron(&neuron_b, "beta token session cache", &meta);
-    idx.entries[0].synapses.push(Synapse::new(
+    idx.retrieval.entries[0].synapses.push(Synapse::new(
         neuron_b.clone(),
         SynapseType::Calls,
         "test edge".to_string(),
@@ -1263,7 +1263,7 @@ fn oversized_activation_cache_is_skipped_and_rebuilt_from_json() {
 
     let idx2 = NeuronIndex::load_or_create(dir.path()).unwrap();
     assert_eq!(idx2.neuron_count(), 2);
-    assert!(idx2.posting_list.contains_key("authentication"));
+    assert!(idx2.retrieval.posting_list.contains_key("authentication"));
     assert!(idx2
         .entry_by_path(&neuron_a)
         .map(|entry| !entry.concept_cloud.is_empty())
@@ -1285,7 +1285,7 @@ fn save_removes_stale_activation_cache_when_binary_is_oversized() {
     let meta = NeuronMeta::new_stub(dir.path(), NeuronKind::Core);
     idx.index_neuron(&neuron_a, "alpha routing authentication cache", &meta);
     idx.index_neuron(&neuron_b, "beta token session cache", &meta);
-    idx.entries[0].synapses.push(Synapse::new(
+    idx.retrieval.entries[0].synapses.push(Synapse::new(
         neuron_b.clone(),
         SynapseType::Calls,
         "test edge".to_string(),
@@ -1343,7 +1343,8 @@ fn feedback_save_keeps_cache_generation_and_refreshes_cache_entries() {
     assert_eq!(reloaded.hit_count, 1);
     assert_eq!(reloaded.use_count, 1);
     assert_eq!(
-        idx2.coactivation_counts
+        idx2.feedback
+            .coactivation_counts
             .get(&neuron)
             .and_then(|terms| terms.get("relocation")),
         Some(&1)
@@ -1370,7 +1371,7 @@ fn upsert_neuron_persists_to_disk() {
     drop(idx);
 
     let idx2 = NeuronIndex::load_or_create(dir.path()).unwrap();
-    assert!(idx2.entries.iter().any(|e| e.neuron_path == np));
+    assert!(idx2.retrieval.entries.iter().any(|e| e.neuron_path == np));
 }
 
 // ── WAL crash recovery ────────────────────────────────────────────────────
@@ -1399,7 +1400,7 @@ fn wal_replays_pending_entries_after_simulated_crash() {
     }
     idx.rebuild_derived();
     idx.save().unwrap();
-    assert_eq!(idx.entries.len(), 6);
+    assert_eq!(idx.retrieval.entries.len(), 6);
 
     // Step 2: add one new neuron — should use WAL-append mode, not full save.
     let neuron_new = ndir.join("new_entry.context.md");
@@ -1408,7 +1409,7 @@ fn wal_replays_pending_entries_after_simulated_crash() {
     idx.index_neuron(&neuron_new, "cache eviction strategy", &meta_new);
     idx.rebuild_derived();
     idx.save().unwrap();
-    assert_eq!(idx.entries.len(), 7);
+    assert_eq!(idx.retrieval.entries.len(), 7);
 
     let cortyx_dir = dir.path().join(".cortyx");
     let wal_file = cortyx_dir.join("index.wal");
@@ -1418,15 +1419,20 @@ fn wal_replays_pending_entries_after_simulated_crash() {
     // In a real crash, index.json = last full save (6 entries), WAL = pending (1 entry).
     let index_json = cortyx_dir.join("index.json");
     let _ = std::fs::remove_file(activation_cache_path(dir.path()));
-    let base_entry = &idx.entries[0];
+    let base_entry = &idx.retrieval.entries[0];
     let base_json = serde_json::to_string_pretty(&serde_json::json!({
         "version": 9u32,
         "cache_generation": 1u64,
-        "entries": &idx.entries[..6],
+        "entries": &idx.retrieval.entries[..6],
     }))
     .unwrap();
     let _ = base_entry; // suppress unused warning
-    std::fs::write(&index_json, base_json).unwrap();
+    std::fs::write(&index_json, &base_json).unwrap();
+    std::fs::write(
+        cortyx_dir.join("index.checksum"),
+        crc32fast::hash(base_json.as_bytes()).to_le_bytes(),
+    )
+    .unwrap();
     assert!(
         wal_file.exists(),
         "WAL must still be present after truncating index.json"
@@ -1435,12 +1441,15 @@ fn wal_replays_pending_entries_after_simulated_crash() {
     // Step 4: reload — WAL replay must recover the 7th entry.
     let idx2 = NeuronIndex::load_or_create(dir.path()).unwrap();
     assert_eq!(
-        idx2.entries.len(),
+        idx2.retrieval.entries.len(),
         7,
         "WAL replay must recover the pending entry"
     );
     assert!(
-        idx2.entries.iter().any(|e| e.neuron_path == neuron_new),
+        idx2.retrieval
+            .entries
+            .iter()
+            .any(|e| e.neuron_path == neuron_new),
         "new_entry neuron must be recovered from WAL"
     );
 }
@@ -1468,7 +1477,7 @@ fn wal_with_corrupt_checksum_is_discarded_gracefully() {
     // Loading must succeed without panicking; corrupt WAL is silently discarded.
     let idx2 = NeuronIndex::load_or_create(dir.path()).unwrap();
     assert_eq!(
-        idx2.entries.len(),
+        idx2.retrieval.entries.len(),
         1,
         "should load from index.json after discarding corrupt WAL"
     );

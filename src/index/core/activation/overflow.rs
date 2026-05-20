@@ -23,6 +23,27 @@ impl NeuronIndex {
         min_confidence: Option<f32>,
         multi_hop: bool,
     ) -> (Vec<PathBuf>, Vec<(PathBuf, String)>) {
+        self.get_contexts_with_overflow_and_temporal_bias(
+            task,
+            max_tokens,
+            module,
+            kind,
+            min_confidence,
+            multi_hop,
+            None,
+        )
+    }
+
+    pub(crate) fn get_contexts_with_overflow_and_temporal_bias(
+        &self,
+        task: &str,
+        max_tokens: usize,
+        module: Option<&str>,
+        kind: Option<&str>,
+        min_confidence: Option<f32>,
+        multi_hop: bool,
+        temporal_bias: Option<f32>,
+    ) -> (Vec<PathBuf>, Vec<(PathBuf, String)>) {
         let Ok(query) = QueryText::new(task) else {
             return (Vec::new(), Vec::new());
         };
@@ -69,7 +90,7 @@ impl NeuronIndex {
         let candidate_set: HashSet<usize> = {
             let mut s = HashSet::new();
             for term in &terms {
-                if let Some(idxs) = self.posting_list.get(term) {
+                if let Some(idxs) = self.retrieval.posting_list.get(term) {
                     s.extend(idxs);
                 }
             }
@@ -81,7 +102,8 @@ impl NeuronIndex {
         //
         // Collected as Vec so the multi-hop block can reference the pre-budget-split
         // ranked order (all_ordered[..5]) without re-running the pipeline.
-        let all_ordered: Vec<PathBuf> = self.get_contexts(task, usize::MAX / 2, module, kind);
+        let all_ordered: Vec<PathBuf> =
+            self.get_contexts_with_temporal_bias(task, usize::MAX / 2, module, kind, temporal_bias);
 
         let mut full = Vec::new();
         let mut overflow = Vec::new();
@@ -157,7 +179,13 @@ impl NeuronIndex {
                 hop_terms.dedup();
 
                 let expanded_task = hop_terms.join(" ");
-                let second_pass = self.get_contexts(&expanded_task, usize::MAX / 2, module, kind);
+                let second_pass = self.get_contexts_with_temporal_bias(
+                    &expanded_task,
+                    usize::MAX / 2,
+                    module,
+                    kind,
+                    temporal_bias,
+                );
 
                 let already_included: HashSet<&PathBuf> =
                     full.iter().chain(overflow.iter().map(|(p, _)| p)).collect();
@@ -205,14 +233,14 @@ impl NeuronIndex {
         // Breadth: fraction of query terms with any posting-list hit
         let hit_terms = terms
             .iter()
-            .filter(|t| self.posting_list.contains_key(t.as_str()))
+            .filter(|t| self.retrieval.posting_list.contains_key(t.as_str()))
             .count();
         let breadth = hit_terms as f32 / terms.len() as f32;
 
         // Candidate set for spread/depth analysis
         let mut candidates: HashSet<usize> = HashSet::new();
         for t in terms {
-            if let Some(idxs) = self.posting_list.get(t.as_str()) {
+            if let Some(idxs) = self.retrieval.posting_list.get(t.as_str()) {
                 candidates.extend(idxs.iter().take(10));
             }
         }
@@ -220,7 +248,7 @@ impl NeuronIndex {
         // Spread: unique modules among top candidates (normalized by 3)
         let unique_modules: HashSet<Option<&str>> = candidates
             .iter()
-            .filter_map(|&i| self.entries.get(i))
+            .filter_map(|&i| self.retrieval.entries.get(i))
             .map(|e| e.module.as_deref())
             .collect();
         let spread = ((unique_modules.len() as f32 - 1.0) / 3.0).clamp(0.0, 1.0);
@@ -228,7 +256,7 @@ impl NeuronIndex {
         // Depth: fraction of candidates that have outgoing synapses
         let with_synapses = candidates
             .iter()
-            .filter_map(|&i| self.entries.get(i))
+            .filter_map(|&i| self.retrieval.entries.get(i))
             .filter(|e| !e.synapses.is_empty())
             .count();
         let depth = if candidates.is_empty() {

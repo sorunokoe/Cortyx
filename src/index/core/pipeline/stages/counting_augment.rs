@@ -1,6 +1,8 @@
 use super::super::{ActivationStage, QueryContext, ScoredCandidate};
+use super::{sort_candidates, upsert_candidate};
 use crate::neuron::NeuronKind;
 
+/// Expands counting queries with additional non-aggregate candidates.
 pub struct CountingAugmentStage;
 
 impl ActivationStage for CountingAugmentStage {
@@ -13,12 +15,11 @@ impl ActivationStage for CountingAugmentStage {
             return;
         }
 
-        let mut existing: std::collections::HashSet<usize> = candidates
-            .iter()
-            .map(|candidate| candidate.entry_idx)
-            .collect();
         for &idx in &ctx.counting_augment {
-            if existing.contains(&idx) {
+            if candidates
+                .iter()
+                .any(|candidate| candidate.entry_idx == idx)
+            {
                 continue;
             }
             let entry = ctx.entry(idx);
@@ -27,10 +28,11 @@ impl ActivationStage for CountingAugmentStage {
             }
             let score = ctx.score_index(idx);
             if score > 0.0 {
-                candidates.push(ScoredCandidate::new(idx, score, entry.tokens));
-                existing.insert(idx);
+                upsert_candidate(candidates, idx, score, entry.tokens);
             }
         }
+
+        sort_candidates(candidates);
     }
 }
 
@@ -100,5 +102,26 @@ mod tests {
 
         assert_eq!(candidates.len(), 1);
         assert_eq!(candidates[0].entry_idx, 1);
+    }
+
+    #[test]
+    fn sorts_augmented_candidates_by_score_descending() {
+        let weaker = test_entry("weak.md", NeuronKind::Verbatim, &[("music", 1.0)]);
+        let stronger = test_entry("strong.md", NeuronKind::Verbatim, &[("music", 3.0)]);
+        let fixture = QueryContextFixture::new(vec![weaker, stronger]);
+        let mut ctx = fixture.ctx("how many music");
+        ctx.counting_augment = vec![0, 1];
+        ctx.ranking_terms = vec!["music".into()];
+
+        let mut candidates = Vec::new();
+        CountingAugmentStage.apply(&ctx, &mut candidates);
+
+        assert_eq!(
+            candidates
+                .iter()
+                .map(|candidate| candidate.entry_idx)
+                .collect::<Vec<_>>(),
+            vec![1, 0]
+        );
     }
 }

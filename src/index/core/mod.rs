@@ -105,6 +105,9 @@ mod synthetic_temporal3;
 mod pipeline;
 pub(super) use pipeline::*;
 
+mod domain;
+use domain::*;
+
 mod types;
 pub use types::*;
 

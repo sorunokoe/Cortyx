@@ -11,6 +11,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.4.0] — 2026-05-20
+
+### Breaking Changes
+- **Embedding dimension changed from 384 → 768.** Delete `.cortyx/embeddings.bin`
+  and rerun `cortyx compile --features embed` to regenerate. The new model
+  (`NomicEmbedTextV15`) produces higher-quality embeddings with 8192 token context.
+- **`EMBED_VERSION` bumped to 2.** Old `embeddings.bin` files are rejected on load
+  with a clear error message.
+
+### Added
+- **TurboVec 4-bit quantized ANN** (`turbovec 0.4.1`, `--features embed`):
+  - `EmbeddingStore` backed by `turbovec::IdMapIndex` with stable blake3 path IDs
+  - Full-corpus ANN search runs in parallel with BM25; results merged via RRF
+  - LLM-free pseudo-relevance feedback: query vector blended (75% query + 25% mean
+    of top-3 BM25 candidate embeddings) before ANN for higher recall
+  - `prepare()` warms SIMD lookup tables at startup
+  - `.cortyx/embeddings.tvim` derived ANN cache (rebuilt from `.bin` when stale)
+- **Embedding model upgrade**: `AllMiniLML6V2` (384-dim) → `NomicEmbedTextV15`
+  (768-dim, 8192 token context) via fastembed 5.8.0
+- **13-stage activation pipeline** — Wave 1A: all 10 previously-empty stub stages
+  now have real implementations; one new stage added:
+  - `MorphemeBridgeStage` — morpheme map expansion at 0.7× weight
+  - `PmiExpansionStage` — PMI neighbor expansion at 0.5× weight
+  - `StalenessDecayStage` — multiplies score by `staleness_multiplier`
+  - `SessionTfDecayStage` — 0.85× decay for same-session candidates
+  - `UseCaseAugmentStage` — injects UseCase sub-neurons at 0.9× parent score
+  - `SynapseTraversalStage` — 1-hop adjacency walk above threshold
+  - `CoactivationStage` — Hebbian coactivation history boost
+  - `CoreturnBoostStage` — co-return pair boost for count ≥ 5
+  - `SessionClusterStage` — injects top-2 session siblings when Verbatim in top-3
+  - `TemporalProximityStage` (NEW) — exponential recency boost:
+    `score *= 1.0 + temporal_bias × 0.3 × exp(-age_days / 30.0)`
+- **`temporal_bias` MCP parameter** — `cortyx_get_contexts` now accepts
+  `temporal_bias: Option<f32>` (range [0.0, 3.0]). `0.0` disables temporal boost;
+  `2.0` doubles it. Default: 1.0.
+- **NeuronIndex domain decomposition** (Wave 2):
+  - The 25-field god struct split into 4 typed domain structs in `src/index/core/domain/`:
+    `RetrievalState`, `FeedbackState`, `PersistenceState`, `WatcherState`
+  - `NeuronIndex` now owns these 4 fields; all field accesses are domain-scoped
+  - `pub(in crate::index)` visibility prevents cross-domain coupling
+- **Persistence hardening** (Wave 1C):
+  - WAL entries have per-entry hex CRC32 checksums (`CORTYXWAL1` line format)
+  - Corrupt WAL entries are skipped (skip-and-recover, not abort)
+  - `index.json` has a `.cortyx/index.checksum` sidecar (CRC32, verified on load)
+  - Activation cache has a 4-byte CRC32 little-endian trailer
+  - `crc32fast = "1"` added as a dependency
+- **`search.rs` thin orchestrator** — refactored from 1,030 → 20 lines; logic
+  extracted into `activation/phase1.rs` (363 lines), `activation/overflow.rs`
+  (242 lines), `activation/selection.rs` (195 lines)
+- **New integration test suites**: `pipeline_integration.rs` (171 lines),
+  `turbovec_integration.rs` (198 lines), `persistence_hardening.rs` (277 lines)
+- **Test count**: 870 (baseline) → 924 (current)
+
+### Changed
+- `src/index/core/config.rs`: added `TEMPORAL_DECAY_WEIGHT = 0.3`,
+  `TEMPORAL_HALF_LIFE = 30.0`, `SESSION_SAME_SCORE_DECAY = 0.85`,
+  `MAX_SYNAPSE_CANDIDATES = 50`
+- `src/index/core/pipeline/types.rs`: `QueryContext` gains `temporal_bias_scale: f32`
+- `src/mcp/types.rs`: `GetContextsInput` gains `temporal_bias: Option<f32>`
+
+---
+
 ## [0.3.0] — 2026-06-XX
 
 ### Breaking Changes

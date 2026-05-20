@@ -8,11 +8,13 @@ impl NeuronIndex {
     pub fn rebuild_derived_pub(&mut self) {
         // Force full rebuild: prune may have removed existing entries, so the
         // incremental delta path (which only handles appends) is not safe here.
-        self.pending_append_count = 0;
-        self.has_pending_updates.store(true, Ordering::Release);
+        self.persistence.pending_append_count = 0;
+        self.persistence
+            .has_pending_updates
+            .store(true, Ordering::Release);
         // S4-delta: prune removes entries — invalidate the delta baseline and force full save.
-        self.delta_base.store(0, Ordering::Relaxed);
-        self.delta_dirty.store(true, Ordering::Relaxed);
+        self.persistence.delta_base.store(0, Ordering::Relaxed);
+        self.persistence.delta_dirty.store(true, Ordering::Relaxed);
         self.rebuild_derived();
     }
 
@@ -24,50 +26,58 @@ impl NeuronIndex {
         // S7: Incremental delta — skip the full clear+rebuild when only new entries were
         // appended (no updates).  This reduces the hot path (mining a new file into an
         // existing index) from O(N+n) to O(n) for the HashMap phase.
-        if self.pending_append_count > 0
-            && !self.has_pending_updates.load(Ordering::Acquire)
-            && self.idf_n > 0
+        if self.persistence.pending_append_count > 0
+            && !self.persistence.has_pending_updates.load(Ordering::Acquire)
+            && self.retrieval.idf_n > 0
         {
             self.rebuild_derived_delta();
             return;
         }
 
-        self.path_index.clear();
-        self.parent_index.clear();
-        self.adjacency.clear();
-        self.df_cache.clear();
-        self.posting_list.clear();
-        self.module_index.clear();
-        self.session_index.clear(); // R21 T6
-                                    // Full rebuild reassigns all path_index positions, so usize keys in
-                                    // co_return_counts would point to wrong entries. Reset to avoid
-                                    // spurious Hebbian synapse formation.
-        if let Ok(mut counts) = self.co_return_counts.lock() {
+        self.retrieval.path_index.clear();
+        self.retrieval.parent_index.clear();
+        self.retrieval.adjacency.clear();
+        self.retrieval.df_cache.clear();
+        self.retrieval.posting_list.clear();
+        self.retrieval.module_index.clear();
+        self.retrieval.session_index.clear(); // R21 T6
+                                              // Full rebuild reassigns all path_index positions, so usize keys in
+                                              // co_return_counts would point to wrong entries. Reset to avoid
+                                              // spurious Hebbian synapse formation.
+        if let Ok(mut counts) = self.feedback.co_return_counts.lock() {
             counts.clear();
         }
-        self.idf_n = 0;
+        self.retrieval.idf_n = 0;
 
         let mut non_agg_total_terms = 0usize;
         let mut verbatim_total_terms = 0usize;
         let mut verbatim_count = 0usize;
 
-        for (i, entry) in self.entries.iter().enumerate() {
+        for (i, entry) in self.retrieval.entries.iter().enumerate() {
             // path_index
-            self.path_index.insert(entry.neuron_path.clone(), i);
+            self.retrieval
+                .path_index
+                .insert(entry.neuron_path.clone(), i);
 
             // parent_index
             if let Some(p) = &entry.parent {
-                self.parent_index.entry(p.clone()).or_default().push(i);
+                self.retrieval
+                    .parent_index
+                    .entry(p.clone())
+                    .or_default()
+                    .push(i);
             }
 
             // adjacency (forward + reverse edges)
             for syn in &entry.synapses {
-                self.adjacency
+                self.retrieval
+                    .adjacency
                     .entry(entry.neuron_path.clone())
                     .or_default()
                     .push(syn.clone());
 
-                self.adjacency
+                self.retrieval
+                    .adjacency
                     .entry(syn.target.clone())
                     .or_default()
                     .push(Synapse {
@@ -93,22 +103,31 @@ impl NeuronIndex {
             let is_aggregate = matches!(entry.kind, NeuronKind::Aggregate);
             for term in entry.term_freq.keys() {
                 if !is_aggregate {
-                    *self.df_cache.entry(term.clone()).or_insert(0) += 1;
+                    *self.retrieval.df_cache.entry(term.clone()).or_insert(0) += 1;
                 }
-                self.posting_list.entry(term.clone()).or_default().push(i);
+                self.retrieval
+                    .posting_list
+                    .entry(term.clone())
+                    .or_default()
+                    .push(i);
             }
             if !is_aggregate {
-                self.idf_n += 1;
+                self.retrieval.idf_n += 1;
             }
 
             // module_index
             if let Some(m) = &entry.module {
-                self.module_index.entry(m.clone()).or_default().push(i);
+                self.retrieval
+                    .module_index
+                    .entry(m.clone())
+                    .or_default()
+                    .push(i);
             }
 
             // R21 T6: session_index — for session-level grouping at retrieval time
             if !entry.session_id.is_empty() {
-                self.session_index
+                self.retrieval
+                    .session_index
                     .entry(entry.session_id.clone())
                     .or_default()
                     .push(i);
@@ -124,13 +143,13 @@ impl NeuronIndex {
         }
 
         // avg_doc_len excludes Aggregate neurons so it matches e18c4e6 calibration.
-        self.avg_doc_len = if self.idf_n == 0 {
+        self.retrieval.avg_doc_len = if self.retrieval.idf_n == 0 {
             0.0
         } else {
-            non_agg_total_terms as f32 / self.idf_n as f32
+            non_agg_total_terms as f32 / self.retrieval.idf_n as f32
         };
-        self.avg_verbatim_doc_len = if verbatim_count == 0 {
-            self.avg_doc_len
+        self.retrieval.avg_verbatim_doc_len = if verbatim_count == 0 {
+            self.retrieval.avg_doc_len
         } else {
             verbatim_total_terms as f32 / verbatim_count as f32
         };
@@ -141,10 +160,13 @@ impl NeuronIndex {
         self.apply_peer_vocab_borrowing();
         self.merge_cooccurrence_into_vocab_bridge();
         self.load_pmi_neighbors();
-        self.structural_artifacts_dirty
+        self.persistence
+            .structural_artifacts_dirty
             .store(true, Ordering::Relaxed);
-        self.pending_append_count = 0;
-        self.has_pending_updates.store(false, Ordering::Release);
+        self.persistence.pending_append_count = 0;
+        self.persistence
+            .has_pending_updates
+            .store(false, Ordering::Release);
     }
 
     /// Incremental derived-structure update for pure-append batches (S7).
@@ -158,24 +180,36 @@ impl NeuronIndex {
     /// pmi_neighbors) still run over the full corpus because they are O(terms), not
     /// O(entries²), and must reflect the complete vocabulary.
     pub(in crate::index) fn rebuild_derived_delta(&mut self) {
-        let new_start = self.entries.len().saturating_sub(self.pending_append_count);
+        let new_start = self
+            .retrieval
+            .entries
+            .len()
+            .saturating_sub(self.persistence.pending_append_count);
 
-        for (offset, entry) in self.entries[new_start..].iter().enumerate() {
+        for (offset, entry) in self.retrieval.entries[new_start..].iter().enumerate() {
             let abs_i = new_start + offset;
 
             // path_index is already maintained by index_neuron(), but ensure consistency.
-            self.path_index.insert(entry.neuron_path.clone(), abs_i);
+            self.retrieval
+                .path_index
+                .insert(entry.neuron_path.clone(), abs_i);
 
             if let Some(p) = &entry.parent {
-                self.parent_index.entry(p.clone()).or_default().push(abs_i);
+                self.retrieval
+                    .parent_index
+                    .entry(p.clone())
+                    .or_default()
+                    .push(abs_i);
             }
 
             for syn in &entry.synapses {
-                self.adjacency
+                self.retrieval
+                    .adjacency
                     .entry(entry.neuron_path.clone())
                     .or_default()
                     .push(syn.clone());
-                self.adjacency
+                self.retrieval
+                    .adjacency
                     .entry(syn.target.clone())
                     .or_default()
                     .push(Synapse {
@@ -192,23 +226,29 @@ impl NeuronIndex {
             let is_aggregate = matches!(entry.kind, NeuronKind::Aggregate);
             for term in entry.term_freq.keys() {
                 if !is_aggregate {
-                    *self.df_cache.entry(term.clone()).or_insert(0) += 1;
+                    *self.retrieval.df_cache.entry(term.clone()).or_insert(0) += 1;
                 }
-                self.posting_list
+                self.retrieval
+                    .posting_list
                     .entry(term.clone())
                     .or_default()
                     .push(abs_i);
             }
             if !is_aggregate {
-                self.idf_n += 1;
+                self.retrieval.idf_n += 1;
             }
 
             if let Some(m) = &entry.module {
-                self.module_index.entry(m.clone()).or_default().push(abs_i);
+                self.retrieval
+                    .module_index
+                    .entry(m.clone())
+                    .or_default()
+                    .push(abs_i);
             }
 
             if !entry.session_id.is_empty() {
-                self.session_index
+                self.retrieval
+                    .session_index
                     .entry(entry.session_id.clone())
                     .or_default()
                     .push(abs_i);
@@ -219,7 +259,7 @@ impl NeuronIndex {
         let mut non_agg_total_terms = 0usize;
         let mut verbatim_total_terms = 0usize;
         let mut verbatim_count = 0usize;
-        for entry in &self.entries {
+        for entry in &self.retrieval.entries {
             let is_aggregate = matches!(entry.kind, NeuronKind::Aggregate);
             if !is_aggregate {
                 non_agg_total_terms += entry.term_count;
@@ -229,13 +269,13 @@ impl NeuronIndex {
                 verbatim_count += 1;
             }
         }
-        self.avg_doc_len = if self.idf_n == 0 {
+        self.retrieval.avg_doc_len = if self.retrieval.idf_n == 0 {
             0.0
         } else {
-            non_agg_total_terms as f32 / self.idf_n as f32
+            non_agg_total_terms as f32 / self.retrieval.idf_n as f32
         };
-        self.avg_verbatim_doc_len = if verbatim_count == 0 {
-            self.avg_doc_len
+        self.retrieval.avg_verbatim_doc_len = if verbatim_count == 0 {
+            self.retrieval.avg_doc_len
         } else {
             verbatim_total_terms as f32 / verbatim_count as f32
         };
@@ -247,9 +287,12 @@ impl NeuronIndex {
         self.apply_peer_vocab_borrowing();
         self.merge_cooccurrence_into_vocab_bridge();
         self.load_pmi_neighbors();
-        self.structural_artifacts_dirty
+        self.persistence
+            .structural_artifacts_dirty
             .store(true, Ordering::Relaxed);
-        self.pending_append_count = 0;
-        self.has_pending_updates.store(false, Ordering::Release);
+        self.persistence.pending_append_count = 0;
+        self.persistence
+            .has_pending_updates
+            .store(false, Ordering::Release);
     }
 }

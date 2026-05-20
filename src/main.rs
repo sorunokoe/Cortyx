@@ -6,6 +6,7 @@ use cortyx::{
     neuron, watcher,
 };
 use serde_json::json;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 use tracing_subscriber::{fmt, EnvFilter};
@@ -700,6 +701,7 @@ async fn main() -> Result<()> {
             let _w =
                 watcher::start_watcher(root.clone(), std::sync::Arc::clone(&index), dirty_handle)?;
             println!("{}", render_watch_banner(&root, &readiness, bootstrap));
+            let _ = std::io::stdout().flush();
             tokio::signal::ctrl_c().await?;
         },
         Commands::Doctor { path, json } => {
@@ -746,6 +748,7 @@ async fn main() -> Result<()> {
                 kind.as_deref(),
                 min_conf,
                 multi_hop,
+                None,
             );
             if answer_mode {
                 match answer_plane::render_answer_output_decision(

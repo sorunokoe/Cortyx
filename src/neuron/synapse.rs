@@ -27,6 +27,7 @@ impl SynapseConfidenceTier {
     ///
     /// Applied as `tier_floor.max(TraversalOptions::min_propagated_score)` so these
     /// floors only restrict edges that are MORE speculative than the global default.
+    #[must_use]
     pub fn min_propagated_score(self) -> f32 {
         match self {
             Self::Structural => 0.08,
@@ -69,6 +70,7 @@ pub enum SynapseType {
 
 impl SynapseType {
     /// Weight multiplier applied during graph traversal.
+    #[must_use]
     pub fn type_multiplier(&self) -> f32 {
         match self {
             Self::SemanticRelated => 0.50,
@@ -85,6 +87,7 @@ impl SynapseType {
     }
 
     /// Return the semantic inverse of this edge type for reverse graph construction.
+    #[must_use]
     pub fn inverse(&self) -> SynapseType {
         match self {
             Self::Implements => Self::ImplementedBy,
@@ -100,6 +103,7 @@ impl SynapseType {
     ///
     /// `Contradicts` is gated out before the floor check in traversal, so its tier
     /// is moot — `Structural` is used as a safe default.
+    #[must_use]
     pub fn confidence_tier(&self) -> SynapseConfidenceTier {
         match self {
             Self::Imports
@@ -147,6 +151,7 @@ pub struct Synapse {
 }
 
 impl Synapse {
+    #[must_use]
     pub fn new(target: PathBuf, edge_type: SynapseType, reason: String) -> Self {
         Self {
             target,
@@ -170,6 +175,7 @@ impl Synapse {
     ///   (at count ≥ 100), clamped to [0.1, 1.0]. The static type multiplier
     ///   always contributes at least 50 % so domain knowledge is never
     ///   fully replaced by empirical signal.
+    #[must_use]
     pub fn effective_weight(&self) -> f32 {
         let base = self.edge_type.type_multiplier();
         if self.traversal_count < 10 || self.learned_weight.is_zero() {

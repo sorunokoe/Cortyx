@@ -16,6 +16,7 @@ pub struct CallEdge {
 /// appear in the vocabulary are emitted — external / stdlib calls are ignored.
 ///
 /// One `CallEdge` per unique callee file is returned (duplicates collapsed).
+#[must_use]
 pub fn extract_call_sites(
     source_rel: &str,
     content: &str,

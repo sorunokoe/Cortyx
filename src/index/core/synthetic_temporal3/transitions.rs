@@ -160,6 +160,7 @@ impl NeuronIndex {
             candidates = self.candidate_session_ids_by_line_overlap(&activity_terms, 8);
         }
 
+        #[allow(clippy::type_complexity)]
         let mut best: Option<(
             usize,
             usize,
@@ -355,6 +356,7 @@ impl NeuronIndex {
             candidates = self.candidate_session_ids_by_line_overlap(&required_owned, 8);
         }
 
+        #[allow(clippy::type_complexity)]
         let mut best: Option<(usize, usize, usize, String, Vec<String>)> = None;
         for (session_id, session_rank) in candidates {
             let lines = self.find_session_lines(&session_id, false, 128, |line, lower| {

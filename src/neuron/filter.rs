@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 ///
 /// Expects a **relative** path from the project root. Calling with an
 /// absolute path risks false positives (e.g. macOS tempdirs start with `.`).
+#[must_use]
 pub fn should_skip(rel: &Path) -> bool {
     for component in rel.components() {
         let s = component.as_os_str().to_string_lossy();
@@ -76,6 +77,10 @@ pub fn should_skip(rel: &Path) -> bool {
 /// Validate that a user-supplied path is safe to use relative to the project root.
 ///
 /// Rejects: absolute paths, `..` components, and components starting with `.`.
+///
+/// # Errors
+///
+/// Returns an error if the underlying operation fails.
 pub fn validate_relative_path(raw: &str) -> Result<PathBuf> {
     let path = PathBuf::from(raw);
     if path.is_absolute() {
@@ -111,6 +116,10 @@ pub fn validate_relative_path(raw: &str) -> Result<PathBuf> {
 ///
 /// Less strict than `validate_relative_path`: allows `.cortyx/neurons/...` targets for
 /// stored neuron links, but rejects every other hidden component as well as traversal.
+///
+/// # Errors
+///
+/// Returns an error if the underlying operation fails.
 pub fn validate_synapse_path(raw: &str) -> Result<PathBuf> {
     let path = PathBuf::from(raw);
     if path.is_absolute() {
@@ -172,6 +181,10 @@ pub fn validate_synapse_path(raw: &str) -> Result<PathBuf> {
 ///   creation is safe because the lexical check already rejected traversal components
 /// - `Err(SecurityError::PathEscape)` if the canonicalized path escapes `root`
 /// - `Err(CortyxError::Io)` for unexpected IO errors
+///
+/// # Errors
+///
+/// Returns an error if the underlying operation fails.
 pub fn validate_within_root(
     root: &std::path::Path,
     rel: &std::path::Path,

@@ -85,6 +85,7 @@ pub struct SharedTrustOutcomeReport {
     pub trust_improved: bool,
 }
 
+#[must_use]
 pub fn collaboration_evidence_score(evidence: &CollaborationEvidenceSummary) -> f32 {
     evidence.diary_entries as f32
         + evidence.kg_fact_count as f32 * 0.4

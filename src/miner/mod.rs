@@ -52,6 +52,10 @@ const SKIPPED_MINE_DIRS: &[&str] = &[".cortyx", "target", ".git", "node_modules"
 ///
 /// NE-1 fix: stage ALL files first, then commit ONCE via rebuild_derived().
 /// This avoids O(n²) re-index cost for large directories.
+///
+/// # Errors
+///
+/// Returns an error if the underlying operation fails.
 pub fn mine_path(
     path: &Path,
     project_root: &Path,
@@ -120,6 +124,10 @@ fn should_skip_mined_entry(entry: &walkdir::DirEntry) -> bool {
 }
 
 /// Mine a single file. Auto-detects format and writes Verbatim neurons.
+///
+/// # Errors
+///
+/// Returns an error if the underlying operation fails.
 pub fn mine_file(
     path: &Path,
     project_root: &Path,
@@ -153,6 +161,10 @@ fn mine_file_staged(
 }
 
 /// Mine a raw string (called from the MCP tool with inline content).
+///
+/// # Errors
+///
+/// Returns an error if the underlying operation fails.
 pub fn mine_text(
     content: &str,
     source_hint: &str,
@@ -185,7 +197,9 @@ pub fn mine_text(
 // Re-export write_verbatim_neurons for direct callers (e.g. integration tests)
 pub use writer::write_verbatim_neurons;
 
-/// Embed all neuron files in `paths` and save vectors to `project_root/.cortyx/embeddings.bin`.
+/// Embed all neuron files in `paths` and save vectors to
+/// `project_root/.cortyx/embeddings.bin` plus the derived TurboVec cache
+/// `project_root/.cortyx/embeddings.tvim`.
 ///
 /// No-op when the `embed` feature is disabled.
 /// Called from `cortyx compile` to build the dense retrieval layer after indexing.

@@ -48,6 +48,7 @@ pub struct ProvenanceIntegritySummary {
 }
 
 impl ProvenanceIntegritySummary {
+    #[must_use]
     pub fn missing() -> Self {
         Self {
             trusted: false,

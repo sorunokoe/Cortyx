@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
 /// Normalise an entity name to a lower-snake-case slug safe for filenames.
+#[must_use]
 pub fn slugify(s: &str) -> String {
     s.chars()
         .map(|c| {
@@ -27,6 +28,7 @@ pub(super) fn entity_slug_from_path(path: &Path) -> String {
 }
 
 /// Derive the KG neuron path from a project root and entity slug.
+#[must_use]
 pub fn kg_neuron_path(project_root: &Path, entity: &str) -> PathBuf {
     project_root
         .join(".cortyx")
@@ -35,6 +37,7 @@ pub fn kg_neuron_path(project_root: &Path, entity: &str) -> PathBuf {
 }
 
 /// Collect all KG entity paths under a project root.
+#[must_use]
 pub fn list_kg_paths(project_root: &Path) -> Vec<PathBuf> {
     let ndir = project_root.join(".cortyx").join("neurons");
     let Ok(rd) = std::fs::read_dir(&ndir) else {

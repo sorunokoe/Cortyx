@@ -65,9 +65,14 @@ pub struct GetContextsInput {
     /// - Level 0 (~80 tokens): `purpose` section only + synapses. Best for initial triage.
     /// - Level 1 (~400 tokens): `purpose` + `api` + `pitfalls` sections. Default for strong matches.
     /// - Level 2 (~3000 tokens): Full neuron body. For decisive matches (BM25 ≥ 8.0).
+    ///
     /// When omitted, Cortyx selects depth per-neuron based on BM25 confidence score.
     /// After scanning Level-0 capsules, request deeper levels with `cortyx_read_section`.
     pub depth: Option<u8>,
+    /// Optional recency bias multiplier (default: 1.0).
+    /// 0.0 disables temporal proximity boost; 2.0 doubles it.
+    /// Clamps to [0.0, 3.0].
+    pub temporal_bias: Option<f32>,
 }
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]

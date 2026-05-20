@@ -9,6 +9,10 @@ pub struct RepoPath(PathBuf);
 
 impl RepoPath {
     /// Create a new RepoPath, validating it exists.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the underlying operation fails.
     pub fn new(path: impl AsRef<Path>) -> Result<Self, String> {
         let path = path.as_ref();
         if !path.exists() {
@@ -26,11 +30,13 @@ impl RepoPath {
     }
 
     /// Get the inner PathBuf.
+    #[must_use]
     pub fn as_path(&self) -> &Path {
         &self.0
     }
 
     /// Convert into the inner PathBuf.
+    #[must_use]
     pub fn into_inner(self) -> PathBuf {
         self.0
     }
@@ -54,6 +60,10 @@ pub struct CommitHash(String);
 
 impl CommitHash {
     /// Create a new CommitHash, validating the format.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the underlying operation fails.
     pub fn new(hash: impl Into<String>) -> Result<Self, String> {
         let hash = hash.into();
         if hash.len() != 40 {
@@ -74,16 +84,19 @@ impl CommitHash {
     }
 
     /// Get the hash as a string slice.
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
     /// Convert into the inner String.
+    #[must_use]
     pub fn into_inner(self) -> String {
         self.0
     }
 
     /// Get the short hash (first 7 characters).
+    #[must_use]
     pub fn short(&self) -> &str {
         &self.0[..7]
     }

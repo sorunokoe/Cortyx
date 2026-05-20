@@ -199,6 +199,7 @@ fn base_input(entry: &FixtureEntry, max_tokens: usize) -> GetContextsInput {
         min_answer_confidence: None,
         provenance_mode: None,
         depth: None,
+        temporal_bias: None,
     }
 }
 

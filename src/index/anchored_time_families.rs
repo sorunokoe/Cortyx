@@ -194,6 +194,7 @@ where
 fn all_verbatim_candidate_lines(idx: &NeuronIndex) -> Vec<(String, bool)> {
     let mut lines = Vec::new();
     for entry in idx
+        .retrieval
         .entries
         .iter()
         .filter(|entry| matches!(entry.kind, NeuronKind::Verbatim))

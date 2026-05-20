@@ -8,6 +8,7 @@ pub(crate) fn collect_temporal_candidates(
     stage: &str,
 ) -> Vec<TemporalCandidate> {
     let mut candidates = Vec::new();
+    #[allow(clippy::type_complexity)]
     let mut seen: HashSet<(String, Option<(i32, u32, u32)>, bool)> = HashSet::new();
 
     for (item_index, item) in evidence.iter().enumerate() {
@@ -75,6 +76,7 @@ fn is_user_dialogue_turn(turn: &DialogueTurn) -> bool {
         .unwrap_or(false)
 }
 
+#[allow(clippy::type_complexity)]
 fn push_temporal_candidate(
     candidates: &mut Vec<TemporalCandidate>,
     seen: &mut HashSet<(String, Option<(i32, u32, u32)>, bool)>,

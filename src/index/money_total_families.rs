@@ -223,7 +223,7 @@ fn best_entry_scanned_raised_facts(
     idx: &NeuronIndex,
     query: &RaisedTotalQuery,
 ) -> Option<HashMap<String, KeyedMoneyAmountFact>> {
-    let Ok(entries) = std::fs::read_dir(neuron_dir(&idx.project_root)) else {
+    let Ok(entries) = std::fs::read_dir(neuron_dir(&idx.persistence.project_root)) else {
         return None;
     };
     entries

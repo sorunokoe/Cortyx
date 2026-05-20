@@ -1,4 +1,9 @@
-use super::stages::{Bm25ScoringStage, CountingAugmentStage, VocabBridgeStage};
+use super::stages::{
+    Bm25ScoringStage, CoactivationStage, CoreturnBoostStage, CountingAugmentStage,
+    MorphemeBridgeStage, PmiExpansionStage, SessionClusterStage, SessionTfDecayStage,
+    StalenessDecayStage, SynapseTraversalStage, TemporalProximityStage, UseCaseAugmentStage,
+    VocabBridgeStage,
+};
 use super::types::QueryContext;
 use std::sync::OnceLock;
 
@@ -22,6 +27,7 @@ impl ScoredCandidate {
 
 /// A single, independently-testable activation stage.
 pub trait ActivationStage: Send + Sync + 'static {
+    #[allow(dead_code)]
     fn name(&self) -> &'static str;
     fn apply(&self, ctx: &QueryContext<'_>, candidates: &mut Vec<ScoredCandidate>);
 }
@@ -42,7 +48,17 @@ impl ActivationPipeline {
             Self::new(vec![
                 Box::new(Bm25ScoringStage),
                 Box::new(VocabBridgeStage),
+                Box::new(MorphemeBridgeStage),
+                Box::new(PmiExpansionStage),
                 Box::new(CountingAugmentStage),
+                Box::new(StalenessDecayStage),
+                Box::new(SessionTfDecayStage),
+                Box::new(UseCaseAugmentStage),
+                Box::new(SynapseTraversalStage),
+                Box::new(CoactivationStage),
+                Box::new(CoreturnBoostStage),
+                Box::new(SessionClusterStage),
+                Box::new(TemporalProximityStage),
             ])
         })
     }

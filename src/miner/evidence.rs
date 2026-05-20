@@ -17,7 +17,7 @@ use crate::types::{EvidenceFact, EvidenceFamily};
 // ─── Sentence splitting ────────────────────────────────────────────────────────
 
 fn sentences(text: &str) -> Vec<&str> {
-    text.split(|c| c == '.' || c == '\n')
+    text.split(['.', '\n'])
         .map(str::trim)
         .filter(|s| s.len() > 10)
         .collect()

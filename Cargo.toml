@@ -1,6 +1,6 @@
 [package]
 name = "cortyx"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 description = "MCP-native context delivery engine — local long-term memory, prompt-cache-aware context reuse, BM25 + hybrid retrieval"
 license = "MIT"
@@ -18,7 +18,9 @@ default = ["embed", "rerank"]
 # Downloads ~80 MB of model weights on first use.
 # Enables hybrid BM25 + dense cosine retrieval with RRF fusion in get_contexts.
 # Falls back gracefully to BM25-only when embeddings.bin is absent or model not installed.
-embed = ["dep:fastembed"]
+# TurboVec (turbovec) provides 4-bit quantized SIMD ANN search: 8x RAM reduction,
+# full-corpus dense retrieval, and lock-free concurrent search.
+embed = ["dep:fastembed", "dep:turbovec", "dep:blas-src"]
 # Cross-encoder reranking via ONNX (ms-marco-MiniLM-L-2-v2 INT8 quantized, ~7 MB).
 # Place .cortyx/reranker.onnx in the project root before use.
 # Activates only on low-confidence BM25 queries (top_score < LOW_CONFIDENCE_THRESHOLD).
@@ -33,6 +35,8 @@ rayon = "1"
 regex = "1.10"
 clap = { version = "4.6.0", features = ["derive"] }
 fastembed = { version = "5", optional = true }
+turbovec = { version = "0.4.1", optional = true }
+crc32fast = "1"
 ort = { version = "=2.0.0-rc.10", optional = true }
 tokenizers = { version = "0.19", optional = true }
 notify = "8.2.0"
@@ -51,6 +55,9 @@ thiserror = "2.0.18"
 [dev-dependencies]
 tempfile = "3.27.0"
 proptest = "1.4"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+blas-src = { version = "0.10", features = ["accelerate"], optional = true }
 
 [profile.release]
 opt-level = 3

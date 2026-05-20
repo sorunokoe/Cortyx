@@ -3,6 +3,7 @@
 use crate::index;
 use std::path::Path;
 
+#[must_use]
 pub fn run(root: &Path, json_output: bool) -> i32 {
     let sep = "─".repeat(60);
 

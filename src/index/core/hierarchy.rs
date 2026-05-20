@@ -11,7 +11,7 @@ impl NeuronIndex {
     /// Returns entries sorted by name for deterministic output.
     pub fn list_modules(&self) -> Vec<ModuleSummary> {
         let mut map: HashMap<String, (usize, f32)> = HashMap::new();
-        for entry in &self.entries {
+        for entry in &self.retrieval.entries {
             if let Some(m) = entry.module.as_deref() {
                 let e = map.entry(m.to_string()).or_default();
                 e.0 += 1;
@@ -44,14 +44,18 @@ impl NeuronIndex {
     /// Returns a summary of each neuron's path, kind, staleness, and hit rate.
     pub fn list_neurons(&self, module: Option<&str>) -> Vec<NeuronSummary> {
         let indices: Vec<usize> = if let Some(m) = module {
-            self.module_index.get(m).cloned().unwrap_or_default()
+            self.retrieval
+                .module_index
+                .get(m)
+                .cloned()
+                .unwrap_or_default()
         } else {
-            (0..self.entries.len()).collect()
+            (0..self.retrieval.entries.len()).collect()
         };
         let mut result: Vec<NeuronSummary> = indices
             .into_iter()
             .map(|i| {
-                let e = &self.entries[i];
+                let e = &self.retrieval.entries[i];
                 let hit_rate = if e.use_count > 0 {
                     e.hit_count as f32 / e.use_count as f32
                 } else {
@@ -95,6 +99,7 @@ impl NeuronIndex {
         };
 
         let mut ranked = self
+            .retrieval
             .entries
             .iter()
             .filter(|entry| matches!(entry.kind, NeuronKind::Verbatim))
@@ -126,6 +131,7 @@ impl NeuronIndex {
         limit: usize,
     ) -> Vec<PublishReadySummary> {
         let mut result: Vec<PublishReadySummary> = self
+            .retrieval
             .entries
             .iter()
             .filter_map(|entry| {

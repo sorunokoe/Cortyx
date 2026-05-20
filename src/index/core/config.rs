@@ -67,6 +67,7 @@ pub(super) const QUARANTINE_THRESHOLD: f32 = 0.10;
 /// Estimated token cost per synapse-traversed neuron for dynamic budget allocation.
 /// 200 is conservative (most neurons are ~150 tokens); overhead accounts for section
 /// headers and MCP formatting. Raise if context overflows; lower to admit more neurons.
+#[allow(dead_code)]
 pub(super) const AVG_SYNAPSE_TOKEN_COST: usize = 200;
 
 /// BM25 top-score above which retrieval is considered high-confidence and dense
@@ -79,6 +80,19 @@ pub(super) const HIGH_CONFIDENCE_THRESHOLD: f32 = 8.0;
 /// 4.0 marks genuinely ambiguous queries where semantic similarity adds recall.
 /// Gap between LOW (4.0) and HIGH (8.0) is the hybrid zone where both paths run.
 pub(super) const LOW_CONFIDENCE_THRESHOLD: f32 = 4.0;
+
+/// Score multiplier applied to candidates from the active session to prevent short-term
+/// conversational echoes from overwhelming broader memory retrieval.
+pub const SESSION_SAME_SCORE_DECAY: f32 = 0.85;
+
+/// Maximum number of graph-derived candidates injected during the synapse traversal stage.
+pub const MAX_SYNAPSE_CANDIDATES: usize = MAX_CORE_NEURONS * 2;
+
+/// Maximum additive temporal boost weight applied by the temporal proximity stage.
+pub const TEMPORAL_DECAY_WEIGHT: f32 = 0.3;
+
+/// Half-life, in days, used by the exponential temporal proximity boost.
+pub const TEMPORAL_HALF_LIFE: f32 = 30.0;
 
 /// Minimum public functions in a source file to trigger UseCase sub-neuron splitting (S3).
 ///

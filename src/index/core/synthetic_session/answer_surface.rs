@@ -18,6 +18,7 @@ impl NeuronIndex {
 
         let mut buckets: HashMap<String, IndexAnswerSurfaceBucket> = HashMap::new();
         let mut candidates: Vec<_> = self
+            .retrieval
             .entries
             .iter()
             .filter(|entry| matches!(entry.kind, NeuronKind::Verbatim))
@@ -188,6 +189,7 @@ impl NeuronIndex {
         self.write_synthetic_answer("answer-surface-fallback", task, &answer, &top.evidence)
     }
 
+    #[must_use]
     pub fn synthetic_answer_surface_is_list_query(task_lower: &str) -> bool {
         task_lower.contains(" activities")
             || task_lower.contains(" books")
@@ -204,6 +206,7 @@ impl NeuronIndex {
             || task_lower.contains("self-care")
     }
 
+    #[must_use]
     pub fn synthetic_answer_surface_target_items(task_lower: &str) -> usize {
         if task_lower.contains(" activities") {
             6
@@ -366,6 +369,7 @@ impl NeuronIndex {
         }
     }
 
+    #[must_use]
     pub fn format_index_answer_surface_list(items: &[String]) -> String {
         match items {
             [] => String::new(),
@@ -407,7 +411,7 @@ impl NeuronIndex {
             return Some(path);
         }
         let entity = detect_personal_fact_entity(task)?;
-        let kg_path = kg::kg_neuron_path(&self.project_root, &entity);
+        let kg_path = kg::kg_neuron_path(&self.persistence.project_root, &entity);
         let kg_entity = kg::KgEntity::load(&kg_path).ok()?;
         let answer = latest_active_kg_value(&kg_entity, predicate)?;
         self.write_synthetic_answer(

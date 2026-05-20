@@ -12,6 +12,10 @@ use super::sync::{git_fleet_cache_dir, is_allowed_git_url, sync_fleet_node, upda
 use super::{FleetNode, FleetNodeId, FleetRegistry, FLEET_REGISTRY_VERSION};
 
 /// Path to the fleet registry file.
+///
+/// # Errors
+///
+/// Returns an error if the underlying operation fails.
 pub fn fleet_registry_path() -> Result<PathBuf> {
     let home_dir =
         dirs::home_dir().ok_or_else(|| crate::cortyx_err!("could not determine home directory"))?;
@@ -19,6 +23,10 @@ pub fn fleet_registry_path() -> Result<PathBuf> {
 }
 
 /// Load the fleet registry from disk, returning an empty registry when absent.
+///
+/// # Errors
+///
+/// Returns an error if the underlying operation fails.
 pub fn load_registry() -> Result<FleetRegistry> {
     let path = fleet_registry_path()?;
     if !path.exists() {
@@ -32,6 +40,10 @@ pub fn load_registry() -> Result<FleetRegistry> {
 }
 
 /// Save the fleet registry atomically.
+///
+/// # Errors
+///
+/// Returns an error if the underlying operation fails.
 pub fn save_registry(registry: &FleetRegistry) -> Result<()> {
     let path = fleet_registry_path()?;
     if let Some(parent) = path.parent() {
@@ -48,6 +60,10 @@ pub fn save_registry(registry: &FleetRegistry) -> Result<()> {
 }
 
 /// Register or update a project as a fleet node.
+///
+/// # Errors
+///
+/// Returns an error if the underlying operation fails.
 pub fn register_node(project_path: &Path, alias: Option<String>) -> Result<FleetNode> {
     let canonical_path = std::fs::canonicalize(project_path)?;
     let index = match NeuronIndex::load_or_create(&canonical_path) {
@@ -105,6 +121,10 @@ pub fn register_node(project_path: &Path, alias: Option<String>) -> Result<Fleet
 ///
 /// The node is cloned to `~/.cortyx/fleet/{alias}/`.
 /// Subsequent calls to `sync_fleet_node` will `git fetch --ff-only` the clone.
+///
+/// # Errors
+///
+/// Returns an error if the underlying operation fails.
 pub fn register_git_node(git_url: &str, alias: &str) -> Result<FleetNode> {
     if !is_allowed_git_url(git_url) {
         return Err(crate::cortyx_err!(
@@ -157,6 +177,10 @@ pub fn register_git_node(git_url: &str, alias: &str) -> Result<FleetNode> {
 /// Sync all git-backed fleet nodes (called at serve startup).
 ///
 /// Failures are logged as warnings; the fleet continues with its last-synced state.
+///
+/// # Errors
+///
+/// Returns an error if the underlying operation fails.
 pub fn sync_git_nodes() -> Result<()> {
     let mut registry = load_registry()?;
     let mut updated = false;
@@ -177,6 +201,10 @@ pub fn sync_git_nodes() -> Result<()> {
 }
 
 /// Remove a fleet node by alias or path string.
+///
+/// # Errors
+///
+/// Returns an error if the underlying operation fails.
 pub fn deregister_node(alias_or_path: &str) -> Result<bool> {
     let mut registry = load_registry()?;
     let canonical_match = std::fs::canonicalize(alias_or_path).ok();

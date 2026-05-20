@@ -163,6 +163,10 @@ impl ServerHandler for CortyxServer {
 // ─── Server entrypoint ────────────────────────────────────────────────────────
 
 /// Start the MCP server on STDIO (compatible with Claude Code, Cursor, Codex, Windsurf).
+///
+/// # Errors
+///
+/// Returns an error if the underlying operation fails.
 pub async fn serve(project: Option<PathBuf>) -> Result<()> {
     let project_root = match project {
         Some(p) => p.canonicalize().unwrap_or(p),
@@ -297,8 +301,8 @@ pub async fn serve(project: Option<PathBuf>) -> Result<()> {
     });
 
     // Embed feature active — hybrid BM25 + dense retrieval is wired into get_contexts.
-    // Embeddings will be loaded from .cortyx/embeddings.bin if present; falls back
-    // gracefully to BM25-only when embeddings.bin is absent or model not installed.
+    // Embeddings load from .cortyx/embeddings.tvim with .cortyx/embeddings.bin as the
+    // raw authoritative companion; falls back gracefully to BM25-only when absent.
     #[cfg(feature = "embed")]
     tracing::info!("--features embed: hybrid BM25 + dense cosine retrieval active.");
 

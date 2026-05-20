@@ -207,6 +207,7 @@ fn resolve_temporal_elapsed_gap(
 pub(super) fn grouped_verbatim_lines(idx: &NeuronIndex) -> HashMap<String, Vec<String>> {
     let mut grouped_entries: HashMap<String, Vec<&BM25Entry>> = HashMap::new();
     for entry in idx
+        .retrieval
         .entries
         .iter()
         .filter(|entry| matches!(entry.kind, NeuronKind::Verbatim))

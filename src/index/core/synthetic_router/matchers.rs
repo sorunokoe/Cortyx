@@ -7,6 +7,7 @@ impl NeuronIndex {
         limit: usize,
     ) -> Vec<(PathBuf, String)> {
         let mut matches: Vec<(usize, bool, PathBuf)> = self
+            .retrieval
             .entries
             .iter()
             .filter(|entry| matches!(entry.kind, NeuronKind::Verbatim))

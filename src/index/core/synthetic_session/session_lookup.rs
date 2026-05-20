@@ -17,6 +17,7 @@ impl NeuronIndex {
     ) -> Vec<String> {
         let ranking_terms = tokenize(task);
         let mut ranked: Vec<_> = self
+            .retrieval
             .entries
             .iter()
             .filter(|entry| {
@@ -65,6 +66,7 @@ impl NeuronIndex {
         F: FnMut(&str, &str) -> bool,
     {
         let mut entries: Vec<_> = self
+            .retrieval
             .entries
             .iter()
             .filter(|entry| {
@@ -111,9 +113,10 @@ impl NeuronIndex {
             return Vec::new();
         }
         let required_refs: Vec<&str> = required_terms.iter().map(String::as_str).collect();
+        #[allow(clippy::type_complexity)]
         let mut ranked: HashMap<String, (usize, usize, bool, HashSet<String>)> = HashMap::new();
 
-        for entry in self.entries.iter().filter(|entry| {
+        for entry in self.retrieval.entries.iter().filter(|entry| {
             matches!(entry.kind, NeuronKind::Verbatim) && !entry.session_id.is_empty()
         }) {
             let Ok(content) = std::fs::read_to_string(&entry.neuron_path) else {
@@ -250,6 +253,7 @@ impl NeuronIndex {
         limit: usize,
     ) -> Vec<(String, bool)> {
         let mut entries: Vec<_> = self
+            .retrieval
             .entries
             .iter()
             .filter(|entry| {
@@ -291,6 +295,7 @@ impl NeuronIndex {
         limit: usize,
     ) -> Vec<String> {
         let mut entries: Vec<_> = self
+            .retrieval
             .entries
             .iter()
             .filter(|entry| {
@@ -333,6 +338,7 @@ impl NeuronIndex {
         F: FnMut(&str, &str) -> bool,
     {
         let mut entries: Vec<_> = self
+            .retrieval
             .entries
             .iter()
             .filter(|entry| {
@@ -825,7 +831,7 @@ impl NeuronIndex {
         F: FnMut(&str, &str) -> bool,
     {
         let mut session_ids = Vec::new();
-        for entry in self.entries.iter().filter(|entry| {
+        for entry in self.retrieval.entries.iter().filter(|entry| {
             matches!(entry.kind, NeuronKind::Verbatim) && !entry.session_id.is_empty()
         }) {
             let Ok(content) = std::fs::read_to_string(&entry.neuron_path) else {

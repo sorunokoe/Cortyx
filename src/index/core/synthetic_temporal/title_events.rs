@@ -208,6 +208,7 @@ impl NeuronIndex {
             candidates = self.candidate_session_ids_by_line_overlap(&required_owned, 8);
         }
 
+        #[allow(clippy::type_complexity)]
         let mut best: Option<(String, usize, i32, String, usize, Vec<String>)> = None;
         for (session_id, session_rank) in candidates {
             let lines = self.find_session_lines(&session_id, false, 128, |line, lower| {
@@ -267,6 +268,7 @@ impl NeuronIndex {
             return self.write_synthetic_answer("item-usage-count", task, &rendered, &evidence);
         }
 
+        #[allow(clippy::type_complexity)]
         let mut best_fallback: Option<(i32, String, Vec<String>, Vec<String>)> = None;
         for (_, content) in self.matching_verbatim_texts(&required_terms, 32) {
             let content_lines: Vec<String> = content

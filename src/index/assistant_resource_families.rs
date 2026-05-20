@@ -253,10 +253,10 @@ fn assistant_resource_session_pool(
             sessions.push((session_id.clone(), *score));
         }
     }
-    for entry in idx
-        .entries
-        .iter()
-        .filter(|entry| matches!(entry.kind, NeuronKind::Verbatim) && !entry.session_id.is_empty())
+    for entry in
+        idx.retrieval.entries.iter().filter(|entry| {
+            matches!(entry.kind, NeuronKind::Verbatim) && !entry.session_id.is_empty()
+        })
     {
         if seen.insert(entry.session_id.clone()) {
             sessions.push((entry.session_id.clone(), 1));

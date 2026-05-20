@@ -22,6 +22,7 @@ pub struct SyncTransportConflictArtifact {
 }
 
 impl SyncTransportConflictArtifact {
+    #[must_use]
     pub fn from_envelopes(
         conflict: SyncConflict,
         local: &SyncTransportEnvelope,
@@ -35,6 +36,9 @@ impl SyncTransportConflictArtifact {
         }
     }
 
+    /// # Errors
+    ///
+    /// Returns an error if the underlying operation fails.
     pub fn load_from_path(path: &Path) -> Result<Option<Self>> {
         let Some(mut artifact) = super::read_json::<Self>(path)? else {
             return Ok(None);
@@ -43,6 +47,9 @@ impl SyncTransportConflictArtifact {
         Ok(Some(artifact))
     }
 
+    /// # Errors
+    ///
+    /// Returns an error if the underlying operation fails.
     pub fn save_to_path(&self, path: &Path) -> Result<()> {
         super::ensure_parent_dir(path)?;
         crate::neuron::atomic_write_json(path, self)
@@ -68,6 +75,7 @@ pub struct SyncRepositoryLayout {
 }
 
 impl SyncRepositoryLayout {
+    #[must_use]
     pub fn for_project(project_root: &Path) -> Self {
         Self::new(sync_transport_dir(project_root))
     }
@@ -83,6 +91,9 @@ impl SyncRepositoryLayout {
         }
     }
 
+    /// # Errors
+    ///
+    /// Returns an error if the underlying operation fails.
     pub fn ensure_exists(&self) -> Result<()> {
         for dir in [
             &self.root,
@@ -96,18 +107,22 @@ impl SyncRepositoryLayout {
         Ok(())
     }
 
+    #[must_use]
     pub fn snapshot_path(&self, neuron_uuid: &str) -> PathBuf {
         bucketed_transport_path(&self.snapshots_dir, neuron_uuid)
     }
 
+    #[must_use]
     pub fn outgoing_path(&self, neuron_uuid: &str) -> PathBuf {
         bucketed_transport_path(&self.outgoing_dir, neuron_uuid)
     }
 
+    #[must_use]
     pub fn incoming_path(&self, neuron_uuid: &str) -> PathBuf {
         bucketed_transport_path(&self.incoming_dir, neuron_uuid)
     }
 
+    #[must_use]
     pub fn conflict_path(&self, conflict: &SyncConflict) -> PathBuf {
         let neuron_uuid = safe_component(&conflict.neuron_uuid);
         let local_revision = revision_component(
@@ -132,6 +147,7 @@ pub struct SyncTransportRepository {
 }
 
 impl SyncTransportRepository {
+    #[must_use]
     pub fn for_project(project_root: &Path) -> Self {
         Self {
             layout: SyncRepositoryLayout::for_project(project_root),
@@ -144,22 +160,37 @@ impl SyncTransportRepository {
         }
     }
 
+    /// # Errors
+    ///
+    /// Returns an error if the underlying operation fails.
     pub fn ensure_layout(&self) -> Result<()> {
         self.layout.ensure_exists()
     }
 
+    /// # Errors
+    ///
+    /// Returns an error if the underlying operation fails.
     pub fn load_snapshot(&self, neuron_uuid: &str) -> Result<Option<SyncTransportEnvelope>> {
         SyncTransportEnvelope::load_from_path(&self.layout.snapshot_path(neuron_uuid))
     }
 
+    /// # Errors
+    ///
+    /// Returns an error if the underlying operation fails.
     pub fn load_outgoing(&self, neuron_uuid: &str) -> Result<Option<SyncTransportEnvelope>> {
         SyncTransportEnvelope::load_from_path(&self.layout.outgoing_path(neuron_uuid))
     }
 
+    /// # Errors
+    ///
+    /// Returns an error if the underlying operation fails.
     pub fn load_incoming(&self, neuron_uuid: &str) -> Result<Option<SyncTransportEnvelope>> {
         SyncTransportEnvelope::load_from_path(&self.layout.incoming_path(neuron_uuid))
     }
 
+    /// # Errors
+    ///
+    /// Returns an error if the underlying operation fails.
     pub fn load_conflict(
         &self,
         conflict: &SyncConflict,
@@ -167,6 +198,9 @@ impl SyncTransportRepository {
         SyncTransportConflictArtifact::load_from_path(&self.layout.conflict_path(conflict))
     }
 
+    /// # Errors
+    ///
+    /// Returns an error if the underlying operation fails.
     pub fn status_for(&self, neuron_uuid: &str) -> Result<Option<SyncTransportStatus>> {
         self.ensure_layout()?;
         let conflict_paths = self.conflict_paths_for(neuron_uuid)?;
@@ -179,6 +213,9 @@ impl SyncTransportRepository {
         )
     }
 
+    /// # Errors
+    ///
+    /// Returns an error if the underlying operation fails.
     pub fn list_statuses(&self) -> Result<Vec<SyncTransportStatus>> {
         self.ensure_layout()?;
 
@@ -229,6 +266,9 @@ impl SyncTransportRepository {
         Ok(statuses)
     }
 
+    /// # Errors
+    ///
+    /// Returns an error if the underlying operation fails.
     pub fn stage_local(&self, envelope: &SyncTransportEnvelope) -> Result<SyncStageResult> {
         self.ensure_layout()?;
 
@@ -289,6 +329,9 @@ impl SyncTransportRepository {
         }
     }
 
+    /// # Errors
+    ///
+    /// Returns an error if the underlying operation fails.
     pub fn apply_remote(&self, envelope: &SyncTransportEnvelope) -> Result<SyncPullResult> {
         self.ensure_layout()?;
 
@@ -348,6 +391,9 @@ impl SyncTransportRepository {
         }
     }
 
+    /// # Errors
+    ///
+    /// Returns an error if the underlying operation fails.
     pub fn resolve_handoff(
         &self,
         envelope: &SyncTransportEnvelope,

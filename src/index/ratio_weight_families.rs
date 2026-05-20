@@ -174,6 +174,7 @@ fn best_global_percentage_facts_all_entries(
     let mut best_part = None;
     let mut best_whole = None;
     for entry in idx
+        .retrieval
         .entries
         .iter()
         .filter(|entry| matches!(entry.kind, NeuronKind::Verbatim))

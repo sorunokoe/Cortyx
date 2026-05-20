@@ -6,8 +6,9 @@ This document covers Cortyx's module map, key data structures, concurrency model
 
 Cortyx is a Rust MCP-native context-delivery engine. It maintains a semantic
 in-memory index of project knowledge (neurons) and serves them to an LLM host
-via the Model Context Protocol. Retrieval is BM25-primary with synapse-graph
-traversal, PMI-based synonym expansion, and Hebbian co-return feedback.
+via the Model Context Protocol. Retrieval is BM25-primary with a 13-stage
+activation pipeline, synapse-graph traversal, PMI-based synonym expansion,
+Hebbian co-return feedback, and TurboVec 4-bit quantized ANN reranking.
 
 ---
 
@@ -27,33 +28,43 @@ src/
 ├── index/
 │   └── core/               — NeuronIndex + all retrieval logic
 │       ├── mod.rs          — shared imports for all index/core submodules
-│       ├── types.rs        — NeuronIndex struct (25+ fields)
+│       ├── types.rs        — NeuronIndex struct (4 domain fields) + summary types
+│       ├── domain/         — owned domain state structs (Wave 2 decomposition)
+│       │   ├── retrieval_state.rs  — BM25 corpus, adjacency, posting lists, embeddings
+│       │   ├── feedback_state.rs   — coactivation, co-return, session utilization
+│       │   ├── persistence_state.rs— project_root, WAL state, dirty flags
+│       │   └── watcher_state.rs    — dirty_set Arc shared with watcher task
 │       ├── compile.rs      — compile_dirty(), dirty_set_handle()
-│       ├── persistence.rs  — load/save with S4 delta-append optimisation
+│       ├── persistence.rs  — load/save with CRC32-hardened WAL + checksum sidecars
 │       ├── stats.rs        — Hebbian synapse formation, coactivation tracking
-│       ├── config.rs       — index-wide constants
+│       ├── config.rs       — index-wide constants (including temporal decay weights)
 │       ├── bm25/           — BM25Entry, posting-list, IDF cache
 │       └── activation/
-│           └── search.rs   — thin orchestrator (calls ActivationPipeline + Hebbian)
+│           ├── mod.rs      — module exports
+│           ├── search.rs   — 20-line thin orchestrator (calls pipeline + Hebbian)
+│           ├── phase1.rs   — phase1_candidates, rerank_candidates, ANN rerank + HyDE
+│           ├── overflow.rs — overflow handling logic
+│           └── selection.rs— select_paths, token-budget trimming
 │       └── pipeline/       — QueryContext activation pipeline (Phase 1)
 │           ├── mod.rs      — NeuronIndex::build_query_context + state-view extractors
 │           ├── stage.rs    — ActivationStage trait + ActivationPipeline runner
 │           ├── types.rs    — QueryContext<'a>, ScoredCandidate, FeedbackSnapshot,
 │           │                 RetrievalStateView, FeedbackStateView, PersistenceStateView,
 │           │                 WatcherStateView; also QueryContextFixture + test_entry for tests
-│           └── stages/     — 12 independently-testable stage structs:
-│               ├── bm25_scoring.rs     — seed + bridge BM25 scoring
-│               ├── vocab_bridge.rs     — vocabulary synonym expansion
-│               ├── morpheme_bridge.rs  — morpheme root bridging
-│               ├── pmi_expansion.rs    — PMI-based co-occurrence expansion
-│               ├── use_case_augment.rs — use-case tag matching
-│               ├── synapse_traversal.rs— graph-hop synapse traversal
-│               ├── session_cluster.rs  — session-cluster scoring
-│               ├── coreturn_boost.rs   — co-return frequency boost
-│               ├── coactivation.rs     — Hebbian co-activation scoring
-│               ├── staleness_decay.rs  — time-based staleness decay
-│               ├── counting_augment.rs — counting/quantitative query augment
-│               └── session_tf_decay.rs — intra-session TF decay
+│           └── stages/     — 13 independently-testable stage structs:
+│               ├── bm25_scoring.rs      — seed + bridge BM25 scoring
+│               ├── vocab_bridge.rs      — vocabulary synonym expansion
+│               ├── morpheme_bridge.rs   — morpheme root bridging (0.7× weight)
+│               ├── pmi_expansion.rs     — PMI co-occurrence expansion (0.5× weight)
+│               ├── use_case_augment.rs  — use-case tag matching (0.9× weight)
+│               ├── synapse_traversal.rs — 1-hop synapse graph traversal
+│               ├── session_cluster.rs   — session-cluster scoring
+│               ├── coreturn_boost.rs    — co-return frequency boost (Hebbian read)
+│               ├── coactivation.rs      — term co-activation scoring
+│               ├── staleness_decay.rs   — time-based staleness decay
+│               ├── counting_augment.rs  — counting/quantitative query augment
+│               ├── session_tf_decay.rs  — intra-session TF decay (0.85× weight)
+│               └── temporal_proximity.rs— exponential recency boost (TRIZ C3)
 ├── fleet/                  — optional local-first fleet orchestration (NEW)
 │   ├── mod.rs              — public API re-exports + FLEET_REGISTRY_VERSION
 │   ├── types.rs            — FleetNodeId (blake3 newtype), FleetNode, FleetRegistry,
@@ -91,24 +102,34 @@ src/
 The central in-memory index. All operations run in RAM; no async I/O during
 retrieval. Persisted to `.cortyx/index.json` after every mutating operation.
 
-**Retrieval pipeline fields:**
-- `entries: Vec<BM25Entry>` — BM25 corpus; index position = stable path ID
-- `path_index: HashMap<PathBuf, usize>` — maps path → entries index (path interner)
-- `posting_list: HashMap<String, Vec<usize>>` — term → entry indices
-- `df_cache: HashMap<String, u32>` — document frequency cache
-- `adjacency: HashMap<PathBuf, Vec<Synapse>>` — synapse graph
+**Wave 2 decomposition — NeuronIndex now owns four typed domain structs:**
 
-**Feedback fields:**
-- `coactivation_counts: HashMap<PathBuf, HashMap<String, u32>>` — term promotion
-  (persisted in `.cortyx/coactivation.json`)
-- `co_return_counts: Mutex<HashMap<(usize, usize), u32>>` — Hebbian pair counts
-  (in-memory only; keys are `path_index` IDs — O(8) hash vs O(path_len) PathBuf)
-- `dirty_set: Arc<Mutex<HashSet<PathBuf>>>` — hot-reload dirty registry
-  (shared with the watcher task; replaces dirty.json to eliminate TOCTOU race)
+| Field | Struct | Key contents |
+|---|---|---|
+| `retrieval` | `RetrievalState` | BM25 entries, adjacency graph, posting lists, path/module/session indexes, embeddings (TurboVec) |
+| `feedback` | `FeedbackState` | coactivation counts, co-return Hebbian pairs, session utilization |
+| `persistence` | `PersistenceState` | project_root, WAL base, dirty flags, checksum sidecars |
+| `watcher` | `WatcherState` | dirty_set Arc (shared with FSEvents/inotify watcher task) |
 
-**Write-optimization field:**
-- `wal_base: Option<u64>` — S4 delta-append size marker (⚠ NOT a WAL; no crash
-  safety, no checksums — see "S4 Delta-Append" section below)
+The original flat 25-field struct is replaced by these four composed types in
+`src/index/core/domain/`. Borrow patterns (`pub(in crate::index)` visibility)
+prevent cross-domain coupling while enabling efficient zero-copy borrows in
+`build_query_context()`.
+
+**TurboVec embedding store (`src/embedder.rs`):**
+- `EmbeddingStore` wraps `turbovec::IdMapIndex` (4-bit quantized ANN)
+- Embedding model: `NomicEmbedTextV15` (768-dim, 8192 token context)
+- `.cortyx/embeddings.bin` is the authoritative raw store (f32, EMBED_VERSION=2)
+- `.cortyx/embeddings.tvim` is the derived TurboVec ANN cache (rebuilt when stale)
+- `prepare()` warms SIMD lookup tables on load
+- Full-corpus ANN search runs in parallel with BM25 via RRF fusion
+- LLM-free pseudo-relevance feedback: query vector blended (75%+25%) with mean of top-3 BM25 candidate embeddings before ANN
+
+**Persistence hardening (`src/index/core/persistence.rs`):**
+- WAL entries use line-oriented hex CRC32 (format: `CORTYXWAL1` magic header)
+- `index.json` has a `.cortyx/index.checksum` sidecar (CRC32, verified on load)
+- Activation cache has a 4-byte CRC32 little-endian trailer
+- Corrupt WAL entries are skipped (skip-and-recover, not abort)
 
 ---
 
@@ -212,18 +233,22 @@ NeuronIndex::get_contexts_with_overflow(task, max_tokens, module, kind)
   │     returns: QueryContext<'a>
   │
   ├─► ActivationPipeline::phase1().run(&ctx, &mut candidates)
-  │     Bm25ScoringStage        — seed + bridge BM25 with δ-BM25 + hit-rate boost
-  │     VocabBridgeStage        — synonym expansion via vocab_bridge map
-  │     MorphemeBridgeStage     — morpheme root bridging
-  │     PmiExpansionStage       — PMI co-occurrence graph expansion
-  │     UseCaseAugmentStage     — use-case tag matching
-  │     SynapseTraversalStage   — 2-hop synapse graph traversal
-  │     SessionClusterStage     — session-cluster scoring
-  │     CoreturnBoostStage      — co-return frequency boost (Hebbian read)
-  │     CoactivationStage       — term co-activation scoring
-  │     StalenessDecayStage     — time-based staleness decay
-  │     CountingAugmentStage    — counting/quantitative query augment
-  │     SessionTfDecayStage     — intra-session TF decay
+  │       Bm25ScoringStage         — seed + bridge BM25 with δ-BM25 + hit-rate boost
+  │     VocabBridgeStage         — synonym expansion via vocab_bridge map
+  │     MorphemeBridgeStage      — morpheme root bridging (0.7× weight)
+  │     PmiExpansionStage        — PMI co-occurrence graph expansion (0.5× weight)
+  │     UseCaseAugmentStage      — use-case tag matching (0.9× parent score)
+  │     SynapseTraversalStage    — 1-hop synapse graph traversal
+  │     SessionClusterStage      — session-cluster scoring
+  │     CoreturnBoostStage       — co-return frequency boost (Hebbian read)
+  │     CoactivationStage        — term co-activation scoring
+  │     StalenessDecayStage      — time-based staleness decay
+  │     CountingAugmentStage     — counting/quantitative query augment
+  │     SessionTfDecayStage      — intra-session TF decay (0.85× weight)
+  │     TemporalProximityStage  — exponential recency boost: score *= 1 + bias×0.3×exp(-age/30d)
+  │
+  ├─► ANN rerank (embed feature): RRF-fuse BM25 + full-corpus TurboVec ANN
+  │     LLM-free HyDE: query_vec blended with mean of top-3 BM25 candidate embeddings
   │
   ├─► rank, token-budget slice, format output
   │
@@ -266,21 +291,28 @@ on first call if the set is empty, then deletes the file.
 
 ---
 
-## S4 Delta-Append (Persistence Optimisation)
+## S4 Delta-Append + CRC32 Persistence (`src/index/core/persistence.rs`)
 
 `src/index/core/persistence.rs`
 
-> ⚠ This is **not** a Write-Ahead Log. It does not provide crash safety.
+> ⚠ The WAL provides **crash safety for mutations** (skip-corrupt-entry recovery)
+> but is **not a full ACID transaction log**.
 
+**WAL format (Wave 1C hardening):**
+- Magic header: `CORTYXWAL1` (line-oriented text format)
+- Each entry: `{json_payload}\t{hex_crc32}\n`
+- On load: entries with mismatched CRC32 are skipped (corrupt-entry recovery)
+- Legacy BLAKE3-prefixed format (`[32 bytes][JSON]`) is still readable
+
+**Checksum sidecars:**
+- `index.json` → `.cortyx/index.checksum` (CRC32, verified on load; mismatch forces rebuild)
+- Activation cache → 4-byte CRC32 little-endian trailer (appended at write, verified at read)
+
+**Delta-append optimisation:**
 After the full `index.json` is written, subsequent small mutations (single
 neuron compiles) are appended as deltas. On the next full save the deltas are
 merged. The `wal_base` field records the byte offset of the last full save so
 the delta region can be sliced out on load.
-
-There are **no checksums** and **no recovery guarantees**. If the process is
-killed mid-append, the delta is silently dropped and the last full save is used.
-Field names (`wal_base`, `needs_full_save`) are kept for serialisation
-compatibility; the comments now describe the actual mechanism.
 
 ---
 

@@ -10,7 +10,8 @@ impl NeuronIndex {
     ///
     /// Used by `cortyx status` to surface "needs curation" count.
     pub fn low_quality_count(&self) -> usize {
-        self.entries
+        self.retrieval
+            .entries
             .iter()
             .filter(|e| e.quality_score < 0.4)
             .count()

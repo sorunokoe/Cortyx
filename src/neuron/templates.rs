@@ -5,6 +5,7 @@
 /// with extracted function signatures and types so BM25 has vocabulary from day 1.
 /// When `purpose_hint` is non-empty (A3: LLM-Free Pre-Population), the purpose section
 /// is filled with extracted doc comment lines — producing a Level-1 neuron.
+#[must_use]
 pub fn stub_core_neuron(
     source_rel: &str,
     hash: &str,
@@ -56,6 +57,7 @@ pub fn stub_core_neuron(
 }
 
 /// UseCase sub-neuron stub for a single public function (S3 lazy splitting).
+#[must_use]
 pub fn stub_function_neuron(fn_name: &str, source_rel: &str, now: &str) -> String {
     format!(
         r#"<!-- AUTO-GENERATED FUNCTION NEURON — DO NOT EDIT MANUALLY -->
@@ -83,6 +85,7 @@ pub fn stub_function_neuron(fn_name: &str, source_rel: &str, now: &str) -> Strin
 }
 
 /// Project neuron stub — one per project, auto-created at compile time.
+#[must_use]
 pub fn stub_project_neuron(project_name: &str, now: &str) -> String {
     format!(
         r#"<!-- PROJECT NEURON — fill in via cortyx_evolve_section -->

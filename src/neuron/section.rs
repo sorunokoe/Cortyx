@@ -4,6 +4,7 @@ use std::collections::HashMap;
 ///
 /// Returns `section_name → body` (content between tags, whitespace-trimmed).
 /// Handles unclosed sections (content captured until EOF or next open tag).
+#[must_use]
 pub fn parse_sections(content: &str) -> HashMap<String, String> {
     let mut map = HashMap::new();
     let mut current_name: Option<String> = None;
@@ -37,6 +38,7 @@ pub fn parse_sections(content: &str) -> HashMap<String, String> {
 ///
 /// - If `<!-- SECTION: name -->` exists: replaces its body with `new_body`.
 /// - If not found: appends the section at the end of the file.
+#[must_use]
 pub fn replace_section(content: &str, name: &str, new_body: &str) -> String {
     let mut result = String::with_capacity(content.len() + new_body.len() + 64);
     let mut in_section = false;
@@ -83,6 +85,7 @@ pub fn replace_section(content: &str, name: &str, new_body: &str) -> String {
 ///
 /// Patches `<!-- hash: … -->`, `<!-- last-updated: … -->`, and
 /// `<!-- status: … -->` lines in-place, leaving all other content intact.
+#[must_use]
 pub fn update_neuron_header(content: &str, hash: &str, now: &str) -> String {
     let mut out = content
         .lines()

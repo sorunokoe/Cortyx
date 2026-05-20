@@ -33,7 +33,7 @@ impl NeuronIndex {
                 continue;
             }
 
-            let Some(neighbors) = self.adjacency.get(&path) else {
+            let Some(neighbors) = self.retrieval.adjacency.get(&path) else {
                 continue;
             };
             for synapse in neighbors {
@@ -76,6 +76,7 @@ impl NeuronIndex {
     /// - `score ≥ 5.0` → Tier 2 (full body) — caller reads the file
     /// - `1.5 ≤ score < 5.0` → Tier 1 (summary only) — caller uses `summary_for()`
     /// - `score < 1.5` → Tier 0 (headline only, same as overflow) — already in overflow set
+    #[allow(clippy::type_complexity)]
     pub fn get_contexts_with_scores_and_overflow(
         &self,
         task: &str,
@@ -84,18 +85,20 @@ impl NeuronIndex {
         kind: Option<&str>,
         min_confidence: Option<f32>,
         multi_hop: bool,
+        temporal_bias: Option<f32>,
     ) -> (Vec<(PathBuf, f32)>, Vec<(PathBuf, String)>) {
         let Ok(query) = QueryText::new(task) else {
             return (Vec::new(), Vec::new());
         };
         // Delegation: run the full pipeline then re-score the results for tier assignment.
-        let (full_paths, overflow) = self.get_contexts_with_overflow(
+        let (full_paths, overflow) = self.get_contexts_with_overflow_and_temporal_bias(
             task,
             max_tokens,
             module,
             kind,
             min_confidence,
             multi_hop,
+            temporal_bias,
         );
         let terms = tokenize(query.as_str());
         let full_with_scores: Vec<(PathBuf, f32)> = full_paths
@@ -129,7 +132,7 @@ impl NeuronIndex {
 
         for file_path in open_files {
             // Match the open file path to an indexed neuron (suffix or substring match).
-            let entry = self.entries.iter().find(|e| {
+            let entry = self.retrieval.entries.iter().find(|e| {
                 let ep = e.neuron_path.to_string_lossy();
                 ep.ends_with(file_path.as_str()) || ep.contains(file_path.as_str())
             });

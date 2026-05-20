@@ -23,6 +23,10 @@ pub struct IsoDate(String);
 impl IsoDate {
     /// Parse a `YYYY-MM-DD` string. Returns an error on wrong length or non-digit characters.
     /// Accepts `""` as the open-ended sentinel.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the underlying operation fails.
     pub fn parse(s: &str) -> Result<Self> {
         if s.is_empty() {
             return Ok(Self(String::new()));
@@ -49,11 +53,13 @@ impl IsoDate {
     }
 
     /// The open-ended sentinel (empty string).
+    #[must_use]
     pub fn open() -> Self {
         Self(String::new())
     }
 
     /// Today's date in `YYYY-MM-DD` format, computed from `SystemTime`.
+    #[must_use]
     pub fn today() -> Self {
         let secs = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -65,11 +71,13 @@ impl IsoDate {
     }
 
     /// Returns `true` if this is the open-ended sentinel.
+    #[must_use]
     pub fn is_open(&self) -> bool {
         self.0.is_empty()
     }
 
     /// Borrow the inner `YYYY-MM-DD` string, or `""` for open.
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -78,6 +86,7 @@ impl IsoDate {
     ///
     /// `ended.is_open()` means "still active". `valid_from.is_open()` means
     /// "active from the beginning of time".
+    #[must_use]
     pub fn is_active_at(valid_from: &Self, ended: &Self, as_of: &Self) -> bool {
         if !ended.is_open() && as_of >= ended {
             return false;

@@ -65,6 +65,7 @@ const STOP_WORDS: &[&str] = &[
 ///
 /// Returns a list of lowercase, deduplicated tokens with BM25 weight 0.3×.
 /// Falls back to comment-only extraction if git is unavailable or the file is untracked.
+#[must_use]
 pub fn extract_soft_terms(source_abs: &Path) -> Vec<String> {
     let mut terms: std::collections::HashSet<String> = std::collections::HashSet::new();
 
@@ -137,6 +138,7 @@ fn extract_git_terms(source_abs: &Path) -> Vec<String> {
 ///
 /// Handles `//`, `///`, `#`, `--` comment styles.
 /// Strips common comment prefixes and tokenizes the rest.
+#[must_use]
 pub fn extract_comment_terms(content: &str) -> Vec<String> {
     let mut all = Vec::new();
     for line in content.lines() {

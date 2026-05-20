@@ -29,6 +29,7 @@ const ALLOWED_PREFIXES: &[&str] = &[
 ];
 
 /// Validate that `url` is in the git fleet allowlist.
+#[must_use]
 pub fn is_allowed_git_url(url: &str) -> bool {
     ALLOWED_PREFIXES
         .iter()
@@ -36,6 +37,10 @@ pub fn is_allowed_git_url(url: &str) -> bool {
 }
 
 /// Local clone directory for a git-backed fleet node.
+///
+/// # Errors
+///
+/// Returns an error if the underlying operation fails.
 pub fn git_fleet_cache_dir(alias: &str) -> Result<PathBuf> {
     let home =
         dirs::home_dir().ok_or_else(|| crate::cortyx_err!("could not determine home directory"))?;
@@ -49,6 +54,10 @@ pub fn git_fleet_cache_dir(alias: &str) -> Result<PathBuf> {
 /// - On fetch failure: log a warning and return `Ok(())` (offline-safe).
 ///
 /// Returns the local path of the clone.
+///
+/// # Errors
+///
+/// Returns an error if the underlying operation fails.
 pub fn sync_fleet_node(node: &FleetNode) -> Result<()> {
     let url = match &node.git_url {
         Some(u) => u,

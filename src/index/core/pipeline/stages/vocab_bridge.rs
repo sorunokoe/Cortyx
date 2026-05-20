@@ -1,7 +1,9 @@
 use super::super::{ActivationStage, QueryContext, ScoredCandidate};
+use super::sort_candidates;
 use crate::index::core::is_session_summary_path;
 use crate::neuron::NeuronKind;
 
+/// Falls back to bridge vocabulary when direct posting-list lookup yields no candidates.
 pub struct VocabBridgeStage;
 
 impl ActivationStage for VocabBridgeStage {
@@ -34,6 +36,8 @@ impl ActivationStage for VocabBridgeStage {
                 candidates.push(ScoredCandidate::new(idx, score, entry.tokens));
             }
         }
+
+        sort_candidates(candidates);
     }
 }
 
@@ -100,5 +104,26 @@ mod tests {
         assert_eq!(candidates.len(), 1);
         assert_eq!(candidates[0].entry_idx, 0);
         assert!(candidates[0].score > 0.0);
+    }
+
+    #[test]
+    fn sorts_bridge_candidates_by_score_descending() {
+        let weaker = test_entry("auth_guard.md", NeuronKind::Core, &[("auth_guard", 1.0)]);
+        let stronger = test_entry("oauth_guard.md", NeuronKind::Core, &[("auth_guard", 3.0)]);
+        let fixture = QueryContextFixture::new(vec![weaker, stronger]);
+        let mut ctx = fixture.ctx("authentication");
+        ctx.bridge_candidate_ids = [0usize, 1].into_iter().collect();
+        ctx.bridge_ranking_terms = vec!["auth_guard".into()];
+
+        let mut candidates = Vec::new();
+        VocabBridgeStage.apply(&ctx, &mut candidates);
+
+        assert_eq!(
+            candidates
+                .iter()
+                .map(|candidate| candidate.entry_idx)
+                .collect::<Vec<_>>(),
+            vec![1, 0]
+        );
     }
 }

@@ -80,6 +80,7 @@ pub fn detect_temporal_query(task: &str) -> bool {
 /// R21 T2: Detect "oldest-first" temporal queries — questions about the FIRST/EARLIEST occurrence.
 /// Returns true when the query is looking backwards in time (oldest event, first mention).
 /// Complement of `detect_temporal_query`'s "most recent" direction.
+#[allow(dead_code)]
 pub fn detect_oldest_query(task: &str) -> bool {
     const OLDEST_MARKERS: &[&str] = &[
         "what was the first",

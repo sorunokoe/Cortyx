@@ -63,6 +63,10 @@ fn install_ux_proof(registered: usize, already: usize, created: usize) -> String
 /// writes Claude Code hook scripts (S3).
 ///
 /// Returns a human-readable summary of all actions taken.
+///
+/// # Errors
+///
+/// Returns an error if the underlying operation fails.
 pub fn run_install(global: bool) -> Result<String> {
     let exe = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("cortyx"));
 

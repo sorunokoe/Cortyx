@@ -27,6 +27,7 @@ pub struct StructuredDiaryEntry {
 ///
 /// This is the gate between storing a diary entry as raw free-form text versus
 /// rendering the full structured `# Agent memory` format.
+#[must_use]
 pub fn has_structured_diary_fields(
     title: Option<&str>,
     status: Option<&str>,
@@ -53,6 +54,7 @@ pub fn has_structured_diary_fields(
 /// value` metadata lines and optional `## action` / `## outcome` sections. If no
 /// structured fields survive normalization, the function returns the normalized
 /// action text by itself.
+#[must_use]
 pub fn render_structured_diary_entry(
     agent: &str,
     action: &str,
@@ -124,6 +126,7 @@ pub fn render_structured_diary_entry(
     out.trim_end().to_string()
 }
 
+#[must_use]
 pub fn render_structured_diary_entry_from_entry(entry: &StructuredDiaryEntry) -> String {
     let mut rendered = render_structured_diary_entry(
         entry.agent.as_deref().unwrap_or("agent"),
@@ -159,6 +162,7 @@ pub fn render_structured_diary_entry_from_entry(entry: &StructuredDiaryEntry) ->
 /// `# Agent memory` header, `- key: value` metadata lines, and `## action` /
 /// `## outcome` sections. Field values are normalized as they are extracted,
 /// and `None` is returned when no structured diary markers or fields are found.
+#[must_use]
 pub fn parse_structured_diary_entry(content: &str) -> Option<StructuredDiaryEntry> {
     #[derive(Clone, Copy)]
     enum Section {
@@ -270,6 +274,7 @@ pub fn parse_structured_diary_entry(content: &str) -> Option<StructuredDiaryEntr
 /// The summary prefers title/goal/action as the headline and truncates long
 /// inline fields to 96 characters with an ellipsis so it stays compact in
 /// timelines, history views, and collaboration summaries.
+#[must_use]
 pub fn entry_summary(entry: &StructuredDiaryEntry) -> String {
     let headline = entry
         .title
@@ -314,6 +319,7 @@ pub fn entry_summary(entry: &StructuredDiaryEntry) -> String {
 }
 
 /// Backward-compatible alias for [`entry_summary`].
+#[must_use]
 pub fn summarize_structured_diary_entry(entry: &StructuredDiaryEntry) -> String {
     entry_summary(entry)
 }

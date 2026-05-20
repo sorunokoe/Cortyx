@@ -12,6 +12,10 @@ use std::path::Path;
 /// Before each evolve_context or evolve_section call, Cortyx saves the previous content
 /// to `meta.shadow_sections[key]`. This function restores the latest saved step and
 /// leaves older shadows available for repeated rollback calls.
+///
+/// # Errors
+///
+/// Returns an error if the underlying operation fails.
 pub fn run_section(neuron: &Path, section: &str) -> Result<()> {
     let meta_p = meta_path(neuron);
     let data = std::fs::read_to_string(&meta_p)

@@ -54,6 +54,7 @@ const IDENTITY_STOPWORDS: &[&str] = &[
     "agent", "copilot", "device", "github", "local", "noreply", "user", "users",
 ];
 
+#[must_use]
 pub fn agent_entity_name(agent: &str) -> String {
     format!("agent_{}", kg::slugify(agent))
 }

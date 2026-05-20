@@ -18,7 +18,7 @@ pub(super) async fn update_session_tf(server: &CortyxServer, task: &str) {
 
 pub(super) async fn apply_path_history_boost(
     server: &CortyxServer,
-    paths_with_scores: &mut Vec<(PathBuf, f32)>,
+    paths_with_scores: &mut [(PathBuf, f32)],
 ) {
     let path_history = server.session_path_history.lock().await;
     if !path_history.is_empty() {
