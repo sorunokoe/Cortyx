@@ -440,9 +440,19 @@ pub fn load_embeddings(project_root: &Path) -> EmbeddingStore {
     match EmbeddingStore::load(&path) {
         Ok(store) => store,
         Err(e) => {
-            tracing::warn!(
-                "Failed to load embeddings cache: {e} — falling back to BM25-only retrieval"
-            );
+            let needs_rebuild = e.to_string().contains("Unsupported embeddings");
+            if needs_rebuild {
+                tracing::warn!(
+                    "Embedding cache is incompatible with this version of Cortyx: {e}\n\
+                     → Delete .cortyx/embeddings.bin and .cortyx/embeddings.tvim, \
+                     then rerun `cortyx compile --features embed` to rebuild.\n\
+                     → Falling back to BM25-only retrieval until rebuilt."
+                );
+            } else {
+                tracing::warn!(
+                    "Failed to load embeddings cache: {e} — falling back to BM25-only retrieval"
+                );
+            }
             EmbeddingStore::new()
         },
     }
