@@ -34,6 +34,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`EmbeddingLoad::NeedsRebuild` auto-rebuild** — when `EMBED_VERSION` in the stored `.bin` mismatches the compiled constant, a background tokio task automatically rebuilds the embedding store instead of returning an error.
 - **Anchor prefix stripping** — `strip_anchor_prefix()` removes `"As of <DATE>, "` prefixes before all temporal parsers, eliminating false-early anchoring that degraded date extraction accuracy.
 
+### Fixed
+- **Read-after-write race in KG extraction** (`src/main.rs` — `extract_observation_dates_to_kg`) — the function previously called `entity.save()` then immediately re-read the file from disk via `fs::read_to_string`. A concurrent write to the same KG neuron path in that window could cause the BM25 index to record stale content. Fixed by capturing `entity.render()` in memory before `save()` and using that string directly for indexing. `KgEntity::render()` is now `pub`.
+
 ### Changed
 - `benchmarks/registry.json` — added `cold-start-centrality` and `temporal-reasoning-f1` (floor = 0.40) entries; updated `scale-2k-activation` to measured `~80ms p95`; updated `binary-size-release` to `~30MB`.
 - `BENCHMARKS.md` — cold-start centrality section, temporal reasoning floor documentation, TurboVec scale-2K measurement.
