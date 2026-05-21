@@ -83,7 +83,7 @@ jobs:
 
       - name: Proof certificate gate
         # Fails if any proof-certificate headline still comes from a fallback value.
-        run: cargo run --quiet --bin cortyx -- proof-certificate --validate
+        run: cargo run --quiet --no-default-features --bin cortyx -- proof-certificate --validate
 
       - name: Registry scorecard (visibility)
         run: python3 scripts/benchmark_registry.py scorecard
