@@ -433,29 +433,57 @@ impl EmbeddingStore {
     }
 }
 
+/// Result of loading the embedding store at startup.
+#[cfg(feature = "embed")]
+pub enum EmbeddingLoad {
+    /// Embeddings loaded successfully and are ready for hybrid retrieval.
+    Ready(EmbeddingStore),
+    /// Embeddings could not be loaded because the on-disk version is stale.
+    NeedsRebuild(EmbeddingStore),
+}
+
+#[cfg(feature = "embed")]
+impl EmbeddingLoad {
+    /// Discard the status and return the usable in-memory store.
+    pub fn into_store(self) -> EmbeddingStore {
+        match self {
+            Self::Ready(store) | Self::NeedsRebuild(store) => store,
+        }
+    }
+
+    /// Return `true` when the on-disk embeddings need a full rebuild.
+    pub fn needs_rebuild(&self) -> bool {
+        matches!(self, Self::NeedsRebuild(_))
+    }
+}
+
 /// Load the embedding store from `.cortyx/embeddings.tvim`.
 #[cfg(feature = "embed")]
-pub fn load_embeddings(project_root: &Path) -> EmbeddingStore {
+pub fn load_embeddings_with_status(project_root: &Path) -> EmbeddingLoad {
     let path = embeddings_index_path(project_root);
     match EmbeddingStore::load(&path) {
-        Ok(store) => store,
+        Ok(store) => EmbeddingLoad::Ready(store),
         Err(e) => {
-            let needs_rebuild = e.to_string().contains("Unsupported embeddings");
-            if needs_rebuild {
+            if e.to_string().contains("Unsupported embeddings.bin version") {
                 tracing::warn!(
-                    "Embedding cache is incompatible with this version of Cortyx: {e}\n\
-                     → Delete .cortyx/embeddings.bin and .cortyx/embeddings.tvim, \
-                     then rerun `cortyx compile --features embed` to rebuild.\n\
-                     → Falling back to BM25-only retrieval until rebuilt."
+                    "Embedding cache is incompatible with this version of Cortyx: {e} — \
+                     falling back to BM25-only retrieval until embeddings are rebuilt."
                 );
+                EmbeddingLoad::NeedsRebuild(EmbeddingStore::new())
             } else {
                 tracing::warn!(
                     "Failed to load embeddings cache: {e} — falling back to BM25-only retrieval"
                 );
+                EmbeddingLoad::Ready(EmbeddingStore::new())
             }
-            EmbeddingStore::new()
         },
     }
+}
+
+/// Load the embedding store from `.cortyx/embeddings.tvim`, discarding rebuild status.
+#[cfg(feature = "embed")]
+pub fn load_embeddings(project_root: &Path) -> EmbeddingStore {
+    load_embeddings_with_status(project_root).into_store()
 }
 
 /// Persist the embedding store to `.cortyx/embeddings.bin` and `.cortyx/embeddings.tvim`.

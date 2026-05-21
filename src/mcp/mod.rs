@@ -189,7 +189,48 @@ pub async fn serve(project: Option<PathBuf>, frozen: bool) -> Result<()> {
         );
     }
 
+    #[cfg(feature = "embed")]
+    let embed_rebuild_requested = idx.take_embedding_rebuild_needed();
+    #[cfg(feature = "embed")]
+    let embed_rebuild_paths = if embed_rebuild_requested {
+        idx.neuron_paths_and_use_counts()
+            .into_iter()
+            .map(|(path, _)| path)
+            .collect::<Vec<_>>()
+    } else {
+        Vec::new()
+    };
+
     let index = Arc::new(RwLock::new(idx));
+
+    #[cfg(feature = "embed")]
+    if embed_rebuild_requested {
+        tracing::info!(
+            "EMBED_VERSION mismatch — background re-embed scheduled (serving BM25-only until complete)"
+        );
+        let index = Arc::clone(&index);
+        let project_root_for_embed = project_root.clone();
+        tokio::spawn(async move {
+            if embed_rebuild_paths.is_empty() {
+                tracing::warn!(
+                    "embed: no neurons available for background re-embed — continuing in BM25-only mode"
+                );
+                return;
+            }
+            let reembed_count = embed_rebuild_paths.len();
+            if let Err(err) = tokio::task::spawn_blocking(move || {
+                miner::embed_all(&embed_rebuild_paths, &project_root_for_embed);
+            })
+            .await
+            {
+                tracing::warn!("embed: background re-embed task failed: {err}");
+                return;
+            }
+            let mut idx = index.write().await;
+            idx.reload_embeddings();
+            tracing::info!(reembed_count, "embed: background re-embed finished");
+        });
+    }
 
     // P19 Periodic Action: re-apply synapse LTD every 24 h during active serve.
     // Ensures synapses go stale in long-running servers without a restart.

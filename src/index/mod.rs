@@ -3,7 +3,7 @@
 #![allow(unused_imports)]
 
 #[cfg(feature = "embed")]
-use crate::embedder::{load_embeddings, EmbeddingStore};
+use crate::embedder::EmbeddingStore;
 
 use crate::error::Result;
 use rayon::prelude::*;

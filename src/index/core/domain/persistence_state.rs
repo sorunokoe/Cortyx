@@ -14,6 +14,8 @@ pub(crate) struct PersistenceState {
     pub(in crate::index) delta_base: AtomicUsize,
     pub(in crate::index) delta_dirty: AtomicBool,
     pub(in crate::index) structural_artifacts_dirty: AtomicBool,
+    #[cfg(feature = "embed")]
+    pub(in crate::index) embedding_rebuild_needed: AtomicBool,
     pub(in crate::index) dirty_sidecars: std::sync::Mutex<HashSet<PathBuf>>,
 }
 

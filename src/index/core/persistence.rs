@@ -1,6 +1,8 @@
 //! Persistence helpers and serialized index types.
 
 use super::family_prelude::*;
+#[cfg(feature = "embed")]
+use crate::embedder::load_embeddings_with_status;
 
 // ─── Write-ahead log ─────────────────────────────────────────────────────────
 //
@@ -119,6 +121,15 @@ fn verify_index_checksum(project_root: &Path, index_path: &Path) -> bool {
         return true;
     }
     false
+}
+
+#[cfg(feature = "embed")]
+fn assign_loaded_embeddings(idx: &mut NeuronIndex, project_root: &Path) {
+    let load = load_embeddings_with_status(project_root);
+    idx.persistence
+        .embedding_rebuild_needed
+        .store(load.needs_rebuild(), Ordering::Relaxed);
+    idx.retrieval.embeddings = std::sync::Arc::new(load.into_store());
 }
 
 fn append_crc32_wal_line(buf: &mut Vec<u8>, prefix: Option<&str>, payload: &[u8]) {
@@ -514,7 +525,7 @@ impl NeuronIndex {
         idx.persistence.project_root = project_root.to_path_buf();
         #[cfg(feature = "embed")]
         {
-            idx.retrieval.embeddings = std::sync::Arc::new(load_embeddings(project_root));
+            assign_loaded_embeddings(&mut idx, project_root);
         }
         #[cfg(feature = "embed")]
         idx.retrieval.embeddings.prepare();
@@ -678,9 +689,16 @@ impl NeuronIndex {
     /// Reload the embedding store from disk (called after `cortyx compile --embed`).
     #[cfg(feature = "embed")]
     pub fn reload_embeddings(&mut self) {
-        self.retrieval.embeddings =
-            std::sync::Arc::new(load_embeddings(&self.persistence.project_root));
+        let project_root = self.persistence.project_root.clone();
+        assign_loaded_embeddings(self, &project_root);
         self.retrieval.embeddings.prepare();
+    }
+
+    #[cfg(feature = "embed")]
+    pub fn take_embedding_rebuild_needed(&self) -> bool {
+        self.persistence
+            .embedding_rebuild_needed
+            .swap(false, Ordering::Relaxed)
     }
 
     /// Serialize the index to `.cortyx/index.json` atomically (write-then-rename).
@@ -1017,10 +1035,18 @@ impl NeuronIndex {
         idx.retrieval.session_index = cache.session_index;
         idx.retrieval.pmi_neighbors = cache.pmi_neighbors;
         idx.retrieval.idf_n = cache.idf_n;
+        idx.feedback.total_activations.store(
+            idx.retrieval
+                .entries
+                .iter()
+                .map(|entry| entry.use_count.load(Ordering::Relaxed) as u64)
+                .sum(),
+            Ordering::Relaxed,
+        );
         idx.persistence.delta_base = AtomicUsize::new(cache.delta_base);
         #[cfg(feature = "embed")]
         {
-            idx.retrieval.embeddings = std::sync::Arc::new(load_embeddings(project_root));
+            assign_loaded_embeddings(&mut idx, project_root);
         }
         Some(idx)
     }
