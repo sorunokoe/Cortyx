@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`cortyx proof-certificate [--validate]`** — prints a live, reproducible proof of all benchmark claims sourced from `benchmarks/registry.json`. `--validate` exits 1 if any metric is still at its default (unmeasured) value; CI now runs this gate on every push.
+- **`serve --frozen` mode** — all feedback writes (hit counts, use counts) are gated when frozen; prevents benchmark noise from accumulating during measurement runs.
+- **Session boundary tracking** — a 5-minute inactivity poller fires `on_session_end()`, which drains provisional hits with a floor mark rather than a miss, eliminating phantom negative feedback when a task ends without an explicit `cortyx_close_task`.
+- **`ImplicitFeedbackTier` enum** (`src/mcp/tools/context/mod.rs`) — `Explicit` (≥30 response-term overlap), `SoftOverlap` (≥15 terms), `Miss` (no-op). `Miss` no longer calls `record_hit(false)`, so context that was retrieved but unused no longer accumulates false-negative signal.
+- **Structural centrality cold-start prior** — each entry's import/call in-degree is recorded at derive time as `structural_centrality: f32`. Applied at 0.2× weight, decaying to zero at 200 activations. P3 Local Quality gate: boost only fires when the entry's file stem overlaps query tokens.
+- **Capsule hash sidecar** — each capsule file gets a `.hash` sidecar written at save time; on next read, hash mismatch emits a stale-capsule HTML comment warning instead of serving outdated content silently.
+- **Temporal IE improvements** (`src/answer_plane/scoring/date_utils.rs`) — ISO-8601 datetime parsing, `ExplicitDateMatch` enum (Day/Month variants) for accurate date-range extraction, anchored relative-date resolution (`last Tuesday`, `3 months ago` resolved against session base date), guard excluding session metadata timestamp comments from base-date extraction.
+- **KG temporal BM25 alias injection** — temporal facts stored in the knowledge graph are indexed into BM25 with month-name and ordinal date aliases, enabling KG fact retrieval via natural-language temporal queries.
+- **`EmbeddingLoad::NeedsRebuild` auto-rebuild** — when `EMBED_VERSION` in the stored `.bin` mismatches the compiled constant, a background tokio task automatically rebuilds the embedding store instead of returning an error.
+- **Anchor prefix stripping** — `strip_anchor_prefix()` removes `"As of <DATE>, "` prefixes before all temporal parsers, eliminating false-early anchoring that degraded date extraction accuracy.
+
+### Changed
+- `benchmarks/registry.json` — added `cold-start-centrality` and `temporal-reasoning-f1` (floor = 0.40) entries; updated `scale-2k-activation` to measured `~80ms p95`; updated `binary-size-release` to `~30MB`.
+- `BENCHMARKS.md` — cold-start centrality section, temporal reasoning floor documentation, TurboVec scale-2K measurement.
+
 ---
 
 ## [0.4.0] — 2026-05-20

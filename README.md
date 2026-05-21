@@ -161,6 +161,9 @@ cortyx fleet register <path> [--alias <name>]  # Register a peer project as a fl
 cortyx fleet deregister <alias-or-path>        # Remove a node from the fleet
 cortyx fleet list                              # Show all registered fleet nodes
 cortyx fleet status                            # Fleet health summary (node count, modules)
+cortyx proof-certificate            # Print live benchmark proof sourced from benchmarks/registry.json
+cortyx proof-certificate --validate # Exit 1 if any metric is unmeasured (CI gate)
+cortyx serve --frozen               # Start MCP server in frozen mode (all feedback writes disabled)
 cortyx install                     # Auto-configure all detected LLM clients
 ```
 

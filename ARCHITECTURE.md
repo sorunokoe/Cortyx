@@ -75,10 +75,12 @@ src/
 │   ├── merge.rs            — rrf_merge() — append fleet context after local output
 │   └── tests.rs            — unit tests (registry roundtrip, merge, threshold)
 ├── mcp/
-│   ├── mod.rs              — CortyxServer (+ fleet_registry field), serve(), URL allowlist
+│   ├── mod.rs              — CortyxServer (+ fleet_registry field), serve(), URL allowlist,
+│   │                         5-min inactivity poller, session_active AtomicBool, --frozen gate
+│   ├── feedback_buffer.rs  — FeedbackBuffer; provisional_hits drain on on_session_end()
 │   ├── helpers/
 │   │   ├── meta_io.rs      — neuron metadata helpers (CortyxError, no anyhow)
-│   │   └── server_impl.rs  — for_benchmark() constructor (used in tests)
+│   │   └── server_impl.rs  — for_benchmark() constructor; last_activity refresh on tool call
 │   └── tools/
 │       ├── context/        — get_contexts handler (Phase 5 decomposition)
 │       │   ├── mod.rs      — thin orchestrator: InflightGuard acquisition + dispatch
@@ -386,6 +388,14 @@ resolution applied.
 | **C2** Fixed emission tier thresholds misaligned with confidence constants | PC | P1 Segmentation, P35 Parameter Changes | `mcp/helpers/context_render.rs` | `select_emission_tier()` thresholds now use LOW_CONFIDENCE=4.0 / HIGH_CONFIDENCE=8.0; Focused fills 4–8 gap |
 | **C6** Fixed Hebbian threshold ignores signal consistency (fixed count=10) | PC | P11 Cushion in Advance, P35 Parameter Changes | `index/core/stats.rs`, `index/core/activation/search.rs` | Wilson score lower bound at z=1.0 replaces fixed threshold; strong pairs wire at count≈3, noisy pairs never wire; sentinel = u32::MAX prevents overshoot |
 | **C7** Static fleet merge weight 0.3 ignores result quality | PC | P15 Dynamics | `fleet/merge.rs`, `mcp/tools/fleet.rs` | `dynamic_fleet_weight(top_score)` — sigmoid-shaped [0.10, 0.50]; baseline 0.30 at midpoint=4.0 (LOW_CONFIDENCE) |
+| **C3** Temporal anchor prefix poisons date parsers | TC | P10 Preliminary Action | `answer_plane/temporal/` | `strip_anchor_prefix()` strips `"As of <DATE>, "` from query text before all temporal parsers |
+| **C4** Cold-start no signal for new entries | TC | P3 Local Quality + P35 Parameter Changes | `index/core/impl_helpers/` | `structural_centrality: f32` import/call in-degree prior; 0.2× weight decaying to 0 at 200 activations; file-stem overlap gate |
+| **C5** Benchmark claims unverifiable | AC | P22 Turn Harm into Benefit | `main.rs`, `cli.rs`, `benchmarks/registry.json` | `cortyx proof-certificate [--validate]` reads live registry; `--validate` exits 1 on unmeasured metrics; CI gate added |
+| **C6** Capsule staleness invisible to agent | TC | P23 Feedback | `mcp/tools/context/mod.rs` | `.hash` sidecar written at save time; mismatch on read emits stale-capsule HTML comment warning |
+| **C7** Feedback poisoning from soft misses | PC | P1 Segmentation + P3 Local Quality | `mcp/tools/context/mod.rs`, `mcp/feedback_buffer.rs` | `ImplicitFeedbackTier` enum — `Miss` is a no-op; floor hits via `on_session_end()` only |
+| **C8** Benchmark noise from live feedback writes | TC | P15 Dynamics | `mcp/mod.rs` | `serve --frozen` gates all feedback writes on `!frozen` |
+| **C9** Temporal reasoning synthesis gap (F1 ≈ 0) | TC | P28 Replace Mechanical System + P25 Self-Service | `answer_plane/scoring/date_utils.rs`, `index/core/impl_helpers/indexer.rs` | ISO-8601 parsing, `ExplicitDateMatch` enum, anchored relative-date resolution, KG→BM25 alias injection |
+| **NC2** Embedding version mismatch causes hard error | AC | P25 Self-Service | `src/embedder.rs` | `EmbeddingLoad::NeedsRebuild` → background tokio rebuild; no user intervention required |
 
 **Deferred (too invasive for automated refactor):**
 
