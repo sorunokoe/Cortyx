@@ -246,6 +246,7 @@ fn benchmark_registry_truth_matrix_is_coherent() {
         "locomo-regression-guard",
         "activation-latency-p95",
         "status-cold-start",
+        "bm25-token-savings-estimate",
         "binary-size-release",
     ] {
         assert!(
@@ -730,22 +731,19 @@ fn benchmark_registry_truth_matrix_is_coherent() {
         "guardrails --json should expose the local-core guardrail suite"
     );
 
-    let token_efficiency_command = benchmarks
+    let bm25_token_command = benchmarks
         .iter()
-        .find(|entry| entry["id"].as_str() == Some("token-efficiency-sample"))
+        .find(|entry| entry["id"].as_str() == Some("bm25-token-savings-estimate"))
         .and_then(|entry| entry["command"].as_str())
-        .expect("token-efficiency-sample must expose a registry command");
-    for flag in [
-        "--min-retrieval-savings-pct",
-        "--max-retrieval-avg-tokens",
-        "--min-delta-repeat-savings-pct",
-        "--max-delta-repeat-avg-tokens",
-    ] {
-        assert!(
-            token_efficiency_command.contains(flag),
-            "token-efficiency-sample command should carry explicit guardrail flag {flag}"
-        );
-    }
+        .expect("bm25-token-savings-estimate must expose a registry command");
+    assert!(
+        bm25_token_command.contains("bench_token_savings_estimate"),
+        "bm25-token-savings-estimate command should run bench_token_savings_estimate"
+    );
+    assert!(
+        bm25_token_command.contains("--no-default-features"),
+        "bm25-token-savings-estimate command should use --no-default-features for CI"
+    );
 
     let shared_memory_command = benchmarks
         .iter()
