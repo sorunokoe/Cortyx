@@ -1,7 +1,7 @@
 //! Content extraction from individual lines.
 
 use super::super::*;
-use crate::index::compile_regex;
+use crate::index::{compile_regex, compile_regex_static};
 
 pub fn small_count_word_lower(value: i32) -> Option<&'static str> {
     match value {
@@ -69,7 +69,7 @@ pub fn extract_meetup_count_surface_from_line(line: &str, lower: &str) -> Option
     {
         return None;
     }
-    let raw = compile_regex(
+    let raw = compile_regex_static(
         r"(?i)\bmet up\s+(once|twice|thrice|one|two|three|four|five|six|seven|eight|nine|ten|\d+)(?:\s+times?)?\b",
     )
     .captures(line)
@@ -97,7 +97,7 @@ pub fn extract_meetup_count_from_line(line: &str, lower: &str) -> Option<i32> {
     {
         return None;
     }
-    let raw = compile_regex(
+    let raw = compile_regex_static(
         r"(?i)\bmet up\s+(once|twice|thrice|one|two|three|four|five|six|seven|eight|nine|ten|\d+)(?:\s+times?)?\b",
     )
     .captures(line)
@@ -116,7 +116,7 @@ pub fn extract_item_usage_count_surface_from_line(
             if !(task_contains_any(lower, &["worn", "wore"]) && lower.contains("times")) {
                 return None;
             }
-            compile_regex(
+            compile_regex_static(
                 r"(?i)\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d+)\s+times?\b",
             )
             .captures(line)
@@ -127,7 +127,7 @@ pub fn extract_item_usage_count_surface_from_line(
             if !(lower.contains("trip") || lower.contains("adventure")) {
                 return None;
             }
-            compile_regex(
+            compile_regex_static(
                 r"(?i)\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d+)\s+(?:trip|trips|adventures)\b",
             )
             .captures(line)
@@ -152,7 +152,7 @@ pub fn extract_women_count_from_line(line: &str, lower: &str) -> Option<i32> {
     if !lower.contains("women") {
         return None;
     }
-    let raw = compile_regex(
+    let raw = compile_regex_static(
         r"(?i)\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d+)\s+women\b",
     )
     .captures(line)
@@ -165,7 +165,7 @@ pub fn extract_weight_loss_answer_from_line(line: &str, lower: &str) -> Option<(
     if !lower.contains("lost") || !lower.contains("pound") {
         return None;
     }
-    let captures = compile_regex(
+    let captures = compile_regex_static(
         r"(?i)\b(?:lost|down)\s+(about\s+)?(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d+)\s+pounds?\b",
     )
     .captures(line)?;
@@ -196,7 +196,7 @@ pub fn extract_frequency_surface_from_line(line: &str, lower: &str) -> Option<St
     if lower.contains("every day") || lower.contains("daily") {
         return Some("every day".to_string());
     }
-    compile_regex(
+    compile_regex_static(
         r"(?i)\b(once|twice|thrice|one|two|three|four|five|\d+)\s+times?\s+(?:a|per)\s+(day|week|month|year)\b",
     )
     .captures(line)
@@ -214,7 +214,7 @@ pub fn extract_time_answer_from_line(line: &str) -> Option<String> {
     ]
     .into_iter()
     .find_map(|pattern| {
-        compile_regex(pattern)
+        compile_regex_static(pattern)
             .captures(line)
             .and_then(|caps| caps.get(1))
             .map(|m| m.as_str().trim().to_string())
@@ -226,7 +226,7 @@ pub fn extract_focus_aligned_time_answer_from_line(
     lower: &str,
     focus_terms: &[String],
 ) -> Option<String> {
-    let pattern = compile_regex(r"(?i)\b(\d{1,2}(?::\d{2})?\s?(?:AM|PM))\b");
+    let pattern = compile_regex_static(r"(?i)\b(\d{1,2}(?::\d{2})?\s?(?:AM|PM))\b");
     let matches = pattern
         .captures_iter(line)
         .filter_map(|caps| caps.get(1))
@@ -278,7 +278,7 @@ pub fn extract_points_answer_from_line(line: &str, lower: &str) -> Option<String
     if !(lower.contains("score") || lower.contains("points")) {
         return None;
     }
-    let raw = compile_regex(r"(?i)\b(\d+)\s+points\b")
+    let raw = compile_regex_static(r"(?i)\b(\d+)\s+points\b")
         .captures(line)
         .and_then(|caps| caps.get(1))
         .map(|m| m.as_str().trim())?;
@@ -289,7 +289,7 @@ pub fn extract_record_answer_from_line(line: &str, lower: &str) -> Option<String
     if !(lower.contains("record") || lower.contains("we're") || lower.contains("we are")) {
         return None;
     }
-    compile_regex(r"\b(\d+\s*-\s*\d+)\b")
+    compile_regex_static(r"\b(\d+\s*-\s*\d+)\b")
         .captures(line)
         .and_then(|caps| caps.get(1))
         .map(|m| m.as_str().trim().replace(' ', ""))
@@ -299,7 +299,7 @@ pub fn extract_status_answer_from_line(line: &str, lower: &str) -> Option<String
     if !lower.contains("status") {
         return None;
     }
-    compile_regex(r"(?i)\b(Premier\s+(?:Silver|Gold|Platinum|Bronze|Diamond|1K))\s+status\b")
+    compile_regex_static(r"(?i)\b(Premier\s+(?:Silver|Gold|Platinum|Bronze|Diamond|1K))\s+status\b")
         .captures(line)
         .and_then(|caps| caps.get(1))
         .map(|m| m.as_str().trim().to_string())
@@ -314,7 +314,7 @@ pub fn extract_level_goal_answer_from_line(line: &str, lower: &str) -> Option<St
     {
         return None;
     }
-    compile_regex(r"(?i)\b(level\s+\d+)\b")
+    compile_regex_static(r"(?i)\b(level\s+\d+)\b")
         .captures(line)
         .and_then(|caps| caps.get(1))
         .map(|m| m.as_str().trim().to_ascii_lowercase())
@@ -399,7 +399,7 @@ pub fn extract_gadget_purchase_item_from_line(line: &str, lower: &str) -> Option
     ) {
         return None;
     }
-    compile_regex(
+    compile_regex_static(
         r"(?i)\b(?:my\s+new\s+|my\s+|the\s+)?((?:[a-z0-9][a-z0-9+-]*)(?:\s+[a-z0-9][a-z0-9+-]*){0,2}\s(?:pot|fryer|mixer|blender|processor|maker|oven|grill|toaster|microwave|cooker|skillet))\b",
     )
     .captures_iter(line)
@@ -432,7 +432,7 @@ pub fn extract_lens_purchase_item_from_line(line: &str, lower: &str) -> Option<S
     {
         return None;
     }
-    let phrase = compile_regex(
+    let phrase = compile_regex_static(
         r"(?i)\b(?:old\s+|new\s+)?((?:\d{1,3}(?:-\d{1,3})?mm|[a-z]+(?:-[a-z]+)?)(?:\s+[a-z]+(?:-[a-z]+)?){0,2}\s+lens)\b",
     )
     .captures_iter(line)

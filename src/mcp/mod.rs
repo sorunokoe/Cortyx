@@ -8,11 +8,12 @@ use rmcp::{
     model::{Implementation, ServerCapabilities, ServerInfo},
     tool_handler, ServerHandler, ServiceExt,
 };
-use std::collections::{HashMap, HashSet};
+#[cfg(test)]
+use std::collections::HashMap;
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::RwLock;
 
 use crate::agent_memory::{
     has_structured_diary_fields, parse_structured_diary_entry, render_structured_diary_entry,
@@ -45,11 +46,15 @@ use crate::sync_transport::{sync_transport_dir, SyncTransportRepository, SyncTra
 use crate::verify_gate;
 use crate::watcher;
 
+mod feedback_buffer;
 mod helpers;
+mod session_state;
 mod tools;
 mod types;
 
+use self::feedback_buffer::FeedbackBuffer;
 use self::helpers::*;
+use self::session_state::{ContextSnapshot, SessionState};
 use self::tools::tool_router as build_tool_router;
 pub use types::*;
 
@@ -69,7 +74,7 @@ const MAX_TASK_BYTES: usize = 4_096;
 /// The check is advisory — it guards response-building work, not input deserialization.
 const MAX_INFLIGHT_BYTES: usize = 64 * 1_048_576; // 64 MB
 
-#[allow(dead_code)]
+/// RAII guard that releases reserved in-flight bytes when the handler finishes.
 pub(crate) struct InflightGuard<'a>(&'a std::sync::atomic::AtomicUsize, usize);
 
 impl Drop for InflightGuard<'_> {
@@ -83,26 +88,8 @@ impl Drop for InflightGuard<'_> {
 pub struct CortyxServer {
     project_root: PathBuf,
     index: Arc<RwLock<NeuronIndex>>,
-    /// Paths returned by the most recent cortyx_get_contexts call.
-    /// Used by cortyx_close_task to auto-record hits without an explicit list.
-    last_activated: Arc<Mutex<Vec<PathBuf>>>,
-    /// Ephemeral carry-over of the last returned paths.
-    /// This is cleared on the next get_contexts or close_task so external shutdown hooks
-    /// do not silently convert control-plane activity into training signals.
-    provisional_hits: Arc<Mutex<Vec<PathBuf>>>,
-    /// Server-side snapshots for delta-mode context emission.
-    context_sessions: Arc<Mutex<HashMap<String, ContextSnapshot>>>,
-    next_context_handle: Arc<AtomicU64>,
-    /// Session-scoped term frequency vector for vocabulary adaptation (TRIZ Innovation A).
-    /// Accumulates terms from each get_contexts query in the current session.
-    /// After ≥3 uses, terms are injected as soft query boosts (0.3× weight) into
-    /// subsequent BM25 lookups — biasing retrieval toward the session's working vocabulary
-    /// without any persistent storage or LLM calls.
-    session_tf: Arc<Mutex<HashMap<String, f32>>>,
-    /// Session-scoped path history for content-level continuity (δ-mem SSW analogue).
-    /// Tracks recently retrieved paths with exponential decay (λ=0.8 per call).
-    /// Paths that were recently retrieved get a soft score boost on the next retrieval.
-    session_path_history: Arc<Mutex<HashMap<PathBuf, f32>>>,
+    session: Arc<SessionState>,
+    feedback: Arc<FeedbackBuffer>,
     /// Running sum of bytes currently being processed across all concurrent handlers.
     /// Handlers that build large responses increment this before work and decrement after.
     inflight_bytes: Arc<std::sync::atomic::AtomicUsize>,
@@ -110,13 +97,6 @@ pub struct CortyxServer {
     // Kept for the rmcp macro-generated dispatch table; not called directly.
     #[allow(dead_code)]
     tool_router: ToolRouter<Self>,
-}
-
-#[derive(Clone, Default)]
-struct ContextSnapshot {
-    order: u64,
-    chunks: HashMap<PathBuf, String>,
-    overflow: HashMap<PathBuf, String>,
 }
 
 #[derive(Clone)]
@@ -162,6 +142,17 @@ impl ServerHandler for CortyxServer {
 
 // ─── Server entrypoint ────────────────────────────────────────────────────────
 
+/// Derive a deterministic startup offset (0..3600s) from the project root path.
+/// Spreads fleet processes without randomness — same root always gets the same offset.
+fn decay_jitter_secs(project_root: &Path) -> u64 {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+
+    let mut hasher = DefaultHasher::new();
+    project_root.hash(&mut hasher);
+    hasher.finish() % 3600
+}
+
 /// Start the MCP server on STDIO (compatible with Claude Code, Cursor, Codex, Windsurf).
 ///
 /// # Errors
@@ -200,9 +191,11 @@ pub async fn serve(project: Option<PathBuf>) -> Result<()> {
     // Ensures synapses go stale in long-running servers without a restart.
     {
         let index = Arc::clone(&index);
+        let project_root_for_decay = project_root.clone();
         tokio::spawn(async move {
+            let jitter = decay_jitter_secs(&project_root_for_decay);
+            tokio::time::sleep(std::time::Duration::from_secs(jitter)).await;
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(86_400));
-            interval.tick().await; // skip first tick — startup already ran decay
             loop {
                 interval.tick().await;
                 let mut idx = index.write().await;
@@ -233,7 +226,7 @@ pub async fn serve(project: Option<PathBuf>) -> Result<()> {
                     return;
                 }
 
-                let remote_url = tokio::process::Command::new("git")
+                let remote_url = tokio::process::Command::new(crate::git_util::git_binary())
                     .args(["remote", "get-url", "origin"])
                     .current_dir(&global_dir)
                     .output()
@@ -265,12 +258,12 @@ pub async fn serve(project: Option<PathBuf>) -> Result<()> {
 
                 // 5-second hard timeout — network hang cannot stall the server.
                 let pull_fut = async {
-                    tokio::process::Command::new("git")
+                    tokio::process::Command::new(crate::git_util::git_binary())
                         .args(["pull", "--ff-only", "origin", "main"])
                         .current_dir(&global_dir)
                         .output()
                         .await
-                        .or(tokio::process::Command::new("git")
+                        .or(tokio::process::Command::new(crate::git_util::git_binary())
                             .args(["pull", "--ff-only", "origin", "master"])
                             .current_dir(&global_dir)
                             .output()
@@ -306,9 +299,8 @@ pub async fn serve(project: Option<PathBuf>) -> Result<()> {
     #[cfg(feature = "embed")]
     tracing::info!("--features embed: hybrid BM25 + dense cosine retrieval active.");
 
-    let provisional_hits = Arc::new(Mutex::new(Vec::new()));
-    let context_sessions = Arc::new(Mutex::new(HashMap::new()));
-    let next_context_handle = Arc::new(AtomicU64::new(0));
+    let feedback = Arc::new(FeedbackBuffer::default());
+    let session = Arc::new(SessionState::default());
     let fleet_registry = match crate::fleet::load_registry() {
         Ok(registry) if !registry.nodes.is_empty() => {
             tracing::info!("Fleet: {} registered node(s)", registry.nodes.len());
@@ -327,12 +319,8 @@ pub async fn serve(project: Option<PathBuf>) -> Result<()> {
     let server = CortyxServer {
         project_root,
         index: Arc::clone(&index),
-        last_activated: Arc::new(Mutex::new(Vec::new())),
-        provisional_hits: Arc::clone(&provisional_hits),
-        context_sessions,
-        next_context_handle,
-        session_tf: Arc::new(Mutex::new(HashMap::new())),
-        session_path_history: Arc::new(Mutex::new(HashMap::new())),
+        session: Arc::clone(&session),
+        feedback: Arc::clone(&feedback),
         inflight_bytes: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
         fleet_registry: fleet_registry.clone(),
         tool_router: CortyxServer::tool_router(),
@@ -346,7 +334,7 @@ pub async fn serve(project: Option<PathBuf>) -> Result<()> {
         .waiting()
         .await
         .map_err(|e| crate::error::CortyxError::Other(e.to_string()))?;
-    let flushed = flush_provisional_hits_async(&index, &provisional_hits).await?;
+    let flushed = flush_provisional_hits_async(&index, &feedback.provisional_hits).await?;
     if flushed > 0 {
         tracing::info!("S2: explicitly cleared {flushed} provisional paths before shutdown");
     }

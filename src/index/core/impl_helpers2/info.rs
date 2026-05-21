@@ -42,10 +42,11 @@ impl NeuronIndex {
 
     pub fn context_metadata_for(&self, path: &Path) -> Option<ContextMetadata> {
         self.entry_by_path(path).map(|entry| {
-            let hit_rate = if entry.use_count == 0 {
+            let use_count = entry.use_count.load(std::sync::atomic::Ordering::Relaxed);
+            let hit_rate = if use_count == 0 {
                 0.0
             } else {
-                entry.hit_count as f32 / entry.use_count as f32
+                entry.hit_count as f32 / use_count as f32
             };
             ContextMetadata {
                 kind: entry.kind.clone(),
@@ -53,7 +54,7 @@ impl NeuronIndex {
                 summary: entry.summary.clone(),
                 timestamp_secs: entry.timestamp_secs,
                 tokens: entry.tokens,
-                use_count: entry.use_count,
+                use_count,
                 hit_count: entry.hit_count,
                 hit_rate,
             }

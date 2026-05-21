@@ -59,13 +59,13 @@ pub(super) fn entity_line_bonus(query: &EntityRecallQuery, line: &str, lower: &s
 pub(super) fn extract_value_candidate(query: &ValueRecallQuery, line: &str) -> Option<String> {
     match query.kind {
         ValueKind::Money => extract_money_answer_from_line(line),
-        ValueKind::Handle => compile_regex(r"@[A-Za-z0-9_.]+")
+        ValueKind::Handle => compile_regex_static(r"@[A-Za-z0-9_.]+")
             .find(line)
             .map(|value| value.as_str().trim().to_string()),
-        ValueKind::Phone => compile_regex(r"\+\d[\d\s()/.-]+\d")
+        ValueKind::Phone => compile_regex_static(r"\+\d[\d\s()/.-]+\d")
             .find(line)
             .map(|value| value.as_str().trim().to_string()),
-        ValueKind::Ratio => compile_regex(r"\b\d+\s*:\s*\d+\b")
+        ValueKind::Ratio => compile_regex_static(r"\b\d+\s*:\s*\d+\b")
             .find(line)
             .map(|value| value.as_str().trim().to_string()),
         ValueKind::Year => extract_year_candidate(query, line),
@@ -79,7 +79,9 @@ pub(super) fn value_line_bonus(query: &ValueRecallQuery, line: &str) -> usize {
         ValueKind::Handle => usize::from(line.contains('@')) * 8,
         ValueKind::Phone => usize::from(line.to_ascii_lowercase().contains("phone")) * 8,
         ValueKind::Ratio => usize::from(line.contains(':')) * 6,
-        ValueKind::Year => usize::from(compile_regex(r"\b(?:19|20)\d{2}\b").is_match(line)) * 6,
+        ValueKind::Year => {
+            usize::from(compile_regex_static(r"\b(?:19|20)\d{2}\b").is_match(line)) * 6
+        },
         ValueKind::Count => usize::from(extract_value_candidate(query, line).is_some()) * 6,
     }
 }
@@ -131,7 +133,8 @@ fn extract_count_candidate(query: &ValueRecallQuery, line: &str) -> Option<Strin
         let pattern = compile_regex(&format!(
             r"(?i)\b(\d+(?:-\d+)?)\s+{}s?\b",
             regex::escape(singular)
-        ));
+        ))
+        .unwrap_or_else(|err| panic!("escaped assistant-fact regex failed to compile: {err}"));
         if let Some(value) = pattern
             .captures(line)
             .and_then(|caps| caps.get(0))
@@ -163,7 +166,7 @@ fn extract_year_candidate(query: &ValueRecallQuery, line: &str) -> Option<String
     ) {
         return None;
     }
-    compile_regex(r"\b(?:19|20)\d{2}\b")
+    compile_regex_static(r"\b(?:19|20)\d{2}\b")
         .find(line)
         .map(|value| value.as_str().trim().to_string())
 }
@@ -324,7 +327,7 @@ fn named_thing_query_expects_venue_location(query: &EntityRecallQuery) -> bool {
 }
 
 fn extract_named_venue_location(line: &str) -> Option<(&'static str, String)> {
-    compile_regex(r"(?i)\blocated\s+(at|in|on)\s+([^.,;]+?)\s+(?:that|which|with|where|who|serves|offers|has|is)\b")
+    compile_regex_static(r"(?i)\blocated\s+(at|in|on)\s+([^.,;]+?)\s+(?:that|which|with|where|who|serves|offers|has|is)\b")
         .captures(line)
         .and_then(|caps| {
             let preposition = caps.get(1)?.as_str().to_ascii_lowercase();
@@ -407,7 +410,7 @@ fn extract_named_subject_after_label(line: &str) -> Option<String> {
 }
 
 fn extract_leading_fact_name(line: &str) -> Option<String> {
-    compile_regex(
+    compile_regex_static(
         r"^(?:\d+\.\s*)?([A-Za-z0-9@][A-Za-z0-9@&+./'_-]*(?:\s+[A-Za-z0-9][A-Za-z0-9@&+./'_-]*){0,5})\s*(?:\(|,| is | was )",
     )
     .captures(&normalize_session_answer_line_body(line))
@@ -575,17 +578,21 @@ fn title_case_words(value: &str) -> String {
 }
 
 fn extract_role_person_from_line(line: &str) -> Option<String> {
-    compile_regex(r"(?i)\b((?:Dr\.\s+)?[A-Z][A-Za-z.'-]+(?:\s+[A-Z][A-Za-z.'-]+){0,4}),\s+the ")
-        .captures(line)
-        .and_then(|caps| caps.get(1))
-        .map(|value| trim_fact_value(value.as_str()))
+    compile_regex_static(
+        r"(?i)\b((?:Dr\.\s+)?[A-Z][A-Za-z.'-]+(?:\s+[A-Z][A-Za-z.'-]+){0,4}),\s+the ",
+    )
+    .captures(line)
+    .and_then(|caps| caps.get(1))
+    .map(|value| trim_fact_value(value.as_str()))
 }
 
 fn extract_chapter_phrase_from_line(line: &str) -> Option<String> {
-    compile_regex(r#"(?i)\b(Chapter\s+\d+(?:\s+of\s+Book\s+\d+)?(?:,\s+titled\s+["“][^"”]+["”])?)"#)
-        .captures(line)
-        .and_then(|caps| caps.get(1))
-        .map(|value| trim_fact_value(value.as_str()))
+    compile_regex_static(
+        r#"(?i)\b(Chapter\s+\d+(?:\s+of\s+Book\s+\d+)?(?:,\s+titled\s+["“][^"”]+["”])?)"#,
+    )
+    .captures(line)
+    .and_then(|caps| caps.get(1))
+    .map(|value| trim_fact_value(value.as_str()))
 }
 
 fn extract_wearing_phrase_from_line(line: &str, lower: &str) -> Option<String> {
@@ -627,7 +634,7 @@ fn extract_implemented_algorithm_from_line(line: &str, lower: &str) -> Option<St
 fn extract_any_quoted_phrase(line: &str) -> Option<String> {
     extract_first_quoted_phrase(line)
         .or_else(|| {
-            compile_regex(r#"“([^”]+)”"#)
+            compile_regex_static(r#"“([^”]+)”"#)
                 .captures(line)
                 .and_then(|caps| caps.get(1))
                 .map(|value| value.as_str().trim().to_string())

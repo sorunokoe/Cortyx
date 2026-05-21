@@ -31,7 +31,8 @@ pub(super) fn extract_count_before_phrase(lower: &str, phrase: &str) -> Option<u
     let pattern = compile_regex(&format!(
         r"(?i)\b(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+{}\b",
         regex::escape(phrase)
-    ));
+    ))
+    .unwrap_or_else(|err| panic!("escaped quantity regex failed to compile: {err}"));
     let captures = pattern.captures(lower)?;
     parse_count_token(captures.get(1)?.as_str())
 }

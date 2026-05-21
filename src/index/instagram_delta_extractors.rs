@@ -76,9 +76,10 @@ pub(super) fn extract_instagram_direct_delta_candidate(
         }
     }
     let lower = lower.trim();
-    if let Some(captures) =
-        compile_regex(r"(?i)\bfrom\s+(\d{1,7})\s+followers?\b.*?\bto\s+(\d{1,7})\s+followers?\b")
-            .captures(line)
+    if let Some(captures) = compile_regex_static(
+        r"(?i)\bfrom\s+(\d{1,7})\s+followers?\b.*?\bto\s+(\d{1,7})\s+followers?\b",
+    )
+    .captures(line)
     {
         let start = captures.get(1)?.as_str().parse::<i32>().ok()?;
         let end = captures.get(2)?.as_str().parse::<i32>().ok()?;
@@ -93,10 +94,11 @@ pub(super) fn extract_instagram_direct_delta_candidate(
             });
         }
     }
-    let delta = compile_regex(r"(?i)\b(?:grew|increased|gained)\s+by\s+(\d{1,7})\s+followers?\b")
-        .captures(line)
-        .and_then(|captures| captures.get(1))
-        .and_then(|value| value.as_str().parse::<i32>().ok())?;
+    let delta =
+        compile_regex_static(r"(?i)\b(?:grew|increased|gained)\s+by\s+(\d{1,7})\s+followers?\b")
+            .captures(line)
+            .and_then(|captures| captures.get(1))
+            .and_then(|value| value.as_str().parse::<i32>().ok())?;
     (delta > 0).then_some(InstagramDeltaCandidate {
         delta,
         score: 30
@@ -163,7 +165,7 @@ fn is_instagram_growth_line(line: &str, lower: &str) -> bool {
 }
 
 fn extract_instagram_follower_counts(line: &str) -> Vec<i32> {
-    compile_regex(r"(?i)\b(\d{1,7})\s+followers?\b")
+    compile_regex_static(r"(?i)\b(\d{1,7})\s+followers?\b")
         .captures_iter(line)
         .filter_map(|captures| captures.get(1))
         .filter_map(|value| value.as_str().parse::<i32>().ok())

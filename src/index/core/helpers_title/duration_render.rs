@@ -1,5 +1,5 @@
 use super::*;
-use crate::index::compile_regex;
+use crate::index::{compile_regex, compile_regex_static};
 
 pub(in crate::index) fn extract_title_duration_value(
     line: &str,
@@ -22,7 +22,7 @@ pub(in crate::index) fn extract_title_duration_value(
 }
 
 pub(in crate::index) fn parse_leading_duration_value(text: &str) -> Option<SyntheticDurationValue> {
-    let regex = compile_regex(
+    let regex = compile_regex_static(
         r"(?i)^\s*(?:about\s+|around\s+)?(a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|couple|few|\d+(?:\.\d+)?)(\s+and\s+a\s+half)?\s+(day|days|week|weeks|month|months|year|years)\b",
     );
     let caps = regex.captures(text)?;

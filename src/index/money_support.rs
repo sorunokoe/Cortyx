@@ -246,7 +246,7 @@ pub(super) fn line_matches_spend_focus(lower: &str, focus: &SpendFocus) -> bool 
 
 pub(super) fn extract_money_after_markers(line: &str, patterns: &[&str]) -> Option<i64> {
     patterns.iter().find_map(|pattern| {
-        compile_regex(pattern)
+        compile_regex_static(pattern)
             .captures(line)
             .and_then(|captures| captures.get(1))
             .and_then(|value| parse_money_cents(value.as_str()))
@@ -266,7 +266,7 @@ pub(super) fn parse_money_cents(raw: &str) -> Option<i64> {
 }
 
 pub(super) fn extract_percent_basis_points(line: &str) -> Option<i64> {
-    let raw = compile_regex(r"(?i)(\d+(?:\.\d+)?)%")
+    let raw = compile_regex_static(r"(?i)(\d+(?:\.\d+)?)%")
         .captures(line)
         .and_then(|captures| captures.get(1))
         .map(|value| value.as_str())?;
@@ -355,6 +355,7 @@ fn line_matches_gift_recipient_focus(lower: &str, focus: &SpendFocus) -> bool {
             compile_regex(&format!(
                 r"(?i)\b(?:got|bought|purchased|gave|ordered|treated)\b.{{0,20}}\b{escaped}\b"
             ))
+            .unwrap_or_else(|err| panic!("escaped gift-recipient regex failed to compile: {err}"))
             .is_match(lower)
         })
 }
@@ -364,7 +365,11 @@ fn gift_recipient_term_matches(lower: &str, term: &str) -> bool {
         return false;
     }
     let escaped = regex::escape(term);
-    compile_regex(&format!(r"(?i)\b{}(?:'s)?\b", escaped)).is_match(lower)
+    compile_regex(&format!(r"(?i)\b{}(?:'s)?\b", escaped))
+        .unwrap_or_else(|err| {
+            panic!("escaped gift-recipient ownership regex failed to compile: {err}")
+        })
+        .is_match(lower)
 }
 
 fn format_grouped_dollars(dollars: u64) -> String {

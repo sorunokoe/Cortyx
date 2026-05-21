@@ -114,7 +114,7 @@ pub(super) fn extract_video_recall_answer(
         }
     }
     let title = extract_first_quoted_phrase(line)?;
-    let url = compile_regex(r"https?://[^\s>]+")
+    let url = compile_regex_static(r"https?://[^\s>]+")
         .find(line)
         .map(|value| value.as_str().trim_end_matches('>').to_string())?;
     Some(format!("The video is '{}' and the link is {}.", title, url))
@@ -124,7 +124,7 @@ pub(super) fn extract_website_recall_answer(line: &str, lower: &str) -> Option<S
     if !lower.contains("website") {
         return None;
     }
-    compile_regex(r"(?i)^(?:\d+\.\s*)?([^:]+):")
+    compile_regex_static(r"(?i)^(?:\d+\.\s*)?([^:]+):")
         .captures(line)
         .and_then(|captures| captures.get(1))
         .map(|value| value.as_str().trim().trim_matches('*').trim().to_string())
@@ -139,14 +139,14 @@ pub(super) fn website_query_matches_line(query: &WebsiteRecallQuery, lower: &str
 }
 
 pub(super) fn looks_like_website_label(value: &str) -> bool {
-    compile_regex(r"(?i)^[A-Za-z0-9-]+\.(?:org|com|net|edu|io)$").is_match(value.trim())
+    compile_regex_static(r"(?i)^[A-Za-z0-9-]+\.(?:org|com|net|edu|io)$").is_match(value.trim())
 }
 
 pub(super) fn extract_example_entity_from_line(line: &str, lower: &str) -> Option<String> {
     if !lower.contains("for example") {
         return None;
     }
-    compile_regex(r"\bFor example,\s+([A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+)*)\b")
+    compile_regex_static(r"\bFor example,\s+([A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+)*)\b")
         .captures(line)
         .and_then(|captures| captures.get(1))
         .map(|value| value.as_str().trim().to_string())

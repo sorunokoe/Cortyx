@@ -20,7 +20,7 @@ impl NeuronIndex {
         kind: Option<&str>,
         temporal_bias: Option<f32>,
     ) -> Vec<PathBuf> {
-        let Some(mut ctx) = self.build_query_context(task, max_tokens, module, kind) else {
+        let Ok(mut ctx) = self.build_query_context(task, max_tokens, module, kind) else {
             return Vec::new();
         };
         Self::set_ctx_temporal_bias(&mut ctx, temporal_bias);

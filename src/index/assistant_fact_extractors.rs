@@ -325,7 +325,7 @@ pub(super) fn trim_fact_value(value: &str) -> String {
 }
 
 fn extract_times_count_render(task: &str) -> Option<AssistantFactAnswerRender> {
-    let capture = compile_regex(
+    let capture = compile_regex_static(
         r"(?i)how many times did\s+(?:the\s+)?(.+?)\s+play\s+(?:the\s+)?(.+?)\s+at\s+([^?.,]+)",
     )
     .captures(task)?;

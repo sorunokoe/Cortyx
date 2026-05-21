@@ -60,8 +60,9 @@ pub(super) fn extract_weight_purchase_fact_from_line(
     {
         return None;
     }
-    let captures = compile_regex(r"(?i)\b(\d+)\s*(?:-| )?(pounds?|lbs?|kilograms?|kgs?|kg)\b")
-        .captures(line)?;
+    let captures =
+        compile_regex_static(r"(?i)\b(\d+)\s*(?:-| )?(pounds?|lbs?|kilograms?|kgs?|kg)\b")
+            .captures(line)?;
     let value = captures.get(1)?.as_str().parse::<i64>().ok()?;
     let unit = normalize_weight_unit(captures.get(2)?.as_str())?;
     let descriptor = weight_descriptor_key(lower, query).unwrap_or_else(|| query.focus.key.clone());
@@ -144,7 +145,7 @@ pub(super) fn extract_percentage_part_fact_from_line(
             {
                 return None;
             }
-            let value = compile_regex(r"(?i)\b(\d+)\s+of\s+the\b")
+            let value = compile_regex_static(r"(?i)\b(\d+)\s+of\s+the\b")
                 .captures(line)
                 .and_then(|captures| captures.get(1))
                 .and_then(|value| value.as_str().parse::<i64>().ok())
@@ -211,9 +212,10 @@ fn parse_weight_total_query(task_lower: &str) -> Option<WeightTotalQuery> {
     {
         return None;
     }
-    let captures =
-        compile_regex(r"(?i)total weight of (?:the )?(.+?)\s+i\s+(?:purchased|bought|got)\b")
-            .captures(task_lower)?;
+    let captures = compile_regex_static(
+        r"(?i)total weight of (?:the )?(.+?)\s+i\s+(?:purchased|bought|got)\b",
+    )
+    .captures(task_lower)?;
     let focus = build_query_focus(captures.get(1)?.as_str())?;
     let is_feed_like = task_contains_any(captures.get(1)?.as_str(), &["feed", "grain", "grains"]);
     let mut required_terms = focus.required_terms.clone();
@@ -342,7 +344,7 @@ fn weight_focus_matches(lower: &str, query: &WeightTotalQuery) -> bool {
 }
 
 fn weight_descriptor_key(lower: &str, query: &WeightTotalQuery) -> Option<String> {
-    let captured = compile_regex(
+    let captured = compile_regex_static(
         r"(?i)\b\d+\s*(?:-| )?(?:pounds?|lbs?|kilograms?|kgs?|kg)\s+of\s+([a-z][a-z\s-]{0,48})",
     )
     .captures(lower)

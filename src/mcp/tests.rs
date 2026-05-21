@@ -416,6 +416,33 @@ fn resolve_neuron_store_path_accepts_neuron_and_rejects_escape() {
 }
 
 #[test]
+fn inflight_guard_drop_releases_reserved_bytes() {
+    let inflight = std::sync::atomic::AtomicUsize::new(64);
+    {
+        let _guard = InflightGuard(&inflight, 64);
+        assert_eq!(inflight.load(std::sync::atomic::Ordering::Acquire), 64);
+    }
+    assert_eq!(inflight.load(std::sync::atomic::Ordering::Acquire), 0);
+}
+
+#[test]
+fn decay_jitter_in_range() {
+    for path in [
+        std::path::Path::new("/Users/example/project"),
+        std::path::Path::new("/Users/example/project/nested"),
+        std::path::Path::new("/opt/cortyx"),
+    ] {
+        assert!(decay_jitter_secs(path) < 3600);
+    }
+}
+
+#[test]
+fn decay_jitter_deterministic() {
+    let path = std::path::Path::new("/Users/example/project");
+    assert_eq!(decay_jitter_secs(path), decay_jitter_secs(path));
+}
+
+#[test]
 fn build_augmented_task_includes_editor_and_error_terms() {
     let dir = tempfile::tempdir().unwrap();
     let mut index = NeuronIndex::default();

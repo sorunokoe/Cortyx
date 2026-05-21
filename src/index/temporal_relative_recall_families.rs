@@ -139,7 +139,7 @@ fn extract_relative_book_answer(line: &str) -> Option<String> {
     let body = normalize_session_answer_line_body(line);
     let title = extract_first_quoted_phrase(&body)?;
     let quoted_pattern = format!(r#""{}"\s+by\s+([^,.!?]+)"#, regex::escape(&title));
-    if let Some(author) = compile_regex(&quoted_pattern)
+    if let Some(author) = compile_regex_static(&quoted_pattern)
         .captures(&body)
         .and_then(|captures| captures.get(1))
         .map(|matched| matched.as_str().trim())
@@ -152,7 +152,7 @@ fn extract_relative_book_answer(line: &str) -> Option<String> {
 fn extract_relative_source_person_answer(line: &str) -> Option<String> {
     let body = normalize_session_answer_line_body(line);
     let acquisition_regex =
-        compile_regex(r"(?i)\b(got|received|acquired)\b[^.?!]*?\bfrom\s+([^,.!?]+)");
+        compile_regex_static(r"(?i)\b(got|received|acquired)\b[^.?!]*?\bfrom\s+([^,.!?]+)");
     let mut best: Option<(usize, String)> = None;
     for captures in acquisition_regex.captures_iter(&body) {
         let verb = captures
@@ -185,7 +185,7 @@ fn extract_relative_source_person_answer(line: &str) -> Option<String> {
         }
     }
     best.map(|(_, giver)| giver).or_else(|| {
-        compile_regex(r"(?i)\bfrom\s+([^,.!?]+)")
+        compile_regex_static(r"(?i)\bfrom\s+([^,.!?]+)")
             .captures(&body)
             .and_then(|captures| captures.get(1))
             .map(|matched| clean_relative_giver_phrase(matched.as_str()))
@@ -194,7 +194,7 @@ fn extract_relative_source_person_answer(line: &str) -> Option<String> {
 }
 
 fn clean_relative_giver_phrase(raw: &str) -> String {
-    compile_regex(
+    compile_regex_static(
         r"(?i)\s+(today|yesterday|this morning|this afternoon|last (?:monday|tuesday|wednesday|thursday|friday|saturday|sunday))$",
     )
     .replace(raw.trim().split(" and ").next().unwrap_or_default().trim(), "")
@@ -207,7 +207,7 @@ fn extract_relative_direct_object_answer(
     query: &RelativeTemporalRecallQuery,
 ) -> Option<String> {
     let body = normalize_session_answer_line_body(line);
-    let regex = compile_regex(
+    let regex = compile_regex_static(
         r"(?i)\b(?:made|cooked|baked|prepared)\s+((?:a|an|the|some)\s+[^,.!?]+?)(?:[,!.?]|$)",
     );
     let mut best: Option<(usize, String)> = None;
@@ -224,7 +224,7 @@ fn extract_relative_direct_object_answer(
         let score = relative_temporal_focus_overlap(&lower, &query.focus_terms) * 10
             + usize::from(lower.contains("friend")) * 10
             + usize::from(lower.contains("birthday")) * 5;
-        let value = compile_regex(r"(?i)\s+for\b.*$|\s+that\b.*$")
+        let value = compile_regex_static(r"(?i)\s+for\b.*$|\s+that\b.*$")
             .replace(object.as_str().trim(), "")
             .trim()
             .to_string();
@@ -246,7 +246,7 @@ fn extract_relative_event_clause_answer(
 ) -> Option<String> {
     let body = normalize_session_answer_line_body(line);
     let mut best: Option<(usize, String)> = None;
-    for sentence in compile_regex(r"[.!?]+")
+    for sentence in compile_regex_static(r"[.!?]+")
         .split(&body)
         .map(str::trim)
         .filter(|sentence| !sentence.is_empty())
@@ -276,13 +276,13 @@ fn extract_relative_event_clause_answer(
             sentence.truncate(idx);
         }
     }
-    sentence = compile_regex(r"(?i)^i just\s+")
+    sentence = compile_regex_static(r"(?i)^i just\s+")
         .replace(&sentence, "I ")
         .into_owned();
-    sentence = compile_regex(r"(?i)\bmy friend ([A-Z][A-Za-z'-]+)")
+    sentence = compile_regex_static(r"(?i)\bmy friend ([A-Z][A-Za-z'-]+)")
         .replace_all(&sentence, "$1")
         .into_owned();
-    sentence = compile_regex(
+    sentence = compile_regex_static(
         r"(?i)\s+(today|yesterday|this morning|this afternoon|last (?:monday|tuesday|wednesday|thursday|friday|saturday|sunday))(?:\s+(?:and|but)\b.*|,.*)?$",
     )
     .replace(&sentence, "")

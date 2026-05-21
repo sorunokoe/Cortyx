@@ -176,7 +176,7 @@ pub(super) fn extract_revenue_quantity_fact_from_line(
     {
         return None;
     }
-    let captures = compile_regex(
+    let captures = compile_regex_static(
         r"(?i)\b(?:sold|selling)\b[^0-9]{0,32}?(?:a total of\s+)?(\d+)\s+(dozen|dozens|pairs?|items?|crates?|boxes?)\b",
     )
     .captures(line)?;
@@ -204,7 +204,7 @@ pub(super) fn extract_revenue_unit_price_fact_from_line(
         return None;
     }
     let captures =
-        compile_regex(r"(?i)\$([0-9][0-9,]*(?:\.\d{1,2})?)\s+(?:a|per)\s+(dozen|dozens|pairs?|items?|crates?|boxes?)\b")
+        compile_regex_static(r"(?i)\$([0-9][0-9,]*(?:\.\d{1,2})?)\s+(?:a|per)\s+(dozen|dozens|pairs?|items?|crates?|boxes?)\b")
             .captures(line)?;
     let unit_price_cents = super::money_support::parse_money_cents(captures.get(1)?.as_str())?;
     let unit_key = normalize_quantity_unit(captures.get(2)?.as_str());
@@ -220,7 +220,7 @@ pub(super) fn extract_revenue_unit_price_fact_from_line(
 
 fn extract_raised_event_key(line: &str, lower: &str) -> Option<String> {
     let (window_line, window_lower) = charity_event_context_window(line, lower)?;
-    let titled_event = compile_regex(r#""([^"]+)""#)
+    let titled_event = compile_regex_static(r#""([^"]+)""#)
         .captures(window_line)
         .and_then(|captures| captures.get(1))
         .map(|value| value.as_str().trim().to_string());
@@ -253,7 +253,7 @@ fn has_explicit_charity_event_reference(line: &str, lower: &str) -> bool {
     let Some((window_line, window_lower)) = charity_event_context_window(line, lower) else {
         return false;
     };
-    compile_regex(r#""([^"]+)""#)
+    compile_regex_static(r#""([^"]+)""#)
         .captures(window_line)
         .is_some()
         || extract_named_charity_event_phrase(window_lower).is_some()
@@ -293,7 +293,7 @@ fn explicit_event_participation_score(lower: &str) -> usize {
 }
 
 fn extract_charity_cause_phrase(line: &str) -> Option<String> {
-    compile_regex(
+    compile_regex_static(
         r"(?i)\$[0-9][0-9,]*(?:\.\d{1,2})?\s+for\s+(?:a\s+|the\s+)?([A-Za-z][A-Za-z' -]{2,}?)(?:[.!?,]|\s+(?:on|at|in|through|and)\b|$)",
     )
         .captures(line)
@@ -302,7 +302,7 @@ fn extract_charity_cause_phrase(line: &str) -> Option<String> {
 }
 
 fn extract_charity_time_phrase(line: &str) -> Option<String> {
-    compile_regex(
+    compile_regex_static(
         r"(?i)\b((?:on\s+)?(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:st|nd|rd|th)?|in\s+(?:January|February|March|April|May|June|July|August|September|October|November|December))\b",
     )
         .captures(line)

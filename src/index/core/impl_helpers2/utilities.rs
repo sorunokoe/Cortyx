@@ -51,13 +51,23 @@ impl NeuronIndex {
                   // Transfer accumulated signal (requires split borrow)
                 let (use_count, hit_count, synapses) = {
                     let old = &self.retrieval.entries[*old_idx];
-                    (old.use_count, old.hit_count, old.synapses.clone())
+                    (
+                        old.use_count.load(std::sync::atomic::Ordering::Relaxed),
+                        old.hit_count,
+                        old.synapses.clone(),
+                    )
                 };
                 {
                     let new_entry = &mut self.retrieval.entries[new_idx];
                     // Only carry over if the new entry hasn't yet accumulated its own signal
-                    if new_entry.use_count == 0 {
-                        new_entry.use_count = use_count;
+                    if new_entry
+                        .use_count
+                        .load(std::sync::atomic::Ordering::Relaxed)
+                        == 0
+                    {
+                        new_entry
+                            .use_count
+                            .store(use_count, std::sync::atomic::Ordering::Relaxed);
                         new_entry.hit_count = hit_count;
                         // Only merge synapses that don't already exist
                         for syn in synapses {

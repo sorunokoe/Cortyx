@@ -3,7 +3,7 @@ use super::*;
 pub(super) async fn hot_session_tf(
     server: &CortyxServer,
 ) -> std::collections::HashMap<String, f32> {
-    let tf = server.session_tf.lock().await;
+    let tf = server.session.session_tf.lock().await;
     tf.iter()
         .filter(|(_, &count)| count >= 3.0)
         .map(|(term, &count)| (term.clone(), count))
@@ -12,7 +12,7 @@ pub(super) async fn hot_session_tf(
 
 pub(super) async fn update_session_tf(server: &CortyxServer, task: &str) {
     let raw_terms = crate::index::tokenize(task);
-    let mut tf = server.session_tf.lock().await;
+    let mut tf = server.session.session_tf.lock().await;
     apply_session_tf_update(&mut tf, raw_terms);
 }
 
@@ -20,7 +20,7 @@ pub(super) async fn apply_path_history_boost(
     server: &CortyxServer,
     paths_with_scores: &mut [(PathBuf, f32)],
 ) {
-    let path_history = server.session_path_history.lock().await;
+    let path_history = server.session.session_path_history.lock().await;
     if !path_history.is_empty() {
         for (path, score) in paths_with_scores.iter_mut() {
             if let Some(&hist_weight) = path_history.get(path) {
@@ -39,7 +39,7 @@ pub(super) async fn update_session_path_history(
     server: &CortyxServer,
     paths_with_scores: &[(PathBuf, f32)],
 ) {
-    let mut path_history = server.session_path_history.lock().await;
+    let mut path_history = server.session.session_path_history.lock().await;
     simulate_path_history_update(&mut path_history, paths_with_scores);
 }
 

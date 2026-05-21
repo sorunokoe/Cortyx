@@ -284,14 +284,14 @@ fn upsert_structured_answer(slot: &mut Option<StructuredAnswer>, candidate: Stru
 }
 
 fn extract_decided_entity_candidate(line: &str, lower: &str) -> Option<String> {
-    compile_regex(
+    compile_regex_static(
         r"(?i)^(?:the\s+)?([A-Z][A-Za-z0-9-]+(?:\s+[A-Z][A-Za-z0-9-]+){0,3})\s+(?:is|was|could|would|has|have)\b",
     )
     .captures(line)
     .and_then(|captures| captures.get(1))
     .map(|value| trim_decided_entity(value.as_str()))
     .or_else(|| {
-        compile_regex(r"(?i)\bfor the ([A-Z][A-Za-z0-9-]+(?:\s+[A-Z][A-Za-z0-9-]+){0,3})\b")
+        compile_regex_static(r"(?i)\bfor the ([A-Z][A-Za-z0-9-]+(?:\s+[A-Z][A-Za-z0-9-]+){0,3})\b")
             .captures(line)
             .and_then(|captures| captures.get(1))
             .map(|value| trim_decided_entity(value.as_str()))

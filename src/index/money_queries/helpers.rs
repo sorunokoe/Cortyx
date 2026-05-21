@@ -38,7 +38,7 @@ pub(super) fn build_spend_sum_query(focuses: Vec<SpendFocus>) -> Option<SpendSum
 }
 
 pub(super) fn extract_spend_sum_tail(task_lower: &str) -> Option<&str> {
-    if let Some(tail) = compile_regex(r"(?i)\b(?:spend|spent)\s+on\s+(.+?)\??$")
+    if let Some(tail) = compile_regex_static(r"(?i)\b(?:spend|spent)\s+on\s+(.+?)\??$")
         .captures(task_lower)
         .and_then(|captures| captures.get(1))
         .map(|value| value.as_str().trim())
@@ -48,7 +48,7 @@ pub(super) fn extract_spend_sum_tail(task_lower: &str) -> Option<&str> {
     if !task_contains_any(task_lower, &["total cost of", "total amount of", "cost of"]) {
         return None;
     }
-    compile_regex(r"(?i)\b(?:total\s+cost|total\s+amount|cost)\s+of\s+(.+?)\??$")
+    compile_regex_static(r"(?i)\b(?:total\s+cost|total\s+amount|cost)\s+of\s+(.+?)\??$")
         .captures(task_lower)
         .and_then(|captures| captures.get(1))
         .map(|value| value.as_str().trim())
@@ -145,7 +145,7 @@ pub(super) fn build_item_focus(segment: &str) -> Option<SpendFocus> {
 }
 
 fn strip_item_focus_trailing_context(surface: &str) -> String {
-    compile_regex(
+    compile_regex_static(
         r"(?i)\s+i\s+(?:got|purchased|bought|ordered|received|found|snagged|picked\s+up)\b.*",
     )
     .replace(surface, "")
@@ -175,26 +175,28 @@ pub(super) fn focus_core_terms(terms: &[String]) -> Vec<String> {
 }
 
 pub(super) fn normalize_possessives(surface: &str) -> String {
-    compile_regex(r"'s\b")
+    compile_regex_static(r"'s\b")
         .replace_all(surface, "")
         .into_owned()
         .to_ascii_lowercase()
 }
 
 pub(super) fn extract_relative_day_anchor_terms(task_lower: &str) -> Vec<String> {
-    compile_regex(r"\b(last|this)\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b")
-        .captures(task_lower)
-        .and_then(|captures| {
-            Some(vec![
-                captures.get(1)?.as_str().to_string(),
-                captures.get(2)?.as_str().to_string(),
-            ])
-        })
-        .or_else(|| {
-            DAY_NAMES
-                .iter()
-                .find(|day| task_lower.contains(**day))
-                .map(|day| vec![(*day).to_string()])
-        })
-        .unwrap_or_default()
+    compile_regex_static(
+        r"\b(last|this)\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b",
+    )
+    .captures(task_lower)
+    .and_then(|captures| {
+        Some(vec![
+            captures.get(1)?.as_str().to_string(),
+            captures.get(2)?.as_str().to_string(),
+        ])
+    })
+    .or_else(|| {
+        DAY_NAMES
+            .iter()
+            .find(|day| task_lower.contains(**day))
+            .map(|day| vec![(*day).to_string()])
+    })
+    .unwrap_or_default()
 }

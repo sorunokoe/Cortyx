@@ -1,7 +1,7 @@
 // This file is a submodule of `crate::index::core`.
 // It contains `impl NeuronIndex` methods extracted from helpers.rs.
 // All visibility is relative to `crate::index` (the parent of `core`).
-use super::*;
+use super::family_prelude::*;
 
 impl NeuronIndex {
     // ── Hierarchy navigation (TRIZ R13-G2) ───────────────────────────────────
@@ -15,8 +15,9 @@ impl NeuronIndex {
             if let Some(m) = entry.module.as_deref() {
                 let e = map.entry(m.to_string()).or_default();
                 e.0 += 1;
-                let rate = if entry.use_count > 0 {
-                    entry.hit_count as f32 / entry.use_count as f32
+                let use_count = entry.use_count.load(std::sync::atomic::Ordering::Relaxed);
+                let rate = if use_count > 0 {
+                    entry.hit_count as f32 / use_count as f32
                 } else {
                     0.0
                 };
@@ -56,8 +57,9 @@ impl NeuronIndex {
             .into_iter()
             .map(|i| {
                 let e = &self.retrieval.entries[i];
-                let hit_rate = if e.use_count > 0 {
-                    e.hit_count as f32 / e.use_count as f32
+                let use_count = e.use_count.load(std::sync::atomic::Ordering::Relaxed);
+                let hit_rate = if use_count > 0 {
+                    e.hit_count as f32 / use_count as f32
                 } else {
                     0.0
                 };
@@ -66,7 +68,7 @@ impl NeuronIndex {
                     kind: e.kind.clone(),
                     staleness_multiplier: e.staleness_multiplier,
                     hit_rate,
-                    use_count: e.use_count,
+                    use_count,
                 }
             })
             .collect();
@@ -138,12 +140,13 @@ impl NeuronIndex {
                 if !matches!(entry.kind, NeuronKind::Core | NeuronKind::Concept) {
                     return None;
                 }
-                let hit_rate = if entry.use_count > 0 {
-                    entry.hit_count as f32 / entry.use_count as f32
+                let use_count = entry.use_count.load(std::sync::atomic::Ordering::Relaxed);
+                let hit_rate = if use_count > 0 {
+                    entry.hit_count as f32 / use_count as f32
                 } else {
                     0.0
                 };
-                if entry.use_count < min_use
+                if use_count < min_use
                     || hit_rate < min_hit_rate
                     || entry.quality_score < min_quality
                 {
@@ -152,7 +155,7 @@ impl NeuronIndex {
                 Some(PublishReadySummary {
                     path: entry.neuron_path.clone(),
                     kind: entry.kind.clone(),
-                    use_count: entry.use_count,
+                    use_count,
                     hit_rate,
                     quality_score: entry.quality_score,
                 })

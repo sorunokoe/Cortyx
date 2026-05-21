@@ -676,7 +676,9 @@ fn hit_multiplier_reward_grows_with_citations() {
 
     // Simulate MIN_SAMPLE_SIZE activations with 100% citation rate
     if let Some(&i) = idx.retrieval.path_index.get(&p) {
-        idx.retrieval.entries[i].use_count = MIN_SAMPLE_SIZE;
+        idx.retrieval.entries[i]
+            .use_count
+            .store(MIN_SAMPLE_SIZE, std::sync::atomic::Ordering::Relaxed);
         idx.retrieval.entries[i].hit_count = MIN_SAMPLE_SIZE;
     }
     let hot_score = idx.bm25_score(&terms, idx.entry_by_path(&p).unwrap());
@@ -708,7 +710,10 @@ fn auto_quarantine_waits_for_sample_floor_on_zero_hit_neurons() {
     // Adaptive CI (S4): QUARANTINE_MIN_SAMPLES = 5. Below this threshold
     // (use_count 0–4), adaptive_quarantine_params returns None — no action.
     if let Some(&i) = idx.retrieval.path_index.get(&p) {
-        idx.retrieval.entries[i].use_count = QUARANTINE_MIN_SAMPLES - 2; // = 3
+        idx.retrieval.entries[i].use_count.store(
+            QUARANTINE_MIN_SAMPLES - 2,
+            std::sync::atomic::Ordering::Relaxed,
+        ); // = 3
         idx.retrieval.entries[i].hit_count = 0;
         idx.retrieval.entries[i].staleness_multiplier = 1.0;
     }
@@ -726,7 +731,9 @@ fn auto_quarantine_waits_for_sample_floor_on_zero_hit_neurons() {
 
     // Zero-hit neurons remain protected until they accumulate 3× the minimum sample floor.
     if let Some(&i) = idx.retrieval.path_index.get(&p) {
-        idx.retrieval.entries[i].use_count = QUARANTINE_MIN_SAMPLES; // = 5
+        idx.retrieval.entries[i]
+            .use_count
+            .store(QUARANTINE_MIN_SAMPLES, std::sync::atomic::Ordering::Relaxed); // = 5
         idx.retrieval.entries[i].hit_count = 0;
         idx.retrieval.entries[i].staleness_multiplier = 1.0;
     }
@@ -744,7 +751,10 @@ fn auto_quarantine_waits_for_sample_floor_on_zero_hit_neurons() {
 
     // Once the sample floor is reached, a persistently bad zero-hit ratio is actionable.
     if let Some(&i) = idx.retrieval.path_index.get(&p) {
-        idx.retrieval.entries[i].use_count = QUARANTINE_MIN_SAMPLES * 3 - 1; // = 14
+        idx.retrieval.entries[i].use_count.store(
+            QUARANTINE_MIN_SAMPLES * 3 - 1,
+            std::sync::atomic::Ordering::Relaxed,
+        ); // = 14
         idx.retrieval.entries[i].hit_count = 0;
         idx.retrieval.entries[i].staleness_multiplier = 1.0;
     }
@@ -779,7 +789,9 @@ fn quarantine_is_reversible_when_citation_rate_recovers() {
     // Use hardcoded values (not QUARANTINE_MIN_SAMPLES) so the hit/use ratio is valid.
     if let Some(&i) = idx.retrieval.path_index.get(&p) {
         idx.retrieval.entries[i].staleness_multiplier = 0.3;
-        idx.retrieval.entries[i].use_count = 20;
+        idx.retrieval.entries[i]
+            .use_count
+            .store(20, std::sync::atomic::Ordering::Relaxed);
         idx.retrieval.entries[i].hit_count = 10;
     }
     idx.record_activation(&[p.clone()]);
@@ -1147,7 +1159,9 @@ fn adaptive_ci_quarantines_bad_ratio_when_hits_exist() {
     // Real signal exists (1 citation), but the ratio remains poor: 1/20 after activation.
     // The Wilson lower bound stays below the adaptive threshold, so quarantine should fire.
     if let Some(&i) = idx.retrieval.path_index.get(&p) {
-        idx.retrieval.entries[i].use_count = 19;
+        idx.retrieval.entries[i]
+            .use_count
+            .store(19, std::sync::atomic::Ordering::Relaxed);
         idx.retrieval.entries[i].hit_count = 1;
         idx.retrieval.entries[i].staleness_multiplier = 1.0;
     }
@@ -1181,7 +1195,9 @@ fn adaptive_ci_does_not_quarantine_moderate_hit_rate() {
 
     // 5 hits out of 20 total → 25% hit rate; lb at z=1.645 is well above 0.05
     if let Some(&i) = idx.retrieval.path_index.get(&p) {
-        idx.retrieval.entries[i].use_count = 19;
+        idx.retrieval.entries[i]
+            .use_count
+            .store(19, std::sync::atomic::Ordering::Relaxed);
         idx.retrieval.entries[i].hit_count = 5;
     }
     idx.record_activation(&[p.clone()]); // → use_count=20
@@ -1451,7 +1467,9 @@ fn publish_ready_candidates_filter_for_shareable_quality() {
     let strong_meta = NeuronMeta::new_stub(dir.path(), NeuronKind::Concept);
     idx.index_neuron(&strong, "auth token validation middleware", &strong_meta);
     let strong_idx = *idx.retrieval.path_index.get(&strong).unwrap();
-    idx.retrieval.entries[strong_idx].use_count = 12;
+    idx.retrieval.entries[strong_idx]
+        .use_count
+        .store(12, std::sync::atomic::Ordering::Relaxed);
     idx.retrieval.entries[strong_idx].hit_count = 9;
 
     let weak_hit = ndir.join("weak-hit.context.md");
@@ -1459,7 +1477,9 @@ fn publish_ready_candidates_filter_for_shareable_quality() {
     let weak_hit_meta = NeuronMeta::new_stub(dir.path(), NeuronKind::Concept);
     idx.index_neuron(&weak_hit, "routing fallback legacy handler", &weak_hit_meta);
     let weak_hit_idx = *idx.retrieval.path_index.get(&weak_hit).unwrap();
-    idx.retrieval.entries[weak_hit_idx].use_count = 12;
+    idx.retrieval.entries[weak_hit_idx]
+        .use_count
+        .store(12, std::sync::atomic::Ordering::Relaxed);
     idx.retrieval.entries[weak_hit_idx].hit_count = 2;
 
     let verbatim = ndir.join("verbatim.context.md");
@@ -1467,7 +1487,9 @@ fn publish_ready_candidates_filter_for_shareable_quality() {
     let verbatim_meta = NeuronMeta::new_stub(dir.path(), NeuronKind::Verbatim);
     idx.index_neuron(&verbatim, "I fixed the auth bug today", &verbatim_meta);
     let verbatim_idx = *idx.retrieval.path_index.get(&verbatim).unwrap();
-    idx.retrieval.entries[verbatim_idx].use_count = 25;
+    idx.retrieval.entries[verbatim_idx]
+        .use_count
+        .store(25, std::sync::atomic::Ordering::Relaxed);
     idx.retrieval.entries[verbatim_idx].hit_count = 25;
 
     let ready = idx.publish_ready_candidates(10, 0.5, 0.6, 10);

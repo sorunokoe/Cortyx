@@ -1,7 +1,7 @@
 //! Answer projection, extraction, and session-based logic.
 
 use super::super::*;
-use crate::index::compile_regex;
+use crate::index::{compile_regex, compile_regex_static};
 
 pub fn extract_adjacent_role_person_followup_answer(
     task_lower: &str,
@@ -235,7 +235,7 @@ pub fn assistant_followup_context(lines: &[String], line_idx: usize) -> String {
 }
 
 pub fn extract_expected_chess_reply_move_number(task_lower: &str) -> Option<i32> {
-    let prior_move = compile_regex(r"after\s+(\d+)\.")
+    let prior_move = compile_regex_static(r"after\s+(\d+)\.")
         .captures(task_lower)
         .and_then(|caps| caps.get(1))
         .and_then(|m| m.as_str().parse::<i32>().ok())?;
@@ -246,7 +246,7 @@ pub fn extract_chess_move_answer_from_line(
     line: &str,
     expected_move_number: Option<i32>,
 ) -> Option<String> {
-    let capture = compile_regex(
+    let capture = compile_regex_static(
         r"\b(\d+)\.\s*(O-O(?:-O)?|[KQRNB]?[a-h]?[1-8]?x?[a-h][1-8](?:=[QRNB])?[+#]?)\b",
     )
     .captures(line)?;
@@ -265,7 +265,8 @@ pub fn extract_parenthetical_label_count_answer(
 ) -> Option<String> {
     let focus_terms = synthetic_query_terms(task_lower);
     let focus_refs: Vec<&str> = focus_terms.iter().map(String::as_str).collect();
-    let capture = compile_regex(r"(?i)\b([A-Za-z][A-Za-z' -]+?)\s*\((\d+)\)").captures(line)?;
+    let capture =
+        compile_regex_static(r"(?i)\b([A-Za-z][A-Za-z' -]+?)\s*\((\d+)\)").captures(line)?;
     let label = capture.get(1)?.as_str().trim().to_ascii_lowercase();
     (term_overlap_count(&label, &focus_refs) >= 1)
         .then(|| capture.get(2).map(|m| m.as_str().trim().to_string()))
@@ -273,7 +274,7 @@ pub fn extract_parenthetical_label_count_answer(
 }
 
 pub fn extract_website_name_from_line(line: &str) -> Option<String> {
-    compile_regex(r"\b([A-Za-z0-9-]+\.(?:org|com|net|edu|io))\b")
+    compile_regex_static(r"\b([A-Za-z0-9-]+\.(?:org|com|net|edu|io))\b")
         .captures(line)
         .and_then(|caps| caps.get(1))
         .map(|m| m.as_str().trim().to_string())
@@ -607,7 +608,7 @@ pub fn extract_session_occupation_answer(line: &str, lower: &str) -> Option<Stri
 }
 
 pub fn extract_money_answer_from_line(line: &str) -> Option<String> {
-    compile_regex(r"(?i)(\$\d[\d,]*(?:\.\d+)?)")
+    compile_regex_static(r"(?i)(\$\d[\d,]*(?:\.\d+)?)")
         .captures(line)
         .and_then(|caps| caps.get(1))
         .map(|m| m.as_str().trim().to_string())

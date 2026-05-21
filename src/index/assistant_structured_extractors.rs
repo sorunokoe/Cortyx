@@ -119,7 +119,7 @@ pub(super) fn extract_described_entity_from_line(line: &str, lower: &str) -> Opt
         return Some(domain);
     }
     if let Some(quoted) = extract_first_quoted_phrase(line).or_else(|| {
-        compile_regex(r"“([^”]+)”")
+        compile_regex_static(r"“([^”]+)”")
             .captures(line)
             .and_then(|captures| captures.get(1))
             .map(|value| value.as_str().trim().to_string())
@@ -338,21 +338,21 @@ fn extract_structured_entity_hint(task_lower: &str) -> Option<String> {
 }
 
 fn extract_structured_label(line: &str) -> Option<String> {
-    compile_regex(r"^(?:\d+\.\s*)?([A-Za-z0-9][A-Za-z0-9.&'!+/\-]*(?:\s+[A-Za-z0-9][A-Za-z0-9.&'!+/\-]*){0,5})\s*[-:]\s+")
+    compile_regex_static(r"^(?:\d+\.\s*)?([A-Za-z0-9][A-Za-z0-9.&'!+/\-]*(?:\s+[A-Za-z0-9][A-Za-z0-9.&'!+/\-]*){0,5})\s*[-:]\s+")
         .captures(line)
         .and_then(|captures| captures.get(1))
         .map(|value| trim_entity_label(value.as_str()))
 }
 
 fn extract_structured_code(text: &str) -> Option<String> {
-    compile_regex(r"\b([A-Z]{2,5}-\d{1,3})\b")
+    compile_regex_static(r"\b([A-Z]{2,5}-\d{1,3})\b")
         .captures(text)
         .and_then(|captures| captures.get(1))
         .map(|value| value.as_str().trim().to_string())
 }
 
 fn extract_domain_like_label(text: &str) -> Option<String> {
-    compile_regex(r"\b([A-Za-z0-9-]+\.(?:org|com|net|edu|io))\b")
+    compile_regex_static(r"\b([A-Za-z0-9-]+\.(?:org|com|net|edu|io))\b")
         .captures(text)
         .and_then(|captures| captures.get(1))
         .map(|value| value.as_str().trim().to_string())
@@ -367,7 +367,7 @@ fn trim_entity_label(value: &str) -> String {
 }
 
 fn looks_like_domain_label(value: &str) -> bool {
-    compile_regex(r"(?i)^[A-Za-z0-9-]+\.(?:org|com|net|edu|io)$").is_match(value.trim())
+    compile_regex_static(r"(?i)^[A-Za-z0-9-]+\.(?:org|com|net|edu|io)$").is_match(value.trim())
 }
 
 fn descriptor_clause(task_lower: &str) -> Option<&str> {

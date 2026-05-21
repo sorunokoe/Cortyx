@@ -1,24 +1,24 @@
 //! Named entity extraction: locations, occupations, money, dates, colors, purchase items.
 
 use super::super::*;
-use crate::index::compile_regex;
+use crate::index::{compile_regex, compile_regex_static};
 
 pub fn extract_percent_answer_from_line(line: &str) -> Option<String> {
-    compile_regex(r"(?i)(\d+(?:\.\d+)?%)")
+    compile_regex_static(r"(?i)(\d+(?:\.\d+)?%)")
         .captures(line)
         .and_then(|caps| caps.get(1))
         .map(|m| m.as_str().trim().to_string())
 }
 
 pub fn extract_speed_answer_from_line(line: &str) -> Option<String> {
-    compile_regex(r"(?i)(\d+(?:\.\d+)?\s*(?:mbps|gbps))")
+    compile_regex_static(r"(?i)(\d+(?:\.\d+)?\s*(?:mbps|gbps))")
         .captures(line)
         .and_then(|caps| caps.get(1))
         .map(|m| m.as_str().trim().to_string())
 }
 
 pub fn extract_university_name_from_line(line: &str) -> Option<String> {
-    compile_regex(r"([A-Z][A-Za-z&.'-]*(?:\s+[A-Z][A-Za-z&.'-]*)*\s+University)")
+    compile_regex_static(r"([A-Z][A-Za-z&.'-]*(?:\s+[A-Z][A-Za-z&.'-]*)*\s+University)")
         .captures(line)
         .and_then(|caps| caps.get(1))
         .map(|m| m.as_str().trim().to_string())
@@ -141,7 +141,7 @@ pub fn doctor_role_sort_key(role: &str) -> usize {
 }
 
 pub fn doctor_visit_event_key(role: &str, lower: &str) -> String {
-    let day = compile_regex(r"\b(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{1,2})(?:st|nd|rd|th)?\b")
+    let day = compile_regex_static(r"\b(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{1,2})(?:st|nd|rd|th)?\b")
         .captures(lower)
         .and_then(|caps| caps.get(1))
         .map(|m| m.as_str().to_string());
@@ -152,7 +152,7 @@ pub fn doctor_visit_event_key(role: &str, lower: &str) -> String {
 }
 
 pub fn extract_duration_answer_from_line(line: &str) -> Option<String> {
-    compile_regex(
+    compile_regex_static(
         r"(?i)\b((?:about\s+)?(?:an?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d+(?:\.\d+)?(?:\s*-\s*\d+(?:\.\d+)?)?)\s+(?:days?|weeks?|months?|years?|hours?|minutes?)(?:\s+(?:ago|now|each way))?)\b",
     )
     .captures(line)
@@ -174,7 +174,7 @@ pub fn normalize_current_duration_answer(duration: &str) -> String {
 
 pub fn duration_answer_magnitude(duration: &str) -> Option<f32> {
     let lower = duration.to_ascii_lowercase();
-    let caps = compile_regex(
+    let caps = compile_regex_static(
         r"\b(\d+(?:\.\d+)?|an?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)(?:\s*-\s*(\d+(?:\.\d+)?))?\s+(day|week|month|year|hour|minute)s?\b",
     )
     .captures(&lower)?;
@@ -266,7 +266,7 @@ pub fn extract_tablespoon_water_ounces(line: &str) -> Option<f32> {
     {
         return None;
     }
-    compile_regex(r"(?i)\b(\d+(?:\.\d+)?)\s+ounces?\s+of\s+water\b")
+    compile_regex_static(r"(?i)\b(\d+(?:\.\d+)?)\s+ounces?\s+of\s+water\b")
         .captures(line)
         .and_then(|caps| caps.get(1))
         .and_then(|m| m.as_str().parse::<f32>().ok())
@@ -287,7 +287,7 @@ pub fn extract_date_or_time_answer_from_line(line: &str) -> Option<String> {
         r"(?i)\b(\d{1,2}\s?(?:AM|PM))\b",
         r"(?i)\b(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b",
     ] {
-        if let Some(value) = compile_regex(pattern)
+        if let Some(value) = compile_regex_static(pattern)
             .captures(line)
             .and_then(|caps| caps.get(1))
             .map(|m| m.as_str().trim().to_string())
@@ -304,7 +304,7 @@ pub fn extract_color_answer_from_line(line: &str) -> Option<String> {
         r"(?i)\b((?:light|dark|pale|bright|deep|soft)\s+(?:gray|grey|blue|green|pink|purple|yellow|red|orange|white|black|beige|brown))\b",
         r"(?i)\b(gray|grey|blue|green|pink|purple|yellow|red|orange|white|black|beige|brown)\b",
     ] {
-        if let Some(value) = compile_regex(pattern)
+        if let Some(value) = compile_regex_static(pattern)
             .captures(line)
             .and_then(|caps| caps.get(1))
             .map(|m| m.as_str().trim().to_string())
@@ -348,7 +348,8 @@ pub fn extract_query_aligned_numeric_answer(task_lower: &str, line: &str) -> Opt
         let pattern = compile_regex(&format!(
             r"(?i)\b((?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred))\s+{}s?\b",
             regex::escape(term)
-        ));
+        ))
+        .unwrap_or_else(|err| panic!("escaped numeric-answer regex failed to compile: {err}"));
         for capture in pattern.captures_iter(line) {
             let Some(full_match) = capture.get(0) else {
                 continue;
@@ -381,7 +382,8 @@ pub fn extract_query_aligned_numeric_answer(task_lower: &str, line: &str) -> Opt
         let pattern = compile_regex(&format!(
             r"(?i)\b((?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred))\s+{}s?\b",
             regex::escape(&term)
-        ));
+        ))
+        .unwrap_or_else(|err| panic!("escaped numeric-answer regex failed to compile: {err}"));
         if let Some(value) = pattern
             .captures(line)
             .and_then(|caps| caps.get(1))

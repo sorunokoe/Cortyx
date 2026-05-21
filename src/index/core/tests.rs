@@ -1310,6 +1310,7 @@ fn quoted_title_page_solver_answers_current_progress() {
 }
 
 #[test]
+#[cfg(feature = "personal-families")]
 fn session_local_instagram_solver_answers_current_count() {
     let dir = TempDir::new().unwrap();
     let mut idx = make_index(&dir);
@@ -1328,6 +1329,7 @@ fn session_local_instagram_solver_answers_current_count() {
 }
 
 #[test]
+#[cfg(feature = "personal-families")]
 fn session_local_instagram_solver_answers_growth_delta() {
     let dir = TempDir::new().unwrap();
     let mut idx = make_index(&dir);
@@ -1348,6 +1350,7 @@ fn session_local_instagram_solver_answers_growth_delta() {
 }
 
 #[test]
+#[cfg(feature = "personal-families")]
 fn session_local_instagram_solver_answers_current_follower_count_phrase() {
     let dir = TempDir::new().unwrap();
     let mut idx = make_index(&dir);
@@ -1367,6 +1370,7 @@ fn session_local_instagram_solver_answers_current_follower_count_phrase() {
 }
 
 #[test]
+#[cfg(feature = "personal-families")]
 fn session_local_instagram_solver_skips_historical_growth_recaps() {
     let dir = TempDir::new().unwrap();
     let mut idx = make_index(&dir);

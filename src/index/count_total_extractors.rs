@@ -230,8 +230,8 @@ pub(super) fn extract_online_course_completion_facts_from_line(
 }
 
 fn parse_metric_bundle_query(task_lower: &str) -> Option<MetricBundleQuery> {
-    let captures =
-        compile_regex(r"(?i)\btotal number of (.+?) i have in (.+?)\??$").captures(task_lower)?;
+    let captures = compile_regex_static(r"(?i)\btotal number of (.+?) i have in (.+?)\??$")
+        .captures(task_lower)?;
     let metrics = split_bundle_items(captures.get(1)?.as_str())
         .into_iter()
         .map(|surface| parse_metric_kind(&surface))
@@ -324,7 +324,7 @@ fn split_bundle_items(surface: &str) -> Vec<String> {
 
 fn extract_count_from_patterns(line: &str, patterns: &[&str]) -> Option<i32> {
     patterns.iter().find_map(|pattern| {
-        compile_regex(pattern)
+        compile_regex_static(pattern)
             .captures(line)
             .and_then(|captures| captures.get(1))
             .and_then(|value| parse_count_token_value(value.as_str()))

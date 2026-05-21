@@ -98,7 +98,7 @@ pub(super) fn assistant_fact_year_terms(task_lower: &str) -> Vec<String> {
 }
 
 pub(super) fn extract_expected_item_count(task_lower: &str) -> Option<usize> {
-    compile_regex(r"\b(one|two|three|four|five|six|\d+)\b")
+    compile_regex_static(r"\b(one|two|three|four|five|six|\d+)\b")
         .captures(task_lower)
         .and_then(|caps| caps.get(1))
         .and_then(|value| match value.as_str() {
@@ -113,7 +113,7 @@ pub(super) fn extract_expected_item_count(task_lower: &str) -> Option<usize> {
 }
 
 pub(super) fn extract_question_quoted_phrases(task: &str) -> Vec<String> {
-    compile_regex(r#"["“']([^"”']+)["”']"#)
+    compile_regex_static(r#"["“']([^"”']+)["”']"#)
         .captures_iter(task)
         .filter_map(|caps| caps.get(1))
         .map(|value| trim_fact_value(value.as_str()))
@@ -121,7 +121,7 @@ pub(super) fn extract_question_quoted_phrases(task: &str) -> Vec<String> {
 }
 
 pub(super) fn extract_how_many_subject(task_lower: &str) -> Option<String> {
-    compile_regex(r"how many\s+([a-z-]+)")
+    compile_regex_static(r"how many\s+([a-z-]+)")
         .captures(task_lower)
         .and_then(|caps| caps.get(1))
         .map(|value| value.as_str().trim().to_string())
@@ -144,14 +144,14 @@ pub(super) fn assistant_fact_anchor_terms(task_lower: &str) -> Vec<String> {
 }
 
 pub(super) fn extract_subject_for_wearing(task: &str) -> Option<String> {
-    compile_regex(r"(?i)what was ([A-Za-z][A-Za-z' -]+?) wearing")
+    compile_regex_static(r"(?i)what was ([A-Za-z][A-Za-z' -]+?) wearing")
         .captures(task)
         .and_then(|caps| caps.get(1))
         .map(|value| value.as_str().trim().to_string())
 }
 
 pub(super) fn extract_implemented_tool_label(task: &str) -> Option<String> {
-    compile_regex(r"(?i)implemented in the ([^?.,]+)")
+    compile_regex_static(r"(?i)implemented in the ([^?.,]+)")
         .captures(task)
         .and_then(|caps| caps.get(1))
         .map(|value| value.as_str().trim().trim_end_matches('.').to_string())

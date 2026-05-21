@@ -1,5 +1,5 @@
 use super::*;
-use crate::index::compile_regex;
+use crate::index::{compile_regex, compile_regex_static};
 
 pub(in crate::index) fn extract_current_role_total_months_from_line(
     line: &str,
@@ -88,7 +88,7 @@ pub(in crate::index) fn render_month_span(total_months: i32) -> String {
 }
 
 pub(in crate::index) fn extract_explicit_date_rank(line: &str) -> Option<i32> {
-    let numeric = compile_regex(r"(?i)\b(\d{1,2})/(\d{1,2})(?:/(\d{4}))?\b");
+    let numeric = compile_regex_static(r"(?i)\b(\d{1,2})/(\d{1,2})(?:/(\d{4}))?\b");
     if let Some(caps) = numeric.captures(line) {
         let month = caps.get(1)?.as_str().parse::<u32>().ok()?;
         let day = caps.get(2)?.as_str().parse::<u32>().ok()?;
@@ -102,7 +102,7 @@ pub(in crate::index) fn extract_explicit_date_rank(line: &str) -> Option<i32> {
         return Some(ymd_to_days(year, month, day));
     }
 
-    let month_day = compile_regex(
+    let month_day = compile_regex_static(
         r"(?i)\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})(?:st|nd|rd|th)?(?:,\s*(\d{4}))?\b",
     );
     if let Some(caps) = month_day.captures(line) {
@@ -115,7 +115,7 @@ pub(in crate::index) fn extract_explicit_date_rank(line: &str) -> Option<i32> {
         return Some(ymd_to_days(year, month, day));
     }
 
-    let day_month_named = compile_regex(
+    let day_month_named = compile_regex_static(
         r"(?i)\b(\d{1,2})(?:st|nd|rd|th)?\s+(January|February|March|April|May|June|July|August|September|October|November|December)(?:,\s*(\d{4}))?\b",
     );
     if let Some(caps) = day_month_named.captures(line) {
@@ -128,7 +128,7 @@ pub(in crate::index) fn extract_explicit_date_rank(line: &str) -> Option<i32> {
         return Some(ymd_to_days(year, month, day));
     }
 
-    let day_month = compile_regex(
+    let day_month = compile_regex_static(
         r"(?i)\b(?:the\s+)?(\d{1,2})(?:st|nd|rd|th)?\s+of\s+(January|February|March|April|May|June|July|August|September|October|November|December)(?:,\s*(\d{4}))?\b",
     );
     if let Some(caps) = day_month.captures(line) {
@@ -141,7 +141,7 @@ pub(in crate::index) fn extract_explicit_date_rank(line: &str) -> Option<i32> {
         return Some(ymd_to_days(year, month, day));
     }
 
-    let fuzzy_month = compile_regex(
+    let fuzzy_month = compile_regex_static(
         r"(?i)\b(?:(early|mid|late)[-\s]+)?(January|February|March|April|May|June|July|August|September|October|November|December)(?:,\s*|\s+)?(\d{4})?\b",
     );
     let caps = fuzzy_month.captures(line)?;

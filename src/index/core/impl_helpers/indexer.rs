@@ -177,6 +177,7 @@ impl NeuronIndex {
             neuron_path: neuron_path.to_path_buf(),
             kind: meta.kind.clone(),
             term_freq: tf,
+            hot_term_freq: HashMap::new(),
             term_count: terms.len(),
             // Use meta.tokens when available (set by compile/upsert after reading disk).
             // Fall back to estimating from content so the token budget works in tests
@@ -192,7 +193,7 @@ impl NeuronIndex {
             source_files: meta.source_files.clone(),
             module: meta.module.clone(),
             confidence_score: meta.confidence_score,
-            use_count: meta.use_count,
+            use_count: std::sync::atomic::AtomicU32::new(meta.use_count),
             hit_count: meta.hit_count,
             staleness_multiplier: 1.0,
             concept_cloud: Vec::new(), // populated by build_concept_clouds() in rebuild_derived

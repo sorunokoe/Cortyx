@@ -23,8 +23,13 @@ pub struct NeuronMeta {
     pub sig_hash: Option<String>,
     pub tokens: usize,
     pub last_updated: String,
+    /// Persisted query counter. Authoritative source of truth when loading from disk.
+    /// Copied into [`crate::index::core::bm25::entry::BM25Entry::use_count`] during index load
+    /// and refreshed again from the live BM25 entry on the next save.
     pub use_count: u32,
-    /// Number of times the LLM confirmed this neuron was actually cited.
+    /// Persisted citation counter. Authoritative source of truth when loading from disk.
+    /// Copied into [`crate::index::core::bm25::entry::BM25Entry::hit_count`] during index load
+    /// and refreshed again from the live BM25 entry on the next save.
     #[serde(default)]
     pub hit_count: u32,
     pub synapses: Vec<Synapse>,

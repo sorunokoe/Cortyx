@@ -45,16 +45,19 @@ impl NeuronIndex {
         self.watcher.view()
     }
 
+    /// Build the activation query context for a validated task string.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when `task` fails [`QueryText::new`] validation.
     pub(in crate::index) fn build_query_context<'a>(
         &'a self,
         task: &'a str,
         max_tokens: usize,
         module: Option<&'a str>,
         kind: Option<&'a str>,
-    ) -> Option<QueryContext<'a>> {
-        let Ok(query) = QueryText::new(task) else {
-            return None;
-        };
+    ) -> crate::error::Result<QueryContext<'a>> {
+        let query = QueryText::new(task)?;
         let terms = tokenize(query.as_str());
 
         let mut seed_candidate_ids: HashSet<usize> = HashSet::new();
@@ -293,7 +296,7 @@ impl NeuronIndex {
             vec![]
         };
 
-        Some(QueryContext {
+        Ok(QueryContext {
             task,
             task_lower,
             terms,

@@ -1,13 +1,16 @@
-//! Locality-Sensitive Hashing (LSH) — SimHash-based approximate nearest-neighbour.
+//! Locality-Sensitive Hashing (LSH) — 256-bit SimHash fallback (4 seeds active).
 //!
 //! Used as a BM25 fallback bridge: when BM25 returns fewer than 2 candidates,
-//! SimHash finds neurons within Hamming distance ≤14 and injects them as overflow
-//! candidates. False positives are filtered by downstream BM25 re-ranking.
+//! four active SimHash planes (`LSH_SEEDS[..4]`) find neurons within Hamming
+//! distance ≤14 and inject them as overflow candidates. The remaining 12 seeds
+//! are reserved. Because the seeds vary only the FNV-1a offset basis while
+//! sharing the multiplier, the planes are correlated rather than fully
+//! independent. False positives are filtered by downstream BM25 re-ranking.
 
 use crate::types::TermFrequency;
 use std::collections::HashMap;
 
-/// 16 compile-time seeds for 1024-bit random projection (Sol4 R17).
+/// 16 compile-time seeds for the SimHash ensemble (4 active, 12 reserved).
 /// Derived from golden ratio (φ = 1.618…) bit patterns and prime multiples.
 pub(super) const LSH_SEEDS: [u64; 16] = [
     0x9e3779b97f4a7c15, // golden ratio × 2^64

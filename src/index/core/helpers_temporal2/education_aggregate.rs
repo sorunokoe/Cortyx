@@ -1,7 +1,7 @@
 //! Education aggregates and fact parsing: stage extraction, money/duration solving.
 
 use super::super::*;
-use crate::index::compile_regex;
+use crate::index::{compile_regex, compile_regex_static};
 
 pub fn extract_formal_education_target_stage(task_lower: &str) -> Option<EducationStageKind> {
     if !task_lower.contains("formal education") || !task_lower.contains("high school") {
@@ -97,7 +97,7 @@ pub fn parse_education_stage_fact(line: &str) -> Option<EducationStageFact> {
     let years = extract_year_mentions(&body);
 
     let high_school_range =
-        compile_regex(r"(?i)\bhigh school\b.*?\bfrom\s+(\d{4})\s+to\s+(\d{4})\b");
+        compile_regex_static(r"(?i)\bhigh school\b.*?\bfrom\s+(\d{4})\s+to\s+(\d{4})\b");
     if let Some(caps) = high_school_range.captures(&body) {
         let start_year = caps.get(1)?.as_str().parse::<i32>().ok()?;
         let end_year = caps.get(2)?.as_str().parse::<i32>().ok()?;
@@ -197,7 +197,7 @@ pub fn extract_education_duration_years(lower: &str) -> Option<i32> {
 }
 
 pub fn extract_year_mentions(text: &str) -> Vec<i32> {
-    let years = compile_regex(r"\b(19|20)\d{2}\b");
+    let years = compile_regex_static(r"\b(19|20)\d{2}\b");
     years
         .captures_iter(text)
         .filter_map(|caps| caps.get(0).and_then(|m| m.as_str().parse::<i32>().ok()))
@@ -528,7 +528,7 @@ pub fn extract_sale_total(line: &str) -> Option<f32> {
         return None;
     }
 
-    let explicit_total = compile_regex(
+    let explicit_total = compile_regex_static(
         r"(?:earned|earning(?: a total of)?|for a total of)\s+\$([0-9][0-9,]*(?:\.[0-9]+)?)",
     );
     if let Some(caps) = explicit_total.captures(&lower) {
@@ -540,7 +540,8 @@ pub fn extract_sale_total(line: &str) -> Option<f32> {
         }
     }
 
-    let per_item = compile_regex(r"sold\s+(\d+)[^$]{0,160}?\$([0-9][0-9,]*(?:\.[0-9]+)?)\s*each");
+    let per_item =
+        compile_regex_static(r"sold\s+(\d+)[^$]{0,160}?\$([0-9][0-9,]*(?:\.[0-9]+)?)\s*each");
     if let Some(caps) = per_item.captures(&lower) {
         let quantity = caps.get(1).and_then(|m| m.as_str().parse::<f32>().ok())?;
         let price = caps

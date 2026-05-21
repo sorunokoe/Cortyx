@@ -1,7 +1,7 @@
 //! Media and instrument extraction: magazines, marathons, music, courses.
 
 use super::super::*;
-use crate::index::compile_regex;
+use crate::index::{compile_regex, compile_regex_static};
 
 pub fn line_mentions_recent_activity_label(lower: &str, label: &str) -> bool {
     match label {
@@ -167,8 +167,8 @@ pub fn extract_current_magazine_subscription_updates_from_line(
 
 pub fn extract_hour_minute_total_from_text(text: &str) -> Option<i32> {
     for regex in [
-        compile_regex(r"(?i)\b(\d+)\s*h(?:ours?)?\s*(\d+)\s*min(?:ute)?s?\b"),
-        compile_regex(r"(?i)\b(\d+)\s+hours?\s+(?:and\s+)?(\d+)\s+minutes?\b"),
+        compile_regex_static(r"(?i)\b(\d+)\s*h(?:ours?)?\s*(\d+)\s*min(?:ute)?s?\b"),
+        compile_regex_static(r"(?i)\b(\d+)\s+hours?\s+(?:and\s+)?(\d+)\s+minutes?\b"),
     ] {
         let Some(caps) = regex.captures(text) else {
             continue;
@@ -242,7 +242,7 @@ pub fn extract_attended_movie_festival_from_line(line: &str, lower: &str) -> Opt
     ) {
         return None;
     }
-    let caps = compile_regex(
+    let caps = compile_regex_static(
         r"(?i)\b(?:at|after the screening at|like)\b\s+(?:the\s+)?([A-Z][A-Za-z0-9&' .-]+?Film Festival|AFI Fest|TIFF)\b",
     )
     .captures(line)?;
@@ -273,7 +273,8 @@ pub fn extract_music_release_signatures_from_line(line: &str, lower: &str) -> Ve
     let mut seen = HashSet::new();
 
     if task_contains_any(lower, &["i bought", "i ended up buying"]) {
-        if let Some(caps) = compile_regex(r#"(?i)\b(?:EP|album)\s+["']([^"']+)["']"#).captures(line)
+        if let Some(caps) =
+            compile_regex_static(r#"(?i)\b(?:EP|album)\s+["']([^"']+)["']"#).captures(line)
         {
             if let Some(title) = caps.get(1) {
                 let key = normalized_synthetic_phrase_key(title.as_str());
@@ -286,7 +287,8 @@ pub fn extract_music_release_signatures_from_line(line: &str, lower: &str) -> Ve
 
     if lower.contains("downloaded") {
         if let Some(caps) =
-            compile_regex(r#"(?i)\balbum\s+["']([^"']+)["'][^.\n]*\bdownloaded\b"#).captures(line)
+            compile_regex_static(r#"(?i)\balbum\s+["']([^"']+)["'][^.\n]*\bdownloaded\b"#)
+                .captures(line)
         {
             if let Some(title) = caps.get(1) {
                 let key = normalized_synthetic_phrase_key(title.as_str());
@@ -299,8 +301,8 @@ pub fn extract_music_release_signatures_from_line(line: &str, lower: &str) -> Ve
 
     if lower.contains("vinyl") && lower.contains("signed") {
         for regex in [
-            compile_regex(r"(?i)\bgot my ([A-Z][A-Za-z0-9&' .-]+?) vinyl signed\b"),
-            compile_regex(
+            compile_regex_static(r"(?i)\bgot my ([A-Z][A-Za-z0-9&' .-]+?) vinyl signed\b"),
+            compile_regex_static(
                 r"(?i)\bsaw ([A-Z][A-Za-z0-9&' .-]+?) live[^.\n]*\bgot my vinyl signed\b",
             ),
         ] {
@@ -358,10 +360,10 @@ pub fn extract_owned_musical_instrument_signatures_from_line(
     {
         let mut inserted = false;
         for regex in [
-            compile_regex(
+            compile_regex_static(
                 r"\bdrum set,\s+a\s+((?:\d+-piece\s+)?[A-Z][A-Za-z0-9]+(?:\s+[A-Z0-9][A-Za-z0-9]+)*)\b",
             ),
-            compile_regex(
+            compile_regex_static(
                 r"\b((?:\d+-piece\s+)?[A-Z][A-Za-z0-9]+(?:\s+[A-Z0-9][A-Za-z0-9]+)*)\s+drum set\b",
             ),
         ] {
@@ -382,9 +384,11 @@ pub fn extract_owned_musical_instrument_signatures_from_line(
     if lower.contains("piano") && lower.contains(" my ") {
         let mut inserted = false;
         for regex in [
-            compile_regex(r"\bpiano,\s+a\s+([A-Z][A-Za-z0-9]+(?:\s+[A-Z0-9][A-Za-z0-9]+)*)\b"),
-            compile_regex(r"\b([A-Z][A-Za-z0-9]+(?:\s+[A-Z0-9][A-Za-z0-9]+)*)\s+piano\b"),
-            compile_regex(r"\b(Korg\s+B1)\b"),
+            compile_regex_static(
+                r"\bpiano,\s+a\s+([A-Z][A-Za-z0-9]+(?:\s+[A-Z0-9][A-Za-z0-9]+)*)\b",
+            ),
+            compile_regex_static(r"\b([A-Z][A-Za-z0-9]+(?:\s+[A-Z0-9][A-Za-z0-9]+)*)\s+piano\b"),
+            compile_regex_static(r"\b(Korg\s+B1)\b"),
         ] {
             let Some(caps) = regex.captures(line) else {
                 continue;
@@ -403,10 +407,12 @@ pub fn extract_owned_musical_instrument_signatures_from_line(
     if lower.contains("acoustic guitar") {
         let mut inserted = false;
         for regex in [
-            compile_regex(
+            compile_regex_static(
                 r"\bacoustic guitar,\s+a\s+([A-Z][A-Za-z0-9]+(?:\s+[A-Z0-9][A-Za-z0-9]+)*)\b",
             ),
-            compile_regex(r"\b([A-Z][A-Za-z0-9]+(?:\s+[A-Z0-9][A-Za-z0-9]+)*)\s+acoustic guitar\b"),
+            compile_regex_static(
+                r"\b([A-Z][A-Za-z0-9]+(?:\s+[A-Z0-9][A-Za-z0-9]+)*)\s+acoustic guitar\b",
+            ),
         ] {
             let Some(caps) = regex.captures(line) else {
                 continue;
@@ -425,10 +431,12 @@ pub fn extract_owned_musical_instrument_signatures_from_line(
     if lower.contains("electric guitar") {
         let mut inserted = false;
         for regex in [
-            compile_regex(
+            compile_regex_static(
                 r"\b(?:my|had my|playing my)\s+(?:[a-z]+\s+)?([A-Z][A-Za-z0-9]+(?:\s+[A-Z0-9][A-Za-z0-9]+)*)\s+electric guitar\b",
             ),
-            compile_regex(r"\b([A-Z][A-Za-z0-9]+(?:\s+[A-Z0-9][A-Za-z0-9]+)*)\s+electric guitar\b"),
+            compile_regex_static(
+                r"\b([A-Z][A-Za-z0-9]+(?:\s+[A-Z0-9][A-Za-z0-9]+)*)\s+electric guitar\b",
+            ),
         ] {
             let Some(caps) = regex.captures(line) else {
                 continue;
@@ -447,8 +455,10 @@ pub fn extract_owned_musical_instrument_signatures_from_line(
     if lower.contains("ukulele") && lower.contains("my ") {
         let mut inserted = false;
         for regex in [
-            compile_regex(r"\bukulele,\s+a\s+([A-Z][A-Za-z0-9]+(?:\s+[A-Z0-9][A-Za-z0-9]+)*)\b"),
-            compile_regex(r"\b([A-Z][A-Za-z0-9]+(?:\s+[A-Z0-9][A-Za-z0-9]+)*)\s+ukulele\b"),
+            compile_regex_static(
+                r"\bukulele,\s+a\s+([A-Z][A-Za-z0-9]+(?:\s+[A-Z0-9][A-Za-z0-9]+)*)\b",
+            ),
+            compile_regex_static(r"\b([A-Z][A-Za-z0-9]+(?:\s+[A-Z0-9][A-Za-z0-9]+)*)\s+ukulele\b"),
         ] {
             let Some(caps) = regex.captures(line) else {
                 continue;
@@ -482,8 +492,8 @@ pub fn extract_online_course_completion_updates_from_line(
 
     let mut count = None;
     for regex in [
-        compile_regex(r"(?i)\bcompleted\s+([A-Za-z0-9,-]+)\s+courses?\b"),
-        compile_regex(r"(?i)\b([A-Za-z0-9,-]+)\s+courses?\s+on\b"),
+        compile_regex_static(r"(?i)\bcompleted\s+([A-Za-z0-9,-]+)\s+courses?\b"),
+        compile_regex_static(r"(?i)\b([A-Za-z0-9,-]+)\s+courses?\s+on\b"),
     ] {
         let Some(caps) = regex.captures(line) else {
             continue;
@@ -603,7 +613,7 @@ pub fn extract_loyalty_point_goal_total_from_line(line: &str, lower: &str) -> Op
         r"(?i)\breach(?:ing)?\s+(\d+)\s+points\b",
         r"(?i)\b(\d+)\s+points goal\b",
     ] {
-        let regex = compile_regex(pattern);
+        let regex = compile_regex_static(pattern);
         if let Some(caps) = regex.captures(line) {
             if let Ok(value) = caps.get(1)?.as_str().parse::<i32>() {
                 return Some(value);
@@ -622,7 +632,7 @@ pub fn extract_loyalty_point_current_total_from_line(line: &str, lower: &str) ->
         r"(?i)\bmy total to\s+(\d+)\s+points\b",
         r"(?i)\btotal to\s+(\d+)\s+points so far\b",
     ] {
-        let regex = compile_regex(pattern);
+        let regex = compile_regex_static(pattern);
         if let Some(caps) = regex.captures(line) {
             if let Ok(value) = caps.get(1)?.as_str().parse::<i32>() {
                 return Some(value);

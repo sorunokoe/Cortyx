@@ -41,7 +41,7 @@ pub(super) fn extract_dinner_party_attendance_details(
         return Vec::new();
     }
 
-    compile_regex(r"\bat\s+([A-Z][a-z]+)'s place\b")
+    compile_regex_static(r"\bat\s+([A-Z][a-z]+)'s place\b")
         .captures_iter(line)
         .filter_map(|captures| captures.get(1).map(|value| value.as_str()))
         .map(|name| {

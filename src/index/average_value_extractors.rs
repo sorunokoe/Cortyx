@@ -157,18 +157,18 @@ fn academic_stage_for_line(lower: &str) -> AcademicStageKind {
 }
 
 fn has_standalone_graduate_keyword(lower: &str) -> bool {
-    compile_regex(r"(?i)\bgraduate\b").is_match(lower)
+    compile_regex_static(r"(?i)\bgraduate\b").is_match(lower)
 }
 
 fn extract_gpa_from_line(line: &str) -> Option<f64> {
-    compile_regex(r"(?i)\bGPA of (\d+(?:\.\d+)?)\s+out of 4\.0\b")
+    compile_regex_static(r"(?i)\bGPA of (\d+(?:\.\d+)?)\s+out of 4\.0\b")
         .captures(line)
         .and_then(|captures| captures.get(1))
         .and_then(|value| value.as_str().parse::<f64>().ok())
 }
 
 fn extract_self_age_from_line(line: &str) -> Option<f64> {
-    compile_regex(
+    compile_regex_static(
         r"(?i)\b(?:i(?:'m| am) currently|i just turned|i'm currently)\s+(\d{1,2})(?:\s+years old)?\b",
     )
     .captures(line)
@@ -184,7 +184,7 @@ fn extend_family_age_facts(
     patterns: &[(&str, &str)],
 ) {
     for (key, pattern) in patterns {
-        let Some(value) = compile_regex(pattern)
+        let Some(value) = compile_regex_static(pattern)
             .captures(line)
             .and_then(|captures| captures.get(1))
             .and_then(|raw| raw.as_str().parse::<f64>().ok())

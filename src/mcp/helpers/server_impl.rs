@@ -1,13 +1,13 @@
 //! CortyxServer implementation: Drop, benchmarks, and server utilities.
 
 use super::super::*;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
 
 pub async fn flush_provisional_hits_async(
     _index: &Arc<RwLock<NeuronIndex>>,
-    provisional_hits: &Arc<Mutex<Vec<PathBuf>>>,
+    provisional_hits: &Mutex<Vec<PathBuf>>,
 ) -> Result<usize> {
     let pending = {
         let mut prov = provisional_hits.lock().await;
@@ -21,7 +21,7 @@ pub async fn flush_provisional_hits_async(
 
 pub fn flush_provisional_hits_blocking(
     _index: &Arc<RwLock<NeuronIndex>>,
-    provisional_hits: &Arc<Mutex<Vec<PathBuf>>>,
+    provisional_hits: &Mutex<Vec<PathBuf>>,
 ) -> Result<usize> {
     let pending = {
         let mut prov = provisional_hits.blocking_lock();
@@ -42,7 +42,7 @@ impl Drop for CortyxServer {
     fn drop(&mut self) {
         // Only flush when this is the last CortyxServer instance.
         // CortyxServer derives Clone; rmcp may hold short-lived clones per request.
-        if Arc::strong_count(&self.provisional_hits) > 1 {
+        if Arc::strong_count(&self.feedback) > 1 {
             return;
         }
         if tokio::runtime::Handle::try_current().is_ok() {
@@ -51,7 +51,7 @@ impl Drop for CortyxServer {
             );
             return;
         }
-        match flush_provisional_hits_blocking(&self.index, &self.provisional_hits) {
+        match flush_provisional_hits_blocking(&self.index, &self.feedback.provisional_hits) {
             Ok(0) => {},
             Ok(n) => tracing::info!("S2: Drop cleared {n} provisional paths on exit"),
             Err(e) => tracing::warn!("S2: failed to clear provisional buffer during Drop: {e}"),
@@ -63,19 +63,12 @@ impl CortyxServer {
     #[allow(dead_code)]
     pub fn for_benchmark(project_root: PathBuf, idx: NeuronIndex) -> Self {
         let index = Arc::new(RwLock::new(idx));
-        let provisional_hits = Arc::new(Mutex::new(Vec::new()));
-        let context_sessions = Arc::new(Mutex::new(HashMap::new()));
-        let next_context_handle = Arc::new(AtomicU64::new(0));
 
         Self {
             project_root,
             index,
-            last_activated: Arc::new(Mutex::new(Vec::new())),
-            provisional_hits,
-            context_sessions,
-            next_context_handle,
-            session_tf: Arc::new(Mutex::new(HashMap::new())),
-            session_path_history: Arc::new(Mutex::new(HashMap::new())),
+            session: Arc::new(SessionState::default()),
+            feedback: Arc::new(FeedbackBuffer::default()),
             inflight_bytes: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
             fleet_registry: None,
             tool_router: CortyxServer::tool_router(),
@@ -163,7 +156,11 @@ impl CortyxServer {
             .filter(|handle| !handle.trim().is_empty())
             .map(ToOwned::to_owned)
             .unwrap_or_else(|| {
-                let next = self.next_context_handle.fetch_add(1, Ordering::Relaxed) + 1;
+                let next = self
+                    .session
+                    .next_context_handle
+                    .fetch_add(1, Ordering::Relaxed)
+                    + 1;
                 format!("ctx-{next}")
             })
     }
@@ -172,7 +169,12 @@ impl CortyxServer {
         &self,
         handle: &str,
     ) -> Option<ContextSnapshot> {
-        self.context_sessions.lock().await.get(handle).cloned()
+        self.session
+            .context_sessions
+            .lock()
+            .await
+            .get(handle)
+            .cloned()
     }
 
     pub(in crate::mcp) async fn store_context_snapshot(
@@ -181,7 +183,11 @@ impl CortyxServer {
         chunks: &[RenderedContextItem],
         overflow: &[RenderedContextItem],
     ) {
-        let order = self.next_context_handle.fetch_add(1, Ordering::Relaxed) + 1;
+        let order = self
+            .session
+            .next_context_handle
+            .fetch_add(1, Ordering::Relaxed)
+            + 1;
         let snapshot = ContextSnapshot {
             order,
             chunks: chunks
@@ -194,7 +200,7 @@ impl CortyxServer {
                 .collect(),
         };
 
-        let mut sessions = self.context_sessions.lock().await;
+        let mut sessions = self.session.context_sessions.lock().await;
         if sessions.len() >= 128 {
             if let Some(oldest) = sessions
                 .iter()

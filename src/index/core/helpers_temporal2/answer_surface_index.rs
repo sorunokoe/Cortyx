@@ -1,7 +1,7 @@
 //! Answer surface indexing: scoring, ranking, temporal query extraction.
 
 use super::super::*;
-use crate::index::compile_regex;
+use crate::index::{compile_regex, compile_regex_static};
 
 pub fn normalized_index_answer_surface_key(text: &str) -> String {
     text.trim()
@@ -249,7 +249,8 @@ pub fn extract_previous_role(line: &str) -> Option<String> {
         return None;
     }
 
-    let pattern = compile_regex(r"previous role as a[n]?\s+(.+?)(?:,|\.| and\b| but\b| with\b)");
+    let pattern =
+        compile_regex_static(r"previous role as a[n]?\s+(.+?)(?:,|\.| and\b| but\b| with\b)");
     let role = pattern
         .captures(line)?
         .get(1)?
@@ -430,7 +431,7 @@ pub fn normalize_rewatch_title(title: &str) -> String {
 }
 
 pub fn extract_origin_country_answer(line: &str) -> Option<String> {
-    compile_regex(r"(?i)home country[, ]+([A-Z][A-Za-z]+(?: [A-Z][A-Za-z]+)?)")
+    compile_regex_static(r"(?i)home country[, ]+([A-Z][A-Za-z]+(?: [A-Z][A-Za-z]+)?)")
         .captures(line)
         .and_then(|captures| captures.get(1))
         .map(|value| value.as_str().trim().to_string())

@@ -188,7 +188,7 @@ fn parse_metric_delta_query(task_lower: &str) -> Option<MetricDeltaQuery> {
     if !task_lower.contains("compared to now") || !task_lower.starts_with("how much more ") {
         return None;
     }
-    let metric_phrase = compile_regex(r"(?i)\bhow much more\s+(.+?)\s+was\b")
+    let metric_phrase = compile_regex_static(r"(?i)\bhow much more\s+(.+?)\s+was\b")
         .captures(task_lower)
         .and_then(|captures| captures.get(1))
         .map(|value| value.as_str().trim().to_string())?;
@@ -213,7 +213,7 @@ fn parse_goal_money_delta_query(task_lower: &str) -> Option<GoalMoneyDeltaQuery>
     {
         return None;
     }
-    let event_surface = compile_regex(r"(?i)\bthan my initial goal in the\s+(.+?)(?:\?|$)")
+    let event_surface = compile_regex_static(r"(?i)\bthan my initial goal in the\s+(.+?)(?:\?|$)")
         .captures(task_lower)
         .and_then(|captures| captures.get(1))
         .map(|value| value.as_str().trim().to_string())
@@ -236,8 +236,9 @@ fn parse_anchored_money_delta_query(task_lower: &str) -> Option<AnchoredMoneyDel
     if !task_lower.starts_with("how much more was the ") || !task_lower.contains(" than the ") {
         return None;
     }
-    let captures = compile_regex(r"(?i)\bhow much more was the\s+(.+?)\s+than the\s+(.+?)(?:\?|$)")
-        .captures(task_lower)?;
+    let captures =
+        compile_regex_static(r"(?i)\bhow much more was the\s+(.+?)\s+than the\s+(.+?)(?:\?|$)")
+            .captures(task_lower)?;
     let left_surface = captures.get(1)?.as_str().trim();
     let right_surface = captures.get(2)?.as_str().trim();
     if !task_contains_any(left_surface, &["amount", "approval", "price", "sale"])
@@ -288,7 +289,7 @@ fn extract_metric_value(line: &str, metric_phrase: &str) -> Option<f64> {
         r"(?i)\b(\d+(?:\.\d+)?)\s+{}\b",
         regex::escape(metric_phrase)
     );
-    compile_regex(&pattern)
+    compile_regex_static(&pattern)
         .captures(line)
         .and_then(|captures| captures.get(1))
         .and_then(|value| value.as_str().parse::<f64>().ok())

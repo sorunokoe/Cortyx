@@ -1,7 +1,7 @@
 //! Index answer surface scoring and classification.
 
 use super::super::*;
-use crate::index::compile_regex;
+use crate::index::{compile_regex, compile_regex_static};
 
 pub fn looks_like_answer_surface_status(answer_span: &str) -> bool {
     matches!(
@@ -361,7 +361,7 @@ pub fn normalize_fitness_record_kg_value(value: &str) -> String {
 }
 
 pub fn extract_fitness_record_time_value(line: &str) -> Option<(u32, String)> {
-    compile_regex(r"\b(\d{1,2}):(\d{2})\b")
+    compile_regex_static(r"\b(\d{1,2}):(\d{2})\b")
         .captures_iter(line)
         .filter_map(|caps| {
             let minutes = caps.get(1)?.as_str().parse::<u32>().ok()?;

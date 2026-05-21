@@ -237,7 +237,7 @@ fn parse_age_average_query(task_lower: &str) -> Option<AgeAverageQuery> {
     if !task_lower.starts_with("how much older am i than the average age of ") {
         return None;
     }
-    let subject_surface = compile_regex(r"(?i)\baverage age of\s+(.+?)(?:\?|$)")
+    let subject_surface = compile_regex_static(r"(?i)\baverage age of\s+(.+?)(?:\?|$)")
         .captures(task_lower)
         .and_then(|captures| captures.get(1))
         .map(|value| value.as_str().trim().to_string())?;
@@ -255,7 +255,7 @@ fn parse_age_average_query(task_lower: &str) -> Option<AgeAverageQuery> {
 }
 
 fn parse_discount_comparison_query(task_lower: &str) -> Option<DiscountComparisonQuery> {
-    let captures = compile_regex(
+    let captures = compile_regex_static(
         r"(?i)\bdid i receive a higher percentage discount on my first order from\s+(.+?),\s+compared to my first\s+(.+?)\s+order\??$",
     )
     .captures(task_lower)?;
@@ -282,9 +282,10 @@ fn parse_savings_money_query(task_lower: &str) -> Option<SavingsMoneyQuery> {
     {
         return None;
     }
-    let captures =
-        compile_regex(r"(?i)\bhow much will i save by taking\s+(.+?)\s+instead of\s+(.+?)(?:\?|$)")
-            .captures(task_lower)?;
+    let captures = compile_regex_static(
+        r"(?i)\bhow much will i save by taking\s+(.+?)\s+instead of\s+(.+?)(?:\?|$)",
+    )
+    .captures(task_lower)?;
     let chosen_terms = normalized_comparison_terms(captures.get(1)?.as_str());
     let rejected_terms = normalized_comparison_terms(captures.get(2)?.as_str());
     if chosen_terms.is_empty() || rejected_terms.is_empty() {
@@ -312,7 +313,7 @@ fn normalized_comparison_terms(surface: &str) -> Vec<String> {
 }
 
 fn extract_average_age_from_line(line: &str) -> Option<f64> {
-    compile_regex(r"(?i)\baverage age\b[^.\n]{0,80}?\bis\s+(\d+(?:\.\d+)?)\s+years old\b")
+    compile_regex_static(r"(?i)\baverage age\b[^.\n]{0,80}?\bis\s+(\d+(?:\.\d+)?)\s+years old\b")
         .captures(line)
         .and_then(|captures| captures.get(1))
         .and_then(|value| value.as_str().parse::<f64>().ok())

@@ -55,7 +55,11 @@ impl NeuronIndex {
         self.retrieval
             .path_index
             .get(path)
-            .map(|&i| self.retrieval.entries[i].use_count)
+            .map(|&i| {
+                self.retrieval.entries[i]
+                    .use_count
+                    .load(std::sync::atomic::Ordering::Relaxed)
+            })
             .unwrap_or(0)
     }
 
@@ -83,8 +87,7 @@ impl NeuronIndex {
     pub fn record_activation(&mut self, paths: &[std::path::PathBuf]) {
         for path in paths {
             if let Some(&i) = self.retrieval.path_index.get(path) {
-                self.retrieval.entries[i].use_count =
-                    self.retrieval.entries[i].use_count.saturating_add(1);
+                let uc = self.retrieval.entries[i].increment_use_count();
 
                 // Bayesian quarantine with adaptive confidence intervals (TRIZ S4 R11).
                 //
@@ -94,7 +97,6 @@ impl NeuronIndex {
                 //   use_count 20–99 → z=1.645, threshold=0.05 (90% CI — standard behaviour)
                 //   use_count ≥100  → z=1.96,  threshold=0.08 (strict for mature neurons)
                 // Quarantine is reversible: lower bound > QUARANTINE_RECOVERY_THRESHOLD → restore.
-                let uc = self.retrieval.entries[i].use_count;
                 let hc = self.retrieval.entries[i].hit_count;
                 if let Some((z, threshold)) = adaptive_quarantine_params(uc) {
                     let lower = wilson_lower_bound_z(hc, uc, z);
@@ -138,11 +140,9 @@ impl NeuronIndex {
                     self.retrieval.entries[i].hit_count.saturating_add(1);
             }
             // Always increment use_count on explicit feedback (in case get_contexts missed it)
-            self.retrieval.entries[i].use_count =
-                self.retrieval.entries[i].use_count.saturating_add(1);
+            let use_count = self.retrieval.entries[i].increment_use_count();
 
-            let hit_rate = self.retrieval.entries[i].hit_count as f32
-                / self.retrieval.entries[i].use_count.max(1) as f32;
+            let hit_rate = self.retrieval.entries[i].hit_count as f32 / use_count.max(1) as f32;
 
             self.mark_sidecar_dirty(neuron_path);
 

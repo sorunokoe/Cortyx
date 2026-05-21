@@ -120,7 +120,7 @@ fn extract_quoted_titles(text: &str) -> Vec<String> {
     let mut titles = Vec::new();
     let mut seen = HashSet::new();
     for captures in
-        compile_regex(r#"(?:"([^"]+)"|(?:^|[^A-Za-z0-9])'([^']+)')"#).captures_iter(text)
+        compile_regex_static(r#"(?:"([^"]+)"|(?:^|[^A-Za-z0-9])'([^']+)')"#).captures_iter(text)
     {
         let Some(value) = captures
             .get(1)
@@ -149,7 +149,7 @@ fn extract_episode_count(line: &str) -> Option<i32> {
     ]
     .into_iter()
     .find_map(|pattern| {
-        compile_regex(pattern)
+        compile_regex_static(pattern)
             .captures(line)
             .and_then(|captures| captures.get(1))
             .and_then(|value| parse_count_token_value(value.as_str()))

@@ -283,29 +283,6 @@ impl From<std::array::TryFromSliceError> for CortyxError {
     }
 }
 
-/// Extension trait for converting `Result<T, E>` into `Result<T, CortyxError>` during
-/// the migration away from `anyhow`.
-///
-/// This is a transitional helper. Prefer typed `From` implementations for new code.
-#[deprecated(
-    note = "Use typed From impls or anyhow::Context instead; this trait bypasses the type system"
-)]
-pub trait AnyhowCompat<T> {
-    /// Wrap any error with additional context and convert to `CortyxError::Other`.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the underlying operation fails.
-    fn context_cortyx(self, msg: &str) -> std::result::Result<T, CortyxError>;
-}
-
-#[allow(deprecated)]
-impl<T, E: std::fmt::Display> AnyhowCompat<T> for std::result::Result<T, E> {
-    fn context_cortyx(self, msg: &str) -> std::result::Result<T, CortyxError> {
-        self.map_err(|e| CortyxError::other(format!("{msg}: {e}")))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

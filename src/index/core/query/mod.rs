@@ -857,7 +857,7 @@ pub(crate) fn build_git_confidence_map(project_root: &Path) -> HashMap<PathBuf, 
 
 /// Run a git command and return one path per output line. Silent on error.
 pub(crate) fn git_file_list(project_root: &Path, args: &[&str]) -> Vec<PathBuf> {
-    let Ok(out) = std::process::Command::new("git")
+    let Ok(out) = std::process::Command::new(crate::git_util::git_binary())
         .args(args)
         .current_dir(project_root)
         .output()

@@ -44,10 +44,11 @@ pub(super) fn extract_paper_submission_venue(
     {
         return None;
     }
-    let venue = compile_regex(r"(?i)\bsubmitted(?:\s+\w+){0,6}\s+to\s+([A-Za-z][A-Za-z0-9.\-]+)\b")
-        .captures(line)
-        .and_then(|captures| captures.get(1))
-        .map(|value| value.as_str().trim().to_string())?;
+    let venue =
+        compile_regex_static(r"(?i)\bsubmitted(?:\s+\w+){0,6}\s+to\s+([A-Za-z][A-Za-z0-9.\-]+)\b")
+            .captures(line)
+            .and_then(|captures| captures.get(1))
+            .map(|value| value.as_str().trim().to_string())?;
     Some(PaperVenueCandidate {
         venue,
         score: 28 + query.topic_terms.len() * 3,

@@ -84,7 +84,8 @@ pub(super) fn extract_group_project_course_signature_from_line(
     if !lower.contains("group project") {
         return None;
     }
-    let regex = compile_regex(r"\b(?:my|the)\s+([A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+)*)\s+course\b");
+    let regex =
+        compile_regex_static(r"\b(?:my|the)\s+([A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+)*)\s+course\b");
     let course = regex.captures(line)?.get(1)?.as_str();
     Some(normalized_synthetic_phrase_key(&format!(
         "{course} group project"
@@ -106,7 +107,7 @@ pub(super) fn extract_competitive_sport_signatures_from_line(
     ];
 
     for pattern in patterns {
-        let regex = compile_regex(pattern);
+        let regex = compile_regex_static(pattern);
         for captures in regex.captures_iter(line) {
             let Some(raw) = captures.get(1).map(|m| m.as_str()) else {
                 continue;
@@ -156,7 +157,7 @@ pub(super) fn extract_current_tank_signatures_from_line(line: &str, lower: &str)
         return tanks;
     }
 
-    let regex = compile_regex(r"(?i)\b\d+\s*-\s*gallon(?:\s+[a-z']+){0,4}\s+tank\b");
+    let regex = compile_regex_static(r"(?i)\b\d+\s*-\s*gallon(?:\s+[a-z']+){0,4}\s+tank\b");
     for matched in regex.find_iter(line) {
         if let Some(signature) = normalize_current_tank_signature(matched.as_str(), lower) {
             push_unique_normalized_signature(&signature, &mut seen, &mut tanks);
@@ -195,7 +196,7 @@ pub(super) fn extract_recent_baking_signatures_from_line(line: &str, lower: &str
     ];
 
     for pattern in patterns {
-        let regex = compile_regex(pattern);
+        let regex = compile_regex_static(pattern);
         for captures in regex.captures_iter(line) {
             let Some(raw) = captures.get(1).map(|m| m.as_str()) else {
                 continue;
@@ -236,11 +237,12 @@ fn normalize_competitive_activity_signature(raw: &str) -> Option<String> {
         return None;
     }
 
-    let cleaned = compile_regex(r"(?i)^(.+?)(?:\s+(?:in|during|through|for|at|with|on)\b|$)")
-        .captures(trimmed)
-        .and_then(|captures| captures.get(1).map(|m| m.as_str().trim()))
-        .unwrap_or(trimmed);
-    let stripped = compile_regex(
+    let cleaned =
+        compile_regex_static(r"(?i)^(.+?)(?:\s+(?:in|during|through|for|at|with|on)\b|$)")
+            .captures(trimmed)
+            .and_then(|captures| captures.get(1).map(|m| m.as_str().trim()))
+            .unwrap_or(trimmed);
+    let stripped = compile_regex_static(
         r"(?i)^(?:(?:i|we)\s+)?(?:used\s+to\s+)?(?:play(?:ed|ing)?\s+|do(?:ne)?\s+|did\s+|was\s+in\s+|were\s+in\s+)?",
     )
     .replace(cleaned, "")
@@ -278,7 +280,7 @@ fn normalize_competitive_activity_signature(raw: &str) -> Option<String> {
 }
 
 fn normalize_current_tank_signature(raw: &str, lower: &str) -> Option<String> {
-    let size = compile_regex(r"(?i)\b(\d+\s*-\s*gallon)\b")
+    let size = compile_regex_static(r"(?i)\b(\d+\s*-\s*gallon)\b")
         .captures(raw)
         .and_then(|captures| {
             captures
@@ -314,7 +316,7 @@ fn normalize_baking_signature(raw: &str) -> Option<String> {
     }
 
     let cleaned =
-        compile_regex(r"(?i)^(.+?)(?:\s+(?:using|with|for|on|during|last|this|over)\b|$)")
+        compile_regex_static(r"(?i)^(.+?)(?:\s+(?:using|with|for|on|during|last|this|over)\b|$)")
             .captures(trimmed)
             .and_then(|captures| captures.get(1).map(|m| m.as_str().trim()))
             .unwrap_or(trimmed)
@@ -333,11 +335,11 @@ fn line_mentions_recent_window_days(text: &str, max_days: i32) -> bool {
 
 fn line_matches_recent_baking_window(lower: &str) -> bool {
     line_mentions_recent_window_days(lower, 14)
-        || compile_regex(
+        || compile_regex_static(
             r"(?i)\b(?:yesterday|today|tonight|this\s+(?:week|weekend)|last\s+(?:week|weekend|monday|tuesday|wednesday|thursday|friday|saturday|sunday))\b",
         )
         .is_match(lower)
-        || compile_regex(r"(?i)\bon\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b")
+        || compile_regex_static(r"(?i)\bon\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b")
             .is_match(lower)
 }
 

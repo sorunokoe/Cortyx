@@ -1,7 +1,7 @@
 // This file is a submodule of `crate::index::core`.
 // It contains `impl NeuronIndex` methods extracted from helpers.rs.
 // All visibility is relative to `crate::index` (the parent of `core`).
-use super::*;
+use super::family_prelude::*;
 
 impl NeuronIndex {
     // ── Invalidation ──────────────────────────────────────────────────────────
@@ -73,7 +73,12 @@ impl NeuronIndex {
         self.retrieval
             .entries
             .iter()
-            .map(|e| (e.neuron_path.clone(), e.use_count))
+            .map(|e| {
+                (
+                    e.neuron_path.clone(),
+                    e.use_count.load(std::sync::atomic::Ordering::Relaxed),
+                )
+            })
             .collect()
     }
 }

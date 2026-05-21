@@ -1,7 +1,7 @@
 //! Item extraction: bikes, fitness, months, days.
 
 use super::super::*;
-use crate::index::compile_regex;
+use crate::index::{compile_regex, compile_regex_static};
 
 pub fn extract_phrase_after_any_index(
     line: &str,
@@ -211,7 +211,7 @@ pub fn extract_family_origin_antique_items_from_line(line: &str, lower: &str) ->
         return Vec::new();
     }
 
-    let pattern = compile_regex(
+    let pattern = compile_regex_static(
         r"(?i)(?:antique|vintage|depression-era)\s+[a-z][a-z-]*(?:\s+[a-z][a-z-]*){0,3}",
     );
     let mut items = Vec::new();
@@ -277,8 +277,9 @@ pub fn extract_born_child_names_from_line(line: &str, lower: &str) -> Vec<String
     let mut names = Vec::new();
     let mut seen = HashSet::new();
 
-    let twin_pattern =
-        compile_regex(r"(?i)\btwins?(?:\s+\w+)?\s*,\s*([A-Z][a-z]+)\s+and\s+([A-Z][a-z]+)\b");
+    let twin_pattern = compile_regex_static(
+        r"(?i)\btwins?(?:\s+\w+)?\s*,\s*([A-Z][a-z]+)\s+and\s+([A-Z][a-z]+)\b",
+    );
     for caps in twin_pattern.captures_iter(line) {
         for idx in [1, 2] {
             let Some(name_match) = caps.get(idx) else {
@@ -293,8 +294,8 @@ pub fn extract_born_child_names_from_line(line: &str, lower: &str) -> Vec<String
     }
 
     let single_patterns = [
-        compile_regex(r"(?i)\bbaby\s+(?:boy|girl)\s+named\s+([A-Z][a-z]+)\b"),
-        compile_regex(r"(?i)\b(?:son|daughter)\s+([A-Z][a-z]+)\b"),
+        compile_regex_static(r"(?i)\bbaby\s+(?:boy|girl)\s+named\s+([A-Z][a-z]+)\b"),
+        compile_regex_static(r"(?i)\b(?:son|daughter)\s+([A-Z][a-z]+)\b"),
     ];
     for pattern in &single_patterns {
         for caps in pattern.captures_iter(line) {
@@ -325,14 +326,14 @@ pub fn normalize_bike_service_item(text: &str) -> String {
 }
 
 pub fn extract_bike_phrase_from_line(line: &str, _lower: &str) -> Option<String> {
-    let with_determiner = compile_regex(
+    let with_determiner = compile_regex_static(
         r"(?i)\b(?:my|the|our|a|an)\s+((?:road|commuter|mountain|hybrid|gravel|touring|electric|e-bike|ebike|bmx|trail)\s+bike)\b",
     )
             .captures(line)
             .and_then(|caps| caps.get(1))
             .map(|m| m.as_str().trim().to_string());
     let phrase = with_determiner.or_else(|| {
-        compile_regex(
+        compile_regex_static(
             r"(?i)\b((?:road|commuter|mountain|hybrid|gravel|touring|electric|e-bike|ebike|bmx|trail)\s+bike)\b",
         )
             .captures(line)
@@ -453,7 +454,8 @@ pub fn extract_month_day_values_from_line(line: &str, lower: &str, month: &str) 
     let month_range = compile_regex(&format!(
         r"(?i)\b{}\s+(\d{{1,2}})(?:st|nd|rd|th)?\s*-\s*(\d{{1,2}})(?:st|nd|rd|th)?\b",
         month_pattern
-    ));
+    ))
+    .unwrap_or_else(|err| panic!("escaped month-range regex failed to compile: {err}"));
     for caps in month_range.captures_iter(line) {
         let Some(start) = caps.get(1).and_then(|m| m.as_str().parse::<u32>().ok()) else {
             continue;
@@ -467,7 +469,8 @@ pub fn extract_month_day_values_from_line(line: &str, lower: &str, month: &str) 
     let day_pair = compile_regex(&format!(
         r"(?i)\b(\d{{1,2}})(?:st|nd|rd|th)?\s+and\s+(\d{{1,2}})(?:st|nd|rd|th)?\s+of\s+{}\b",
         month_pattern
-    ));
+    ))
+    .unwrap_or_else(|err| panic!("escaped day-pair regex failed to compile: {err}"));
     for caps in day_pair.captures_iter(line) {
         let Some(first) = caps.get(1).and_then(|m| m.as_str().parse::<u32>().ok()) else {
             continue;
@@ -482,7 +485,8 @@ pub fn extract_month_day_values_from_line(line: &str, lower: &str, month: &str) 
     let month_single = compile_regex(&format!(
         r"(?i)\b{}\s+(\d{{1,2}})(?:st|nd|rd|th)?\b",
         month_pattern
-    ));
+    ))
+    .unwrap_or_else(|err| panic!("escaped month-single regex failed to compile: {err}"));
     for caps in month_single.captures_iter(line) {
         let Some(day) = caps.get(1).and_then(|m| m.as_str().parse::<u32>().ok()) else {
             continue;
@@ -493,7 +497,8 @@ pub fn extract_month_day_values_from_line(line: &str, lower: &str, month: &str) 
     let of_month_single = compile_regex(&format!(
         r"(?i)\b(\d{{1,2}})(?:st|nd|rd|th)?\s+of\s+{}\b",
         month_pattern
-    ));
+    ))
+    .unwrap_or_else(|err| panic!("escaped month-of regex failed to compile: {err}"));
     for caps in of_month_single.captures_iter(line) {
         let Some(day) = caps.get(1).and_then(|m| m.as_str().parse::<u32>().ok()) else {
             continue;
@@ -547,7 +552,7 @@ pub fn line_matches_query_month_or_numeric_date(line: &str, lower: &str, month: 
     let Some(target_month) = month_name_to_number(month) else {
         return false;
     };
-    compile_regex(r"(?i)\b(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?\b")
+    compile_regex_static(r"(?i)\b(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?\b")
         .captures_iter(line)
         .filter_map(|caps| caps.get(1))
         .filter_map(|value| value.as_str().parse::<u32>().ok())

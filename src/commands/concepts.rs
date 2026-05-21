@@ -15,7 +15,7 @@ pub fn auto_commit_global_concepts(global_dir: &Path, message: &str) -> Result<b
         return Ok(false);
     }
 
-    let status = std::process::Command::new("git")
+    let status = std::process::Command::new(crate::git_util::git_binary())
         .args(["status", "--porcelain"])
         .current_dir(global_dir)
         .output()?;
@@ -27,7 +27,7 @@ pub fn auto_commit_global_concepts(global_dir: &Path, message: &str) -> Result<b
         return Ok(false);
     }
 
-    let add = std::process::Command::new("git")
+    let add = std::process::Command::new(crate::git_util::git_binary())
         .args(["add", "-A"])
         .current_dir(global_dir)
         .output()?;
@@ -36,7 +36,7 @@ pub fn auto_commit_global_concepts(global_dir: &Path, message: &str) -> Result<b
         crate::cortyx_bail!("git add failed in {}: {stderr}", global_dir.display());
     }
 
-    let commit = std::process::Command::new("git")
+    let commit = std::process::Command::new(crate::git_util::git_binary())
         .args(["commit", "-m", message])
         .current_dir(global_dir)
         .output()?;
@@ -88,13 +88,13 @@ pub fn run(sub: ConceptsCommand) -> Result<()> {
             let is_already_git = global_dir.join(".git").exists();
 
             if !is_already_git {
-                let out = std::process::Command::new("git")
+                let out = std::process::Command::new(crate::git_util::git_binary())
                     .args(["init", "-b", "main"])
                     .current_dir(&global_dir)
                     .output()?;
                 if !out.status.success() {
                     // Older git versions don't support -b; retry without it
-                    std::process::Command::new("git")
+                    std::process::Command::new(crate::git_util::git_binary())
                         .arg("init")
                         .current_dir(&global_dir)
                         .status()?;
@@ -105,7 +105,7 @@ pub fn run(sub: ConceptsCommand) -> Result<()> {
             }
 
             if let Some(ref url) = remote {
-                let add = std::process::Command::new("git")
+                let add = std::process::Command::new(crate::git_util::git_binary())
                     .args(["remote", "add", "origin", url])
                     .current_dir(&global_dir)
                     .status()?;
@@ -113,7 +113,7 @@ pub fn run(sub: ConceptsCommand) -> Result<()> {
                     println!("Remote 'origin' set to {url}");
                 } else {
                     // Remote may already exist; update it
-                    std::process::Command::new("git")
+                    std::process::Command::new(crate::git_util::git_binary())
                         .args(["remote", "set-url", "origin", url])
                         .current_dir(&global_dir)
                         .status()?;
@@ -124,19 +124,19 @@ pub fn run(sub: ConceptsCommand) -> Result<()> {
 
         ConceptsCommand::Pull => {
             println!("Fetching concepts from remote…");
-            let fetch = std::process::Command::new("git")
+            let fetch = std::process::Command::new(crate::git_util::git_binary())
                 .args(["fetch", "origin"])
                 .current_dir(&global_dir)
                 .status()?;
             if !fetch.success() {
                 crate::cortyx_bail!("git fetch failed — check your remote and network");
             }
-            let merge = std::process::Command::new("git")
+            let merge = std::process::Command::new(crate::git_util::git_binary())
                 .args(["merge", "--ff-only", "origin/main"])
                 .current_dir(&global_dir)
                 .status()
                 .or_else(|_| {
-                    std::process::Command::new("git")
+                    std::process::Command::new(crate::git_util::git_binary())
                         .args(["merge", "--ff-only", "origin/master"])
                         .current_dir(&global_dir)
                         .status()
@@ -152,12 +152,12 @@ pub fn run(sub: ConceptsCommand) -> Result<()> {
 
         ConceptsCommand::Push => {
             println!("Pushing concepts to remote…");
-            let push = std::process::Command::new("git")
+            let push = std::process::Command::new(crate::git_util::git_binary())
                 .args(["push", "origin", "main"])
                 .current_dir(&global_dir)
                 .status()
                 .or_else(|_| {
-                    std::process::Command::new("git")
+                    std::process::Command::new(crate::git_util::git_binary())
                         .args(["push", "origin", "master"])
                         .current_dir(&global_dir)
                         .status()

@@ -1,6 +1,6 @@
 //! Core index types - summary and metadata structures.
 
-use super::*;
+use super::family_prelude::*;
 
 // ─── Navigation summary types (TRIZ R13-G2) ──────────────────────────────────
 

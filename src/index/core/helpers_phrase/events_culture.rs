@@ -1,10 +1,10 @@
 //! Culture event extraction: art, cuisine, museum, citrus, fun run, health.
 
 use super::super::*;
-use crate::index::compile_regex;
+use crate::index::{compile_regex, compile_regex_static};
 
 pub fn extract_first_quoted_phrase(line: &str) -> Option<String> {
-    compile_regex(r#""([^"]+)""#)
+    compile_regex_static(r#""([^"]+)""#)
         .captures(line)
         .and_then(|caps| caps.get(1))
         .map(|m| m.as_str().trim().to_string())
@@ -304,7 +304,7 @@ pub fn line_mentions_recent_three_month_window(lower: &str) -> bool {
 }
 
 pub fn trim_trailing_relative_time_phrase(text: &str) -> String {
-    let trimmed = compile_regex(
+    let trimmed = compile_regex_static(
         r"(?i)\s+(?:about|around)?\s*(?:a\s+few|few|a\s+couple\s+of|couple\s+of|one|two|three|\d+)\s+(?:day|days|week|weeks|month|months|year|years)\s+ago[.!?,]?\s*$",
     )
     .replace(text.trim(), "")
@@ -322,7 +322,7 @@ pub fn extract_graduation_ceremony_signature_from_line(line: &str, lower: &str) 
     {
         return None;
     }
-    let caps = compile_regex(
+    let caps = compile_regex_static(
         r"(?i)attended (?:my|our|the) ([^\n]+?)'s ((?:[^.!?\n]+?\s+)?graduation(?: ceremony)?(?: from [^.!?\n]+?)?)\b",
     )
     .captures(line)?;
@@ -338,7 +338,7 @@ pub fn extract_health_device_units_from_line(_line: &str, lower: &str) -> Vec<St
 
     let has_specific_fitbit =
         lower.contains("fitbit versa 3 smartwatch") || lower.contains("fitbit versa 3");
-    let has_generic_fitbit = compile_regex(r"(?i)\bfitbit\b").is_match(lower);
+    let has_generic_fitbit = compile_regex_static(r"(?i)\bfitbit\b").is_match(lower);
     let wearable = if has_specific_fitbit {
         Some("fitbit versa 3 smartwatch")
     } else if has_generic_fitbit {
@@ -393,7 +393,7 @@ pub fn extract_peak_campaign_weekly_hour_delta_from_line(line: &str, lower: &str
     {
         return None;
     }
-    compile_regex(
+    compile_regex_static(
         r"(?i)\bincrease my (?:work )?hours by (\d+(?:\.\d+)?) hours? (?:weekly|a week|per week)\b",
     )
     .captures(line)?
@@ -407,7 +407,7 @@ pub fn extract_typical_weekly_work_hours_from_line(line: &str, lower: &str) -> O
     if !task_contains_any(lower, &["i usually work", "usually work"]) {
         return None;
     }
-    compile_regex(r"(?i)\bi usually work (\d+(?:\.\d+)?) hours? (?:a|per) week\b")
+    compile_regex_static(r"(?i)\bi usually work (\d+(?:\.\d+)?) hours? (?:a|per) week\b")
         .captures(line)?
         .get(1)?
         .as_str()
@@ -419,7 +419,7 @@ pub fn extract_peak_campaign_total_weekly_hours_from_line(line: &str, lower: &st
     if !lower.contains("peak campaign") {
         return None;
     }
-    compile_regex(
+    compile_regex_static(
         r"(?i)\b(?:working )?up to (\d+(?:\.\d+)?) hours?(?:\s*/\s*week|\s+per\s+week|\s+a\s+week)\b",
     )
     .captures(line)?

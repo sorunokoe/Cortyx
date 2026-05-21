@@ -112,7 +112,7 @@ pub(super) fn extract_social_reach_candidate(
         return None;
     }
 
-    let facebook_value = compile_regex(
+    let facebook_value = compile_regex_static(
         r"(?i)\breached\s+(?:around\s+|about\s+|approximately\s+)?(\d[\d,]*)\s+people\b",
     )
     .captures(line)
@@ -133,14 +133,14 @@ pub(super) fn extract_social_reach_candidate(
         });
     }
 
-    let influencer_value = compile_regex(
+    let influencer_value = compile_regex_static(
         r"(?i)\b(?:promoted|exposed|shared|introduced).*?\b(?:to\s+)?(\d[\d,]*)\s+followers\b",
     )
     .captures(line)
     .and_then(|captures| captures.get(1))
     .and_then(|value| parse_social_number(value.as_str()))
     .or_else(|| {
-        compile_regex(r"(?i)\b(\d[\d,]*)\s+followers\b")
+        compile_regex_static(r"(?i)\b(\d[\d,]*)\s+followers\b")
             .captures(line)
             .and_then(|captures| captures.get(1))
             .and_then(|value| parse_social_number(value.as_str()))
@@ -199,7 +199,7 @@ pub(super) fn extract_platform_growth_candidate(
         });
     }
 
-    let direct_delta = compile_regex(
+    let direct_delta = compile_regex_static(
         r"(?i)\b(?:gained|grew by|increased by|went up by|up by)\s+(?:around\s+|about\s+|approximately\s+)?(\d[\d,]*)\s+followers?\b",
     )
     .captures(line)
@@ -217,14 +217,15 @@ pub(super) fn extract_platform_growth_candidate(
         });
     }
 
-    let range_delta =
-        compile_regex(r"(?i)\bfrom\s+(\d[\d,]*)\s+(?:followers?\b)?(?:.*?\bto\s+)(\d[\d,]*)\b")
-            .captures(line)
-            .and_then(|captures| {
-                let start = parse_social_number(captures.get(1)?.as_str())?;
-                let end = parse_social_number(captures.get(2)?.as_str())?;
-                end.checked_sub(start)
-            });
+    let range_delta = compile_regex_static(
+        r"(?i)\bfrom\s+(\d[\d,]*)\s+(?:followers?\b)?(?:.*?\bto\s+)(\d[\d,]*)\b",
+    )
+    .captures(line)
+    .and_then(|captures| {
+        let start = parse_social_number(captures.get(1)?.as_str())?;
+        let end = parse_social_number(captures.get(2)?.as_str())?;
+        end.checked_sub(start)
+    });
     let delta = range_delta.filter(|delta| *delta > 0)?;
     Some(PlatformGrowthCandidate {
         platform: platform_name.to_string(),

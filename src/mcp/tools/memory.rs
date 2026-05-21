@@ -158,8 +158,8 @@ impl CortyxServer {
         }
         // R12-S2-B: Clear provisional hits — close_task provides actual citation evidence,
         // so the optimistic provisional buffer is no longer needed.
-        self.provisional_hits.lock().await.clear();
-        let activated = self.last_activated.lock().await.clone();
+        self.feedback.provisional_hits.lock().await.clear();
+        let activated = self.feedback.last_activated.lock().await.clone();
         if activated.is_empty() {
             return "No neurons from last cortyx_get_contexts call to evaluate.".to_string();
         }
@@ -619,7 +619,7 @@ impl CortyxServer {
     pub(super) async fn build_git_prefetch_block(&self) -> Option<String> {
         use tokio::process::Command;
 
-        let output = Command::new("git")
+        let output = Command::new(crate::git_util::git_binary())
             .args(["diff", "--name-only", "HEAD"])
             .current_dir(&self.project_root)
             .output()

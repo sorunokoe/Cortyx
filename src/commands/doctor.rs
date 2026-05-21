@@ -80,7 +80,7 @@ pub fn run(root: &Path, json_output: bool) -> i32 {
     }
 
     // 3. Git availability
-    let git_ok = std::process::Command::new("git")
+    let git_ok = std::process::Command::new(crate::git_util::git_binary())
         .args(["rev-parse", "--short", "HEAD"])
         .current_dir(root)
         .output()

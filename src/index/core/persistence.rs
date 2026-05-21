@@ -1,6 +1,6 @@
 //! Persistence helpers and serialized index types.
 
-use super::*;
+use super::family_prelude::*;
 
 // ─── Write-ahead log ─────────────────────────────────────────────────────────
 //
@@ -59,6 +59,13 @@ fn read_le_u32(bytes: &[u8]) -> Option<u32> {
 fn write_crc32_sidecar(path: &Path, payload: &[u8]) -> Result<()> {
     let checksum = crc32fast::hash(payload).to_le_bytes();
     atomic_write(path, &checksum)
+}
+
+fn rebuild_hot_term_freq(entries: &mut [BM25Entry]) {
+    let mut interner = crate::index::core::bm25::interner::TermInterner::new();
+    for entry in entries {
+        entry.build_hot_terms(&mut interner);
+    }
 }
 
 fn purge_persistence_artifacts(project_root: &Path, index_path: &Path) {
@@ -467,6 +474,12 @@ impl NeuronIndex {
                     continue;
                 },
             };
+            // COUNTERS:
+            // `NeuronMeta` is the persistence-layer source of truth when loading from disk.
+            // `BM25Entry::{use_count, hit_count}` become the live runtime counters that query
+            // paths increment in memory.
+            // Reconciliation happens here by rebuilding the BM25 entry from `meta`, and again
+            // on the next save when runtime counters are flushed back into the sidecar JSON.
             self.index_neuron(neuron_path, &content, &meta);
             recovered += 1;
         }
@@ -634,6 +647,7 @@ impl NeuronIndex {
             }
         }
 
+        rebuild_hot_term_freq(&mut idx.retrieval.entries);
         idx.rebuild_derived();
         idx.feedback.coactivation_counts = load_coactivation_counts(project_root);
         if persist_index {
@@ -955,6 +969,7 @@ impl NeuronIndex {
         for (entry, summary) in entries.iter_mut().zip(cache.summaries) {
             entry.summary = summary;
         }
+        rebuild_hot_term_freq(&mut entries);
 
         tracing::debug!(
             entries = entries.len(),

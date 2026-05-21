@@ -2,7 +2,7 @@
 // It contains free-standing helper functions extracted from mod.rs (E1).
 // All visibility is relative to `crate::index` (the parent of `core`).
 use super::*;
-use crate::index::compile_regex;
+use crate::index::{compile_regex, compile_regex_static};
 use crate::types::{QueryText, SynapseWeight};
 
 // ─── Free functions ───────────────────────────────────────────────────────────
@@ -151,7 +151,7 @@ pub(in crate::index) fn read_readme_section(root: &Path, keywords: &[&str]) -> O
 
 /// Run a git command and return trimmed stdout, or None on failure.
 pub(in crate::index) fn run_git_cmd(root: &Path, args: &[&str]) -> Option<String> {
-    let out = std::process::Command::new("git")
+    let out = std::process::Command::new(crate::git_util::git_binary())
         .args(args)
         .current_dir(root)
         .output()

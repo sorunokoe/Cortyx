@@ -27,6 +27,8 @@ embed = ["dep:fastembed", "dep:turbovec", "dep:blas-src"]
 # ~100× smaller and faster than LLM reranking; no API calls; local/private.
 rerank = ["dep:ort", "dep:tokenizers"]
 # Local LLM answer synthesis via Ollama.
+experimental = []
+personal-families = []
 [dependencies]
 anyhow = "1.0.102"
 bincode = "1.3.3"

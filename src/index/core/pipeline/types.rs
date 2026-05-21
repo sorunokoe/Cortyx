@@ -168,10 +168,11 @@ impl<'a> QueryContext<'a> {
             })
             .sum();
 
-        let hit_multiplier = if entry.use_count < MIN_SAMPLE_SIZE {
+        let use_count = entry.use_count.load(std::sync::atomic::Ordering::Relaxed);
+        let hit_multiplier = if use_count < MIN_SAMPLE_SIZE {
             1.0
         } else {
-            let hit_rate = entry.hit_count as f32 / entry.use_count as f32;
+            let hit_rate = entry.hit_count as f32 / use_count as f32;
             (1.0 + hit_rate).min(1.5)
         };
 

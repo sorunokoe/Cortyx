@@ -185,7 +185,8 @@ fn duration_to_minutes(surface: &str) -> Option<i32> {
 }
 
 fn parse_clock_minutes(surface: &str) -> Option<i32> {
-    let captures = compile_regex(r"(?i)\b(\d{1,2})(?::(\d{2}))?\s?(AM|PM)\b").captures(surface)?;
+    let captures =
+        compile_regex_static(r"(?i)\b(\d{1,2})(?::(\d{2}))?\s?(AM|PM)\b").captures(surface)?;
     let hour = captures.get(1)?.as_str().parse::<i32>().ok()?;
     let minute = captures
         .get(2)
@@ -201,7 +202,7 @@ fn parse_clock_minutes(surface: &str) -> Option<i32> {
 }
 
 fn extract_time_aligned_weekday(line: &str, lower: &str) -> Option<String> {
-    let time_start = compile_regex(r"(?i)\b\d{1,2}(?::\d{2})?\s?(?:AM|PM)\b")
+    let time_start = compile_regex_static(r"(?i)\b\d{1,2}(?::\d{2})?\s?(?:AM|PM)\b")
         .find(line)
         .map(|matched| matched.start())?;
     [

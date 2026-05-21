@@ -95,7 +95,7 @@ fn extract_git_terms(source_abs: &Path) -> Vec<String> {
 
     let parent = source_abs.parent().unwrap_or(source_abs);
 
-    let mut child = match Command::new("git")
+    let mut child = match Command::new(crate::git_util::git_binary())
         .args([
             "log",
             "--oneline",

@@ -167,7 +167,7 @@ fn extract_subject_between(
 
 fn extract_age_with_patterns(lower: &str, patterns: &[&str]) -> Option<i32> {
     patterns.iter().find_map(|pattern| {
-        compile_regex(pattern)
+        compile_regex_static(pattern)
             .captures(lower)
             .and_then(|caps| caps.get(1))
             .and_then(|m| m.as_str().parse::<i32>().ok())
@@ -183,12 +183,12 @@ fn extract_year_offset(lower: &str) -> Option<i32> {
         return Some(0);
     }
 
-    compile_regex(r"\bin\s+(\d{1,2})\s+years?\b")
+    compile_regex_static(r"\bin\s+(\d{1,2})\s+years?\b")
         .captures(lower)
         .and_then(|caps| caps.get(1))
         .and_then(|m| m.as_str().parse::<i32>().ok())
         .or_else(|| {
-            compile_regex(r"\b(\d{1,2})\s+years?\s+from now\b")
+            compile_regex_static(r"\b(\d{1,2})\s+years?\s+from now\b")
                 .captures(lower)
                 .and_then(|caps| caps.get(1))
                 .and_then(|m| m.as_str().parse::<i32>().ok())

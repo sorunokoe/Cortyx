@@ -1,7 +1,7 @@
 //! Schedule domain helpers: weekday extraction, schedule shifts, dishes, commute, images, dollar amounts.
 
 use super::super::*;
-use crate::index::compile_regex;
+use crate::index::{compile_regex, compile_regex_static};
 
 pub fn extract_weekday_from_query(task_lower: &str) -> Option<&'static str> {
     [
@@ -236,7 +236,7 @@ pub fn extract_commute_duration_from_line(line: &str) -> Option<String> {
     if !lower.contains("commute") {
         return None;
     }
-    let pattern = compile_regex(
+    let pattern = compile_regex_static(
         r"(?i)(?:which\s+takes|takes|is)\s+(?:about\s+)?((?:an?|one|\d+)\s+(?:hours?|minutes?)(?:\s+each\s+way)?)",
     );
     pattern.captures(line).and_then(|caps| {
@@ -264,7 +264,7 @@ pub fn extract_store_name_from_line(_line: &str, lower: &str) -> Option<String> 
 }
 
 pub fn extract_image_subject_from_query(task: &str) -> Option<String> {
-    let scoped = compile_regex(r"of the ([A-Z][A-Za-z-]+)");
+    let scoped = compile_regex_static(r"of the ([A-Z][A-Za-z-]+)");
     if let Some(subject) = scoped
         .captures(task)
         .and_then(|caps| caps.get(1))
@@ -301,7 +301,8 @@ pub fn extract_image_subject_body_color(
     let pattern = compile_regex(&format!(
         r"(?i)\b{}\b[^.]*?\bhas a ([a-z ]+?) body",
         regex::escape(subject)
-    ));
+    ))
+    .unwrap_or_else(|err| panic!("escaped image-subject regex failed to compile: {err}"));
     for line in lines {
         let Some(caps) = pattern.captures(line) else {
             continue;
@@ -344,7 +345,7 @@ pub fn extract_issue_after_service_line(line: &str, lower: &str) -> Option<Strin
 }
 
 pub fn extract_dollar_amounts(line: &str) -> Vec<f32> {
-    let pattern = compile_regex(r"\$([0-9][0-9,]*(?:\.[0-9]+)?)");
+    let pattern = compile_regex_static(r"\$([0-9][0-9,]*(?:\.[0-9]+)?)");
     pattern
         .captures_iter(line)
         .filter_map(|caps| caps.get(1))
@@ -570,13 +571,13 @@ pub fn extract_aggregate_duration_value(line: &str) -> Option<SyntheticDurationV
         }
     }
 
-    let postfix_half = compile_regex(
+    let postfix_half = compile_regex_static(
         r"(?i)\b(?:about\s+|around\s+)?(a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|couple|few|\d+(?:\.\d+)?)(?:\s+|-)(day|days|week|weeks|month|months|year|years|hour|hours|minute|minutes)\s+and\s+a\s+half\b",
     );
-    let long_form = compile_regex(
+    let long_form = compile_regex_static(
         r"(?i)\b(?:(a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|couple|few|\d+(?:\.\d+)?)\s+)?(day|days|week|weeks|month|months|year|years|hour|hours|minute|minutes)(?:-|\s+)long\b",
     );
-    let prefix_half = compile_regex(
+    let prefix_half = compile_regex_static(
         r"(?i)\b(?:about\s+|around\s+)?(a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|couple|few|\d+(?:\.\d+)?)(\s+and\s+a\s+half)?(?:\s+|-)(day|days|week|weeks|month|months|year|years|hour|hours|minute|minutes)\b",
     );
     let (amount_token, has_half, unit) = if let Some(caps) = postfix_half.captures(line) {
@@ -631,7 +632,7 @@ pub fn extract_aggregate_duration_value(line: &str) -> Option<SyntheticDurationV
 }
 
 pub fn extract_requested_aggregate_duration_unit(task_lower: &str) -> Option<&'static str> {
-    let caps = compile_regex(r"(?i)\bhow many\s+(day|days|week|weeks|month|months|year|years|hour|hours|minute|minutes)\b")
+    let caps = compile_regex_static(r"(?i)\bhow many\s+(day|days|week|weeks|month|months|year|years|hour|hours|minute|minutes)\b")
         .captures(task_lower)?;
     match caps.get(1)?.as_str().to_ascii_lowercase().as_str() {
         "minute" | "minutes" => Some("minute"),

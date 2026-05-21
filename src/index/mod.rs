@@ -31,17 +31,27 @@ use crate::reasoner::{
     GraphReasoner, ReasonerNeuron, ReasonerSeed, ReasoningReport, TraversalOptions,
 };
 
-fn compile_regex(pattern: &str) -> Regex {
-    match Regex::new(pattern) {
-        Ok(regex) => regex,
-        Err(err) => {
-            tracing::error!("invalid index regex {pattern:?}: {err}");
-            match Regex::new(r"$^") {
-                Ok(fallback) => fallback,
-                Err(_) => unreachable!("fallback regex must compile"),
-            }
-        },
-    }
+/// Compile a regex from a hardcoded, known-good pattern.
+///
+/// # Panics
+///
+/// Panics if `pattern` fails to compile. This is intentional — a hardcoded regex
+/// that fails to compile is a programming error, not a runtime condition.
+pub(crate) fn compile_regex_static(pattern: &str) -> Regex {
+    compile_regex(pattern)
+        .unwrap_or_else(|err| panic!("hardcoded regex failed to compile: {pattern:?}: {err}"))
+}
+
+/// Compile a regex from a runtime or user-supplied pattern.
+///
+/// Returns an error if the pattern is invalid. Callers must handle the error
+/// explicitly — no silent fallback.
+///
+/// # Errors
+///
+/// Returns [`crate::error::CortyxError::Regex`] if the pattern fails to compile.
+pub(crate) fn compile_regex(pattern: &str) -> crate::error::Result<Regex> {
+    Regex::new(pattern).map_err(crate::error::CortyxError::Regex)
 }
 
 mod age_event_extractors;
@@ -98,9 +108,11 @@ mod gathering_count_extractors;
 mod gathering_count_families;
 #[cfg(test)]
 mod gathering_count_family_tests;
+#[cfg(feature = "personal-families")]
 mod instagram_delta_extractors;
+#[cfg(feature = "personal-families")]
 mod instagram_delta_families;
-#[cfg(test)]
+#[cfg(all(test, feature = "personal-families"))]
 mod instagram_delta_family_tests;
 mod money_combination_extractors;
 mod money_combination_families;
@@ -117,13 +129,17 @@ mod numeric_delta_extractors;
 mod numeric_delta_families;
 #[cfg(test)]
 mod numeric_delta_family_tests;
+#[cfg(feature = "personal-families")]
 mod paper_submission_extractors;
+#[cfg(feature = "personal-families")]
 mod paper_submission_families;
-#[cfg(test)]
+#[cfg(all(test, feature = "personal-families"))]
 mod paper_submission_family_tests;
+#[cfg(feature = "personal-families")]
 mod podcast_count_extractors;
+#[cfg(feature = "personal-families")]
 mod podcast_count_families;
-#[cfg(test)]
+#[cfg(all(test, feature = "personal-families"))]
 mod podcast_count_family_tests;
 mod preference_profile_advice_families;
 #[cfg(test)]
@@ -167,11 +183,14 @@ mod time_delta_extractors;
 mod time_delta_families;
 #[cfg(test)]
 mod time_delta_family_tests;
+#[cfg(feature = "personal-families")]
 mod travel_packing_families;
-#[cfg(test)]
+#[cfg(all(test, feature = "personal-families"))]
 mod travel_packing_family_tests;
 
 pub mod core;
+#[cfg(not(feature = "personal-families"))]
+mod family_stubs;
 
 // Re-export everything from core so family modules continue to use `super::*`
 // and `super::some_fn()` without modification.

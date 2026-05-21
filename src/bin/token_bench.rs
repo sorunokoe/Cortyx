@@ -1,3 +1,5 @@
+//! Token usage benchmark for Cortyx retrieval and answer modes.
+
 use clap::Parser;
 use cortyx::error::Result;
 use cortyx::index::NeuronIndex;

@@ -107,12 +107,12 @@ impl FeedbackState {
                 let use_a = retrieval
                     .entries
                     .get(a_idx)
-                    .map(|entry| entry.use_count)
+                    .map(|entry| entry.use_count.load(std::sync::atomic::Ordering::Relaxed))
                     .unwrap_or(0);
                 let use_b = retrieval
                     .entries
                     .get(b_idx)
-                    .map(|entry| entry.use_count)
+                    .map(|entry| entry.use_count.load(std::sync::atomic::Ordering::Relaxed))
                     .unwrap_or(0);
                 let denominator = use_a.min(use_b).max(count);
                 crate::index::core::query::wilson_lower_bound_z(count, denominator, 1.0) >= 0.10

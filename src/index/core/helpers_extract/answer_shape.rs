@@ -1,5 +1,5 @@
 use super::*;
-use crate::index::compile_regex;
+use crate::index::{compile_regex, compile_regex_static};
 
 pub(in crate::index) fn looks_like_answer_surface_date(answer_span: &str) -> bool {
     const MONTHS: &[&str] = &[
@@ -17,7 +17,7 @@ pub(in crate::index) fn looks_like_answer_surface_date(answer_span: &str) -> boo
         "december",
     ];
     let lower = answer_span.to_ascii_lowercase();
-    compile_regex(r"\b(?:19|20)\d{2}\b").is_match(&lower)
+    compile_regex_static(r"\b(?:19|20)\d{2}\b").is_match(&lower)
         || MONTHS.iter().any(|month| lower.contains(month))
         || task_contains_any(
             &lower,
@@ -48,11 +48,11 @@ pub(in crate::index) fn looks_like_answer_surface_date(answer_span: &str) -> boo
 pub(in crate::index) fn looks_like_answer_surface_duration(answer_span: &str) -> bool {
     let lower = answer_span.to_ascii_lowercase();
     lower.starts_with("since ")
-        || compile_regex(
+        || compile_regex_static(
             r"\b(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+(?:day|week|month|year)s?\b",
         )
         .is_match(&lower)
-        || compile_regex(
+        || compile_regex_static(
             r"\b(?:day|week|month|year)s?\s+(?:ago|already|now)\b",
         )
         .is_match(&lower)
@@ -63,7 +63,7 @@ pub(in crate::index) fn looks_like_answer_surface_count(answer_span: &str) -> bo
         return false;
     }
     let lower = answer_span.to_ascii_lowercase();
-    compile_regex(
+    compile_regex_static(
         r"^(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twice|thrice)(?:\s+(?:times?|kids?|children|dogs?|cats?|followers?|issues?|books?|letters?))?$",
     )
     .is_match(lower.trim())

@@ -1,7 +1,7 @@
 //! Query type classification and term extraction.
 
 use super::super::*;
-use crate::index::compile_regex;
+use crate::index::{compile_regex, compile_regex_static};
 
 pub fn detect_temporal_query(task: &str) -> bool {
     const TEMPORAL_MARKERS: &[&str] = &[
@@ -342,7 +342,7 @@ pub fn extract_direct_count_focus_terms(terms: &[String]) -> Vec<String> {
 }
 
 pub fn extract_role_phrase(task: &str) -> Option<String> {
-    compile_regex(r"(?i)(?:role as|job as|position as)\s+([^?.!]+)")
+    compile_regex_static(r"(?i)(?:role as|job as|position as)\s+([^?.!]+)")
         .captures(task)
         .and_then(|caps| caps.get(1))
         .map(|m| m.as_str().trim().to_string())
@@ -438,7 +438,7 @@ pub fn synthetic_count_query_requires_multi_operand_reasoning(
 }
 
 pub fn extract_query_duration_window(task_lower: &str) -> Option<String> {
-    compile_regex(
+    compile_regex_static(
         r"(?i)\bfirst\s+((?:about\s+)?(?:an?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d+)\s+(?:days?|weeks?|months?|years?|hours?|minutes?))\b",
     )
     .captures(task_lower)
@@ -521,7 +521,7 @@ pub fn extract_item_usage_phrase(task_lower: &str) -> Option<(String, String)> {
 }
 
 pub fn extract_media_rewatch_focus(task_lower: &str) -> Option<(String, String)> {
-    let caps = compile_regex(
+    let caps = compile_regex_static(
         r"(?i)\bhow many\s+(.*?)\s*(movies?|films?|shows?|episodes?)\s+(?:did|have)\s+i\s+re(?:-| )?watch(?:ed)?\b",
     )
     .captures(task_lower)?;
@@ -578,7 +578,7 @@ pub fn normalize_first_person_phrase_to_second_person(phrase: &str) -> String {
 }
 
 pub fn extract_activity_core_phrase(phrase: &str) -> String {
-    compile_regex(r"(?i)^(.+?)(?:\s+(?:with|at|in|on|for|during|around|near)\b|$)")
+    compile_regex_static(r"(?i)^(.+?)(?:\s+(?:with|at|in|on|for|during|around|near)\b|$)")
         .captures(phrase)
         .and_then(|caps| caps.get(1))
         .map(|m| m.as_str().trim().to_string())
@@ -617,7 +617,7 @@ pub fn capitalize_first_ascii(value: &str) -> String {
 }
 
 pub fn extract_plural_issue_count_answer_from_line(line: &str) -> Option<String> {
-    let raw = compile_regex(
+    let raw = compile_regex_static(
         r"(?i)\b(?:finished|read|reading|completed)\s+(?:about\s+)?(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d+)\s+issues?\b",
     )
     .captures(line)

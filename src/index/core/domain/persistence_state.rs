@@ -62,7 +62,9 @@ impl PersistenceState {
             return true;
         };
 
-        meta.use_count = retrieval.entries[index].use_count;
+        meta.use_count = retrieval.entries[index]
+            .use_count
+            .load(std::sync::atomic::Ordering::Relaxed);
         meta.hit_count = retrieval.entries[index].hit_count;
         if let Err(err) = atomic_write_json(&meta_path, &meta) {
             tracing::warn!(

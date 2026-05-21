@@ -59,7 +59,7 @@ pub(super) fn extract_wedding_attendance_details(line: &str) -> Vec<SignatureDet
         }
     };
 
-    if let Some((name, partner)) = compile_regex(
+    if let Some((name, partner)) = compile_regex_static(
         r"\b(?:the|The)\s+bride,\s*([A-Z][a-z]+),.*?\b(?:husband|wife|partner),\s*([A-Z][a-z]+)\b",
     )
     .captures(line)
@@ -67,7 +67,7 @@ pub(super) fn extract_wedding_attendance_details(line: &str) -> Vec<SignatureDet
     {
         push(name, &format!("{name} and {partner}"));
     }
-    if let Some((name, partner)) = compile_regex(
+    if let Some((name, partner)) = compile_regex_static(
         r"\b([A-Z][a-z]+)\s+(?:finally\s+)?(?:got to\s+)?tie the knot with\s+(?:her|his|their)\s+(?:partner|husband|wife)\s+([A-Z][a-z]+)\b",
     )
     .captures(line)
@@ -75,7 +75,7 @@ pub(super) fn extract_wedding_attendance_details(line: &str) -> Vec<SignatureDet
     {
         push(name, &format!("{name} and {partner}"));
     }
-    if let Some(name) = compile_regex(
+    if let Some(name) = compile_regex_static(
         r"\b(?:my|My)\s+(?:friend|cousin|roommate|college roommate)\s+([A-Z][a-z]+)\s+got married\b",
     )
     .captures(line)
@@ -83,7 +83,7 @@ pub(super) fn extract_wedding_attendance_details(line: &str) -> Vec<SignatureDet
     {
         push(name, name);
     }
-    if let Some(name) = compile_regex(r"\b([A-Z][a-z]+)'s wedding\b")
+    if let Some(name) = compile_regex_static(r"\b([A-Z][a-z]+)'s wedding\b")
         .captures(line)
         .and_then(|captures| captures.get(1).map(|m| m.as_str()))
     {
@@ -161,7 +161,7 @@ pub(super) fn extract_education_completion_age_from_line(line: &str) -> Option<i
     ) {
         return None;
     }
-    compile_regex(
+    compile_regex_static(
         r"(?i)\b(?:completed|graduated|finished|earned)[^.]{0,80}?\bat (?:the )?age of (\d{1,2})\b",
     )
     .captures(line)
@@ -170,7 +170,7 @@ pub(super) fn extract_education_completion_age_from_line(line: &str) -> Option<i
 }
 
 pub(super) fn extract_current_age_from_line(line: &str) -> Option<i32> {
-    compile_regex(r"(?i)\b(?:i am|i'm|im)\s+(?:currently\s+)?(\d{1,2})\s+years old\b")
+    compile_regex_static(r"(?i)\b(?:i am|i'm|im)\s+(?:currently\s+)?(\d{1,2})\s+years old\b")
         .captures(line)
         .and_then(|captures| captures.get(1))
         .and_then(|value| value.as_str().parse::<i32>().ok())
@@ -231,8 +231,8 @@ pub(super) fn profile_overlap_count(left: &[String], right: &[String]) -> usize 
 }
 
 fn count_listed_rollercoasters(line: &str) -> Option<usize> {
-    let captures =
-        compile_regex(r"(?i)\brode\s+(?:the\s+)?(.+?)\s+rollercoasters?\b").captures(line)?;
+    let captures = compile_regex_static(r"(?i)\brode\s+(?:the\s+)?(.+?)\s+rollercoasters?\b")
+        .captures(line)?;
     let count = captures
         .get(1)?
         .as_str()
@@ -252,7 +252,7 @@ fn count_listed_rollercoasters(line: &str) -> Option<usize> {
 }
 
 fn extract_explicit_ride_count(line: &str) -> Option<usize> {
-    compile_regex(
+    compile_regex_static(
         r"(?i)\brode\b.+?\b(once|twice|thrice|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+times?\b",
     )
     .captures(line)

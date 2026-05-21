@@ -1341,7 +1341,12 @@ fn feedback_save_keeps_cache_generation_and_refreshes_cache_entries() {
     let idx2 = NeuronIndex::load_or_create(dir.path()).unwrap();
     let reloaded = idx2.entry_by_path(&neuron).unwrap();
     assert_eq!(reloaded.hit_count, 1);
-    assert_eq!(reloaded.use_count, 1);
+    assert_eq!(
+        reloaded
+            .use_count
+            .load(std::sync::atomic::Ordering::Relaxed),
+        1
+    );
     assert_eq!(
         idx2.feedback
             .coactivation_counts

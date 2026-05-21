@@ -151,7 +151,7 @@ impl NeuronIndex {
             _ => 5,
         };
 
-        let output = match std::process::Command::new("git")
+        let output = match std::process::Command::new(crate::git_util::git_binary())
             .args(["log", "--name-only", "--pretty=format:"])
             .current_dir(root)
             .output()

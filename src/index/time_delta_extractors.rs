@@ -147,11 +147,12 @@ fn parse_wakeup_delta_query(task_lower: &str) -> Option<WakeupDeltaQuery> {
     {
         return None;
     }
-    let comparison_day =
-        compile_regex(r"(?i)\bon\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)s?\b")
-            .captures(task_lower)
-            .and_then(|captures| captures.get(1))
-            .map(|value| value.as_str().to_string())?;
+    let comparison_day = compile_regex_static(
+        r"(?i)\bon\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)s?\b",
+    )
+    .captures(task_lower)
+    .and_then(|captures| captures.get(1))
+    .map(|value| value.as_str().to_string())?;
     Some(WakeupDeltaQuery {
         comparison_day: comparison_day.clone(),
         required_terms: vec![comparison_day, "wake".to_string(), "weekdays".to_string()],
@@ -164,10 +165,11 @@ fn parse_performance_delta_query(task_lower: &str) -> Option<PerformanceDeltaQue
     {
         return None;
     }
-    let activity_phrase = compile_regex(r"(?i)\bfinish(?:ed)?\s+(?:the\s+)?(.+?)\s+compared to\b")
-        .captures(task_lower)
-        .and_then(|captures| captures.get(1))
-        .map(|value| value.as_str().trim().to_string())?;
+    let activity_phrase =
+        compile_regex_static(r"(?i)\bfinish(?:ed)?\s+(?:the\s+)?(.+?)\s+compared to\b")
+            .captures(task_lower)
+            .and_then(|captures| captures.get(1))
+            .map(|value| value.as_str().trim().to_string())?;
     let activity_terms = normalized_time_terms(&activity_phrase);
     if activity_terms.is_empty() {
         return None;
@@ -201,7 +203,8 @@ fn performance_focus_match_count(lower: &str, query: &PerformanceDeltaQuery) -> 
 }
 
 fn parse_meridiem_time_minutes(surface: &str) -> Option<i32> {
-    let captures = compile_regex(r"(?i)\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b").captures(surface)?;
+    let captures =
+        compile_regex_static(r"(?i)\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b").captures(surface)?;
     let mut hour = captures.get(1)?.as_str().parse::<i32>().ok()?;
     let minute = captures
         .get(2)
@@ -223,7 +226,7 @@ fn extract_duration_minutes_from_line(line: &str) -> Option<i32> {
         return Some(total);
     }
     let duration = normalize_current_duration_answer(&extract_duration_answer_from_line(line)?);
-    let captures = compile_regex(
+    let captures = compile_regex_static(
         r"(?i)\b(\d+(?:\.\d+)?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+(hour|minute)s?\b",
     )
     .captures(&duration)?;

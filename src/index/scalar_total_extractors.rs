@@ -224,7 +224,7 @@ fn extract_count_for_relation(line: &str, relation: &str) -> Option<i32> {
         ),
         format!(r"(?i)\bmy\s+{relation}\b"),
     ] {
-        let Some(captures) = compile_regex(&pattern).captures(line) else {
+        let Some(captures) = compile_regex_static(&pattern).captures(line) else {
             continue;
         };
         let value = captures

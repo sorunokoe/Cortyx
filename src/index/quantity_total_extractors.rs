@@ -209,7 +209,7 @@ fn parse_road_trip_distance_query(task_lower: &str) -> Option<RoadTripDistanceQu
 }
 
 fn parse_stay_days_query(task_lower: &str) -> Option<StayDaysQuery> {
-    let tail = compile_regex(r"(?i)\bspent in\s+(.+?)\??$")
+    let tail = compile_regex_static(r"(?i)\bspent in\s+(.+?)\??$")
         .captures(task_lower)
         .and_then(|captures| captures.get(1))
         .map(|value| value.as_str().trim())?;
@@ -294,7 +294,7 @@ fn is_realized_quantity_fact_line(lower: &str) -> bool {
 
 fn extract_miles_value(line: &str, patterns: &[&str]) -> Option<f32> {
     patterns.iter().find_map(|pattern| {
-        compile_regex(pattern)
+        compile_regex_static(pattern)
             .captures(line)
             .and_then(|captures| captures.get(1))
             .and_then(|value| value.as_str().replace(',', "").parse::<f32>().ok())
@@ -322,7 +322,7 @@ fn extract_stay_days_from_line(line: &str) -> Option<StayDaysExtraction> {
 }
 
 fn extract_day_range_days(line: &str) -> Option<StayDaysExtraction> {
-    let same_month = compile_regex(
+    let same_month = compile_regex_static(
         r"(?i)\bfrom\s+([a-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?\s+to\s+(\d{1,2})(?:st|nd|rd|th)?\b",
     );
     if let Some(caps) = same_month.captures(line) {
@@ -346,7 +346,7 @@ fn extract_day_range_days(line: &str) -> Option<StayDaysExtraction> {
         });
     }
 
-    let cross_month = compile_regex(
+    let cross_month = compile_regex_static(
         r"(?i)\bfrom\s+([a-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?\s+to\s+([a-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?\b",
     );
     let caps = cross_month.captures(line)?;

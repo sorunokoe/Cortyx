@@ -1,3 +1,5 @@
+//! Cortyx command-line application entry point.
+
 use anyhow::Result;
 use clap::Parser;
 use cortyx::cli::{Cli, Commands, RouteIntent};
@@ -878,7 +880,7 @@ async fn main() -> Result<()> {
         Commands::Rollback { neuron } => {
             // E1: Git-based neuron versioning — restore previous commit
             let (repo_root, rel_neuron) = git_repo_root_and_relative_path(&neuron)?;
-            let output = std::process::Command::new("git")
+            let output = std::process::Command::new(cortyx::git_util::git_binary())
                 .current_dir(&repo_root)
                 .args(["checkout", "HEAD~1", "--", &rel_neuron.to_string_lossy()])
                 .output()?;

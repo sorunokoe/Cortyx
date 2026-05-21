@@ -141,7 +141,7 @@ pub(super) fn parse_assistant_recall_query(
 }
 
 pub(super) fn extract_recommended_name_from_line(line: &str, lower: &str) -> Option<String> {
-    let recommend_match = compile_regex(r"(?i)\brecommend\b").find(lower)?;
+    let recommend_match = compile_regex_static(r"(?i)\brecommend\b").find(lower)?;
     if lower.contains("recommended ") {
         return None;
     }
@@ -161,16 +161,16 @@ pub(super) fn extract_metric_value_from_line(line: &str, lower: &str) -> Option<
     ) {
         return None;
     }
-    compile_regex(r"(?i)\b(?:approximately|approx\.?|about|around)\s+\d+(?:\.\d+)?%")
+    compile_regex_static(r"(?i)\b(?:approximately|approx\.?|about|around)\s+\d+(?:\.\d+)?%")
         .find(line)
         .map(|value| value.as_str().trim().to_string())
         .or_else(|| {
-            compile_regex(r"(?i)\b\d+(?:\.\d+)?%")
+            compile_regex_static(r"(?i)\b\d+(?:\.\d+)?%")
                 .find(line)
                 .map(|value| value.as_str().trim().to_string())
         })
         .or_else(|| {
-            compile_regex(r"(?i)\bapproximately\s+\d+(?:\.\d+)?x\b")
+            compile_regex_static(r"(?i)\bapproximately\s+\d+(?:\.\d+)?x\b")
                 .find(line)
                 .map(|value| value.as_str().trim().to_string())
         })

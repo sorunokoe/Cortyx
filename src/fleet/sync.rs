@@ -87,7 +87,7 @@ fn clone_repo(url: &str, dest: &Path) -> Result<()> {
         std::fs::create_dir_all(parent)?;
     }
     tracing::info!(url, dest = %dest.display(), "Fleet: cloning git-backed node");
-    let status = Command::new("git")
+    let status = Command::new(crate::git_util::git_binary())
         .args(["clone", "--depth=1", url, &dest.to_string_lossy()])
         .status()?;
     if status.success() {
@@ -103,7 +103,7 @@ fn clone_repo(url: &str, dest: &Path) -> Result<()> {
 /// Fetch updates for an existing local clone, falling back gracefully on failure.
 fn fetch_repo(path: &Path, url: &str) -> Result<()> {
     tracing::debug!(url, path = %path.display(), "Fleet: fetching git-backed node");
-    let status = Command::new("git")
+    let status = Command::new(crate::git_util::git_binary())
         .args([
             "-C",
             &path.to_string_lossy(),

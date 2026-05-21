@@ -1,5 +1,5 @@
 use super::*;
-use crate::index::compile_regex;
+use crate::index::{compile_regex, compile_regex_static};
 
 pub(in crate::index) fn temporal_from_now_overlap_count(
     lower_line: &str,
@@ -250,13 +250,13 @@ pub(in crate::index) fn parse_temporal_count_token(token: &str) -> Option<i32> {
 
 pub(in crate::index) fn extract_duration_months_from_text(text: &str) -> Option<i32> {
     let lower = text.to_ascii_lowercase();
-    let years = compile_regex(
+    let years = compile_regex_static(
         r"(?i)\b(a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d+)\s+years?\b",
     )
     .captures(&lower)
     .and_then(|caps| caps.get(1))
     .and_then(|value| parse_temporal_count_token(value.as_str()));
-    let months = compile_regex(
+    let months = compile_regex_static(
         r"(?i)\b(a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d+)\s+months?\b",
     )
     .captures(&lower)

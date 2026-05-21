@@ -43,7 +43,7 @@ pub(super) fn extract_current_page_for_title_variants(
 ) -> Option<i32> {
     let lower = line.to_ascii_lowercase();
     reading_progress_line_matches(line, &lower, title_variants).then_some(())?;
-    compile_regex(r"on page\s+(\d{1,4})")
+    compile_regex_static(r"on page\s+(\d{1,4})")
         .captures(&lower)?
         .get(1)?
         .as_str()
@@ -58,7 +58,7 @@ pub(super) fn extract_total_pages_for_title_variants(
     let lower = line.to_ascii_lowercase();
     reading_progress_line_matches(line, &lower, title_variants).then_some(())?;
 
-    let hyphenated = compile_regex(r"(\d{2,4})-page");
+    let hyphenated = compile_regex_static(r"(\d{2,4})-page");
     if let Some(value) = hyphenated
         .captures(&lower)
         .and_then(|caps| caps.get(1))
@@ -67,7 +67,7 @@ pub(super) fn extract_total_pages_for_title_variants(
         return Some(value);
     }
 
-    compile_regex(r"(\d{2,4})\s+pages")
+    compile_regex_static(r"(\d{2,4})\s+pages")
         .captures(&lower)?
         .get(1)?
         .as_str()
@@ -83,7 +83,8 @@ pub(super) fn extract_just_finished_page_count(line: &str) -> Option<i32> {
         return None;
     }
 
-    let hyphenated = compile_regex(r"just finished(?: reading)?[^0-9\n]{0,120}?(\d{2,4})-page");
+    let hyphenated =
+        compile_regex_static(r"just finished(?: reading)?[^0-9\n]{0,120}?(\d{2,4})-page");
     if let Some(value) = hyphenated
         .captures(&lower)
         .and_then(|caps| caps.get(1))
@@ -92,7 +93,7 @@ pub(super) fn extract_just_finished_page_count(line: &str) -> Option<i32> {
         return Some(value);
     }
 
-    compile_regex(r"just finished(?: reading)?[^\n]{0,200}?(\d{2,4})\s+pages")
+    compile_regex_static(r"just finished(?: reading)?[^\n]{0,200}?(\d{2,4})\s+pages")
         .captures(&lower)?
         .get(1)?
         .as_str()

@@ -34,6 +34,89 @@ fn purpose_snippet(path: &std::path::Path) -> String {
     snippet
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ImplicitFeedbackTier {
+    Explicit,
+    SoftOverlap,
+    Miss,
+}
+
+#[allow(clippy::cast_possible_truncation)]
+fn input_f64_to_f32(value: f64) -> f32 {
+    value as f32
+}
+
+impl CortyxServer {
+    async fn apply_previous_response_feedback(&self, prev_resp: &str) {
+        let activated = self.feedback.last_activated.lock().await.clone();
+        if activated.is_empty() || prev_resp.is_empty() {
+            return;
+        }
+
+        let response_lower = prev_resp.to_lowercase();
+        let response_tokens: HashSet<String> = tokenize(prev_resp).into_iter().collect();
+        let mut response_terms: Vec<String> = response_tokens.iter().cloned().collect();
+        response_terms.sort_unstable();
+
+        let feedback_tiers: Vec<(PathBuf, ImplicitFeedbackTier)> = {
+            let idx = self.index.read().await;
+            activated
+                .iter()
+                .map(|path| {
+                    let stem = path
+                        .file_stem()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .to_lowercase();
+                    let stem = stem.trim_end_matches(".context");
+                    let explicit_cited = !stem.is_empty() && response_lower.contains(stem);
+                    let tier = if explicit_cited {
+                        ImplicitFeedbackTier::Explicit
+                    } else if !response_tokens.is_empty()
+                        && idx.term_freq_overlap(path, &response_tokens) >= 20
+                    {
+                        ImplicitFeedbackTier::SoftOverlap
+                    } else {
+                        ImplicitFeedbackTier::Miss
+                    };
+                    (path.clone(), tier)
+                })
+                .collect()
+        };
+
+        let explicit_hits = feedback_tiers
+            .iter()
+            .filter(|(_, tier)| *tier == ImplicitFeedbackTier::Explicit)
+            .count();
+        let soft_overlaps = feedback_tiers
+            .iter()
+            .filter(|(_, tier)| *tier == ImplicitFeedbackTier::SoftOverlap)
+            .count();
+
+        if explicit_hits > 0 || soft_overlaps > 0 {
+            let mut idx = self.index.write().await;
+            for (path, tier) in &feedback_tiers {
+                match tier {
+                    ImplicitFeedbackTier::Explicit => {
+                        idx.record_hit(path, true);
+                    },
+                    ImplicitFeedbackTier::SoftOverlap => {
+                        idx.record_coactivation(path, &response_terms);
+                    },
+                    ImplicitFeedbackTier::Miss => {},
+                }
+            }
+        }
+
+        tracing::debug!(
+            explicit_hits,
+            soft_overlaps,
+            total = activated.len(),
+            "S6 implicit feedback applied from previous_response"
+        );
+    }
+}
+
 #[tool_router(router = context_tool_router, vis = "pub(super)")]
 impl CortyxServer {
     #[tool(
@@ -145,53 +228,14 @@ impl CortyxServer {
         // apply soft-citation against last_activated before running the new query.
         // This eliminates the need for a separate cortyx_close_task call.
         if let Some(prev_resp) = &input.previous_response {
-            let activated = self.last_activated.lock().await.clone();
-            if !activated.is_empty() && !prev_resp.is_empty() {
-                let response_lower = prev_resp.to_lowercase();
-                let response_tokens: std::collections::HashSet<String> =
-                    tokenize(prev_resp).into_iter().collect();
-                let citation_decisions: Vec<(PathBuf, bool)> = {
-                    let idx = self.index.read().await;
-                    activated
-                        .iter()
-                        .map(|path| {
-                            let stem = path
-                                .file_stem()
-                                .unwrap_or_default()
-                                .to_string_lossy()
-                                .to_lowercase();
-                            let stem = stem.trim_end_matches(".context");
-                            let explicit_cited = !stem.is_empty() && response_lower.contains(stem);
-                            let soft_cited = if !explicit_cited && !response_tokens.is_empty() {
-                                idx.term_freq_overlap(path, &response_tokens) >= 20
-                            } else {
-                                false
-                            };
-                            (path.clone(), explicit_cited || soft_cited)
-                        })
-                        .collect()
-                };
-                let mut idx = self.index.write().await;
-                let mut implicit_hits = 0usize;
-                for (path, cited) in &citation_decisions {
-                    idx.record_hit(path, *cited);
-                    if *cited {
-                        implicit_hits += 1;
-                    }
-                }
-                tracing::debug!(
-                    hits = implicit_hits,
-                    total = activated.len(),
-                    "S6 implicit feedback applied from previous_response"
-                );
-            }
+            self.apply_previous_response_feedback(prev_resp).await;
         }
         let max_tokens = input.max_tokens.unwrap_or(4096);
-        let min_confidence = input.min_confidence.map(|value| value as f32);
+        let min_confidence = input.min_confidence.map(input_f64_to_f32);
         let multi_hop = input.multi_hop.unwrap_or(false);
         let capsule_mode = input.capsule_mode.unwrap_or(false);
         let answer_mode = input.answer_mode.unwrap_or(false);
-        let min_answer_confidence = input.min_answer_confidence.map(|value| value as f32);
+        let min_answer_confidence = input.min_answer_confidence.map(input_f64_to_f32);
         let provenance_mode = input.provenance_mode.unwrap_or(false);
         let effective_module: Option<String> = input
             .person
@@ -201,7 +245,7 @@ impl CortyxServer {
 
         // Clear the previous provisional buffer. Only explicit citation evidence should
         // train long-term ranking; carry-over paths are kept solely for in-session close_task.
-        let old_provisional = std::mem::take(&mut *self.provisional_hits.lock().await);
+        let old_provisional = std::mem::take(&mut *self.feedback.provisional_hits.lock().await);
 
         let session_tf = hot_session_tf(self).await;
         let augmented_task = {
@@ -315,9 +359,9 @@ impl CortyxServer {
         update_session_path_history(self, &paths_with_scores).await;
 
         // Store for cortyx_close_task — replaces previous task's activation list.
-        *self.last_activated.lock().await = paths.clone();
+        *self.feedback.last_activated.lock().await = paths.clone();
         // Set provisional carry-over for in-session close_task tracking only.
-        *self.provisional_hits.lock().await = paths.clone();
+        *self.feedback.provisional_hits.lock().await = paths.clone();
 
         if paths.is_empty() && capsule_items.is_empty() {
             if input.min_confidence.is_some() {
@@ -1437,6 +1481,234 @@ impl CortyxServer {
             Ok(json) => json,
             Err(e) => format!("ERROR serializing evidence: {e}"),
         }
+    }
+}
+
+#[cfg(test)]
+mod feedback_tests {
+    use super::*;
+    use rmcp::handler::server::wrapper::Parameters;
+    use serde_json::Value;
+    use tempfile::TempDir;
+
+    struct FeedbackFixture {
+        dir: TempDir,
+        server: CortyxServer,
+        source: PathBuf,
+        target: PathBuf,
+        miss: PathBuf,
+        overlap_terms: Vec<String>,
+    }
+
+    fn build_feedback_fixture() -> FeedbackFixture {
+        let dir = TempDir::new().expect("create temp dir");
+        let mut idx = NeuronIndex::load_or_create(dir.path()).expect("load temp index");
+        let neuron_dir = dir.path().join(".cortyx").join("neurons");
+        std::fs::create_dir_all(&neuron_dir).expect("create neuron dir");
+
+        let source = neuron_dir.join("source.context.md");
+        let target = neuron_dir.join("focus.context.md");
+        let miss = neuron_dir.join("miss.context.md");
+        let overlap_terms = [
+            "amber", "binary", "cinder", "delta", "ember", "fable", "garnet", "harbor", "ivory",
+            "jasmine", "kepler", "lattice", "magnet", "nectar", "onyx", "prism", "quill", "ripple",
+            "signal", "tundra",
+        ]
+        .into_iter()
+        .map(String::from)
+        .collect::<Vec<_>>();
+
+        std::fs::write(&target, overlap_terms.join(" ")).expect("write target neuron");
+        std::fs::write(&miss, "violet willow xenon yarrow zephyr").expect("write miss neuron");
+        std::fs::write(&source, "source bridge traversal anchor").expect("write source neuron");
+
+        let mut source_meta = NeuronMeta::new_stub(dir.path(), NeuronKind::Core);
+        source_meta.synapses.push(Synapse::new(
+            target.clone(),
+            SynapseType::Calls,
+            "test edge".to_string(),
+        ));
+        let core_meta = NeuronMeta::new_stub(dir.path(), NeuronKind::Core);
+
+        idx.index_neuron(&source, "source bridge traversal anchor", &source_meta);
+        idx.index_neuron(&target, &overlap_terms.join(" "), &core_meta);
+        idx.index_neuron(&miss, "violet willow xenon yarrow zephyr", &core_meta);
+        idx.rebuild_derived_pub();
+
+        FeedbackFixture {
+            server: CortyxServer::for_benchmark(dir.path().to_path_buf(), idx),
+            dir,
+            source,
+            target,
+            miss,
+            overlap_terms,
+        }
+    }
+
+    async fn set_last_activated(server: &CortyxServer, paths: Vec<PathBuf>) {
+        *server.feedback.last_activated.lock().await = paths;
+    }
+
+    async fn metadata_for(
+        server: &CortyxServer,
+        path: &std::path::Path,
+    ) -> crate::index::ContextMetadata {
+        server
+            .index
+            .read()
+            .await
+            .context_metadata_for(path)
+            .expect("context metadata present")
+    }
+
+    async fn save_index(server: &CortyxServer) {
+        server.index.write().await.save().expect("save index");
+    }
+
+    fn read_coactivation_counts(dir: &std::path::Path, neuron: &std::path::Path) -> Value {
+        let path = dir.join(".cortyx").join("coactivation.json");
+        let counts: Value =
+            serde_json::from_str(&std::fs::read_to_string(path).expect("read coactivation counts"))
+                .expect("parse coactivation counts");
+        counts
+            .get(neuron.to_string_lossy().as_ref())
+            .cloned()
+            .unwrap_or(Value::Null)
+    }
+
+    fn read_synapse_feedback(
+        dir: &std::path::Path,
+        source: &std::path::Path,
+        target: &std::path::Path,
+    ) -> (f64, u64) {
+        let path = dir.join(".cortyx").join("index.json");
+        let index: Value =
+            serde_json::from_str(&std::fs::read_to_string(path).expect("read persisted index"))
+                .expect("parse persisted index");
+        let entries = index["entries"]
+            .as_array()
+            .expect("persisted index has entries");
+        let source_path = source.to_string_lossy();
+        let target_path = target.to_string_lossy();
+        let synapse = entries
+            .iter()
+            .find(|entry| entry["neuron_path"].as_str() == Some(source_path.as_ref()))
+            .and_then(|entry| entry["synapses"].as_array())
+            .and_then(|synapses| {
+                synapses
+                    .iter()
+                    .find(|synapse| synapse["target"].as_str() == Some(target_path.as_ref()))
+            })
+            .expect("source synapse persisted");
+        (
+            synapse["learned_weight"]
+                .as_f64()
+                .expect("learned weight persisted"),
+            synapse["traversal_count"]
+                .as_u64()
+                .expect("traversal count persisted"),
+        )
+    }
+
+    #[tokio::test]
+    async fn previous_response_feedback_explicit_citation_increments_hit_count() {
+        let fixture = build_feedback_fixture();
+        set_last_activated(&fixture.server, vec![fixture.target.clone()]).await;
+
+        fixture
+            .server
+            .apply_previous_response_feedback("Use focus for the final answer.")
+            .await;
+
+        let metadata = metadata_for(&fixture.server, &fixture.target).await;
+        assert_eq!(metadata.hit_count, 1);
+        assert_eq!(metadata.use_count, 1);
+    }
+
+    #[tokio::test]
+    async fn previous_response_feedback_soft_overlap_feeds_coactivation_without_hit_count() {
+        let fixture = build_feedback_fixture();
+        set_last_activated(&fixture.server, vec![fixture.target.clone()]).await;
+        let response = fixture.overlap_terms.join(" ");
+
+        fixture
+            .server
+            .apply_previous_response_feedback(&response)
+            .await;
+        save_index(&fixture.server).await;
+
+        let metadata = metadata_for(&fixture.server, &fixture.target).await;
+        let counts = read_coactivation_counts(fixture.dir.path(), &fixture.target);
+        assert_eq!(metadata.hit_count, 0);
+        assert_eq!(metadata.use_count, 0);
+        assert_eq!(counts[fixture.overlap_terms[0].as_str()].as_u64(), Some(1));
+    }
+
+    #[tokio::test]
+    async fn previous_response_feedback_miss_does_not_inflate_use_count() {
+        let fixture = build_feedback_fixture();
+        set_last_activated(
+            &fixture.server,
+            vec![fixture.target.clone(), fixture.miss.clone()],
+        )
+        .await;
+
+        fixture
+            .server
+            .apply_previous_response_feedback("outside vocabulary without citations")
+            .await;
+
+        let target = metadata_for(&fixture.server, &fixture.target).await;
+        let miss = metadata_for(&fixture.server, &fixture.miss).await;
+        assert_eq!(target.use_count, 0);
+        assert_eq!(target.hit_count, 0);
+        assert_eq!(miss.use_count, 0);
+        assert_eq!(miss.hit_count, 0);
+    }
+
+    #[tokio::test]
+    async fn close_task_feedback_miss_still_downweights_synapse_ema() {
+        let fixture = build_feedback_fixture();
+        set_last_activated(&fixture.server, vec![fixture.target.clone()]).await;
+
+        fixture
+            .server
+            .close_task(Parameters(CloseTaskInput {
+                response_text: "outside vocabulary without citations".to_string(),
+            }))
+            .await;
+        save_index(&fixture.server).await;
+
+        let metadata = metadata_for(&fixture.server, &fixture.target).await;
+        let (learned_weight, traversal_count) =
+            read_synapse_feedback(fixture.dir.path(), &fixture.source, &fixture.target);
+        assert_eq!(metadata.hit_count, 0);
+        assert_eq!(metadata.use_count, 1);
+        assert_eq!(traversal_count, 1);
+        assert!(
+            (learned_weight - 0.63).abs() < 0.0001,
+            "weight was {learned_weight}"
+        );
+    }
+
+    #[tokio::test]
+    async fn previous_response_feedback_miss_suppresses_synapse_downweight() {
+        let fixture = build_feedback_fixture();
+        set_last_activated(&fixture.server, vec![fixture.target.clone()]).await;
+
+        fixture
+            .server
+            .apply_previous_response_feedback("outside vocabulary without citations")
+            .await;
+        save_index(&fixture.server).await;
+
+        let metadata = metadata_for(&fixture.server, &fixture.target).await;
+        let (learned_weight, traversal_count) =
+            read_synapse_feedback(fixture.dir.path(), &fixture.source, &fixture.target);
+        assert_eq!(metadata.hit_count, 0);
+        assert_eq!(metadata.use_count, 0);
+        assert_eq!(traversal_count, 0);
+        assert_eq!(learned_weight, 0.0);
     }
 }
 
