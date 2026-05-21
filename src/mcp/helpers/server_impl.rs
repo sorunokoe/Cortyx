@@ -69,6 +69,8 @@ impl CortyxServer {
             index,
             session: Arc::new(SessionState::default()),
             feedback: Arc::new(FeedbackBuffer::default()),
+            last_activity: Arc::new(std::sync::Mutex::new(std::time::Instant::now())),
+            session_active: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             frozen: false,
             inflight_bytes: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
             fleet_registry: None,

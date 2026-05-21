@@ -87,6 +87,26 @@ impl CortyxServer {
                 .collect()
         };
 
+        let miss_paths: Vec<PathBuf> = feedback_tiers
+            .iter()
+            .filter(|(_, tier)| *tier == ImplicitFeedbackTier::Miss)
+            .map(|(path, _)| path.clone())
+            .collect();
+        let resolved_paths: HashSet<PathBuf> = feedback_tiers
+            .iter()
+            .filter(|(_, tier)| *tier != ImplicitFeedbackTier::Miss)
+            .map(|(path, _)| path.clone())
+            .collect();
+        {
+            let mut provisional_hits = self.feedback.provisional_hits.lock().await;
+            provisional_hits.retain(|path| !resolved_paths.contains(path));
+            for path in &miss_paths {
+                if !provisional_hits.iter().any(|existing| existing == path) {
+                    provisional_hits.push(path.clone());
+                }
+            }
+        }
+
         let explicit_hits = feedback_tiers
             .iter()
             .filter(|(_, tier)| *tier == ImplicitFeedbackTier::Explicit)
@@ -202,6 +222,8 @@ impl CortyxServer {
         name = "cortyx_get_contexts",
         description = "Get the most relevant local/project context neurons for a task. Returns 3-5 .context.md files, sorted deterministically. Inject after your cache_control breakpoint to keep the static prefix byte-identical for prompt caching. Pass your previous assistant response in `previous_response` to close the feedback loop automatically — no separate cortyx_close_task call needed. Set `delta_mode=true` and reuse `context_handle` to receive only added/changed context on iterative same-session work. Set `capsule_mode=true` to prepend stable module capsules and compress redundant same-module summaries into capsule + task delta. Set `answer_mode=true` to return an optional answer-layer derived from the selected contexts without changing the retrieval hot path. Set `min_answer_confidence` to require stronger answer support before answer-mode emits a result. Set `provenance_mode=true` to include lightweight source/explanation metadata."
     )]
+    /// Assembles context in two zones: compile-time-stable capsule content first,
+    /// then query-time dynamic neurons/deltas from the Hebbian retrieval pipeline.
     pub(in crate::mcp) async fn get_contexts(
         &self,
         Parameters(input): Parameters<GetContextsInput>,
@@ -215,6 +237,8 @@ impl CortyxServer {
                 return format!("ERROR: previous_response exceeds {MAX_CONTENT_BYTES} byte limit");
             }
         }
+
+        self.mark_session_activity();
 
         // Guard total in-flight bytes across concurrent handlers.
         let estimated = estimate_inflight_bytes(&input);
@@ -245,10 +269,6 @@ impl CortyxServer {
             .as_ref()
             .map(|p| format!("@{}", p))
             .or_else(|| input.module.clone());
-
-        // Clear the previous provisional buffer. Only explicit citation evidence should
-        // train long-term ranking; carry-over paths are kept solely for in-session close_task.
-        let old_provisional = std::mem::take(&mut *self.feedback.provisional_hits.lock().await);
 
         let session_tf = hot_session_tf(self).await;
         let augmented_task = {
@@ -327,12 +347,6 @@ impl CortyxServer {
 
         // Flatten paths for backward-compatible downstream use
         let paths: Vec<PathBuf> = paths_with_scores.iter().map(|(p, _)| p.clone()).collect();
-        if !old_provisional.is_empty() {
-            tracing::debug!(
-                cleared = old_provisional.len(),
-                "Dropped provisional carry-over without applying implicit ranking feedback"
-            );
-        }
 
         // Increment use_count for all returned neurons — activates the feedback loop.
         // Also capture any Contradicts pairs for the warning block (S7).
@@ -365,8 +379,15 @@ impl CortyxServer {
 
         // Store for cortyx_close_task — replaces previous task's activation list.
         *self.feedback.last_activated.lock().await = paths.clone();
-        // Set provisional carry-over for in-session close_task tracking only.
-        *self.feedback.provisional_hits.lock().await = paths.clone();
+        // New activations start provisional until explicit feedback resolves them.
+        {
+            let mut provisional_hits = self.feedback.provisional_hits.lock().await;
+            for path in &paths {
+                if !provisional_hits.iter().any(|existing| existing == path) {
+                    provisional_hits.push(path.clone());
+                }
+            }
+        }
 
         if paths.is_empty() && capsule_items.is_empty() {
             if input.min_confidence.is_some() {

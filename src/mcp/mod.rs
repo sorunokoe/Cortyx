@@ -12,7 +12,9 @@ use rmcp::{
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
 
 use crate::agent_memory::{
@@ -73,6 +75,8 @@ const MAX_TASK_BYTES: usize = 4_096;
 /// Bounds aggregate memory when multiple LLM agents share a single Cortyx process.
 /// The check is advisory — it guards response-building work, not input deserialization.
 const MAX_INFLIGHT_BYTES: usize = 64 * 1_048_576; // 64 MB
+const SESSION_BOUNDARY_TIMEOUT: Duration = Duration::from_secs(300);
+const SESSION_BOUNDARY_POLL_INTERVAL: Duration = Duration::from_secs(60);
 
 /// RAII guard that releases reserved in-flight bytes when the handler finishes.
 pub(crate) struct InflightGuard<'a>(&'a std::sync::atomic::AtomicUsize, usize);
@@ -90,6 +94,8 @@ pub struct CortyxServer {
     index: Arc<RwLock<NeuronIndex>>,
     session: Arc<SessionState>,
     feedback: Arc<FeedbackBuffer>,
+    last_activity: Arc<Mutex<Instant>>,
+    session_active: Arc<AtomicBool>,
     frozen: bool,
     /// Running sum of bytes currently being processed across all concurrent handlers.
     /// Handlers that build large responses increment this before work and decrement after.
@@ -117,6 +123,31 @@ struct DeltaSelection {
 impl CortyxServer {
     fn tool_router() -> ToolRouter<Self> {
         build_tool_router()
+    }
+
+    pub(in crate::mcp) fn mark_session_activity(&self) {
+        *self.last_activity.lock().unwrap() = Instant::now();
+        self.session_active.store(true, Ordering::Release);
+    }
+
+    fn try_close_idle_session(&self) -> bool {
+        if !self.session_active.load(Ordering::Acquire) {
+            return false;
+        }
+        if self.last_activity.lock().unwrap().elapsed() <= SESSION_BOUNDARY_TIMEOUT {
+            return false;
+        }
+        self.session_active
+            .compare_exchange(true, false, Ordering::AcqRel, Ordering::Acquire)
+            .is_ok()
+    }
+
+    pub(in crate::mcp) async fn on_session_end(&self) {
+        if self.frozen {
+            return;
+        }
+        let mut idx = self.index.write().await;
+        self.feedback.on_session_end(&mut idx).await;
     }
 }
 
@@ -346,6 +377,8 @@ pub async fn serve(project: Option<PathBuf>, frozen: bool) -> Result<()> {
 
     let feedback = Arc::new(FeedbackBuffer::default());
     let session = Arc::new(SessionState::default());
+    let last_activity = Arc::new(Mutex::new(Instant::now()));
+    let session_active = Arc::new(AtomicBool::new(false));
     let fleet_registry = match crate::fleet::load_registry() {
         Ok(registry) if !registry.nodes.is_empty() => {
             tracing::info!("Fleet: {} registered node(s)", registry.nodes.len());
@@ -366,11 +399,23 @@ pub async fn serve(project: Option<PathBuf>, frozen: bool) -> Result<()> {
         index: Arc::clone(&index),
         session: Arc::clone(&session),
         feedback: Arc::clone(&feedback),
+        last_activity: Arc::clone(&last_activity),
+        session_active: Arc::clone(&session_active),
         frozen,
         inflight_bytes: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
         fleet_registry: fleet_registry.clone(),
         tool_router: CortyxServer::tool_router(),
     };
+    let session_boundary_server = server.clone();
+    let session_boundary_task = tokio::spawn(async move {
+        let mut interval = tokio::time::interval(SESSION_BOUNDARY_POLL_INTERVAL);
+        loop {
+            interval.tick().await;
+            if session_boundary_server.try_close_idle_session() {
+                session_boundary_server.on_session_end().await;
+            }
+        }
+    });
 
     let service = server
         .serve(rmcp::transport::stdio())
@@ -380,6 +425,8 @@ pub async fn serve(project: Option<PathBuf>, frozen: bool) -> Result<()> {
         .waiting()
         .await
         .map_err(|e| crate::error::CortyxError::Other(e.to_string()))?;
+    session_boundary_task.abort();
+    let _ = session_boundary_task.await;
     let flushed = flush_provisional_hits_async(&index, &feedback.provisional_hits).await?;
     if flushed > 0 {
         tracing::info!("S2: explicitly cleared {flushed} provisional paths before shutdown");

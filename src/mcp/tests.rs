@@ -419,6 +419,37 @@ fn flush_provisional_hits_blocking_clears_without_training_feedback() {
     assert_eq!(index.blocking_read().use_count_for(&neuron_path), before);
 }
 
+#[tokio::test]
+async fn on_session_end_noop_when_frozen() {
+    let dir = tempfile::tempdir().unwrap();
+    let neuron_path = dir.path().join("example.context.md");
+    fs::write(&neuron_path, "example").unwrap();
+    let meta = NeuronMeta::new_stub(&neuron_path, NeuronKind::Core);
+    fs::write(
+        meta_path(&neuron_path),
+        serde_json::to_string(&meta).unwrap(),
+    )
+    .unwrap();
+
+    let mut idx = NeuronIndex::default();
+    idx.index_neuron(&neuron_path, "example context body", &meta);
+    let before = idx.use_count_for(&neuron_path);
+    let mut server = CortyxServer::for_benchmark(dir.path().to_path_buf(), idx);
+    server.frozen = true;
+    *server.feedback.provisional_hits.lock().await = vec![neuron_path.clone()];
+
+    server.on_session_end().await;
+
+    assert_eq!(
+        server.feedback.provisional_hits.lock().await.as_slice(),
+        &[neuron_path.clone()]
+    );
+    assert_eq!(
+        server.index.read().await.use_count_for(&neuron_path),
+        before
+    );
+}
+
 #[test]
 fn resolve_neuron_store_path_accepts_neuron_and_rejects_escape() {
     let dir = tempfile::tempdir().unwrap();
