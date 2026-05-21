@@ -33,7 +33,7 @@ jobs:
           cp -r stubs/pure-reason-verifier ../../AI/PureReason/crates/
 
       - name: Install system dependencies
-        run: sudo apt-get update -q && sudo apt-get install -y libcblas-dev libopenblas-dev gfortran
+        run: sudo apt-get update -q && sudo apt-get install -y libblas-dev liblapack-dev libopenblas-dev gfortran
 
       - name: Install cargo-nextest
         run: cargo install cargo-nextest --locked
@@ -71,7 +71,7 @@ jobs:
           cp -r stubs/pure-reason-verifier ../../AI/PureReason/crates/
 
       - name: Install system dependencies
-        run: sudo apt-get update -q && sudo apt-get install -y libcblas-dev libopenblas-dev gfortran
+        run: sudo apt-get update -q && sudo apt-get install -y libblas-dev liblapack-dev libopenblas-dev gfortran
 
       - name: Set up Python
         uses: actions/setup-python@v5
