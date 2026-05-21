@@ -59,7 +59,7 @@ support surfaces.
 | Graph reasoning | **Proven** | Multi-hop graph traversal with per-depth coverage tracking: converged benchmark (depth_coverage 1.00, 4 nodes / 3 hops); `TraversalStats` captured in every `ReasoningReport`; reasoning chains surfaced in answer-plane output | Proven on synthetic 3-hop chain benchmark; no paper-comparable public dataset comparison yet |
 | Provenance / trust | **Proven** | Deterministic trust proof: verified lineage improves sync trust and tampered handoffs are rejected | Proven on the shipped sync/provenance path, not as a third-party audit or trust leaderboard |
 | UX / install / routing | **Proven** | Stable `ux-proof` JSON covers TTFC, route/watch recovery, onboarding, and export metadata | Proven as deterministic shipped CLI flows, not as a human-subject usability study |
-| Footprint | **Proven** | **~6.9MB** stripped release binary | Lightweight, local, and no runtime database or always-on model |
+| Footprint | **Proven** | **~30MB** release binary (v0.4.0: added TurboVec 4-bit SIMD ANN; v0.3.0 was ~7MB) | Lightweight, local, and no runtime database or always-on model |
 
 The registry uses **`proven`** (reproducible benchmark/sample), **`diagnostic`** (measured but non-headline), **`contract`** (invariant/interop proof), **`smoke`** (capability proof), and **`pending`** (declared gap).
 
@@ -675,7 +675,7 @@ cargo test --test bench bench_binary_size -- --nocapture
 |---|---|---|---|
 | Activation latency p95 | **~22ms** | ~200ms | p50 ~880ms (new algo) |
 | Token cost (simple query) | **~400 tok** | ~2,000 tok | ~3,000 tok |
-| Binary size | **7MB** | n/a (Python) | n/a (Python) |
+| Binary size | **~30MB** (v0.4.0+: TurboVec SIMD) | n/a (Python) | n/a (Python) |
 | Zero dependencies at runtime | **Yes** | No | No |
 | MCP tools | **25** | 29+ (see release notes) | ~10 |
 | Temporal KG | **Yes** | No | Limited |

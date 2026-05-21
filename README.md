@@ -26,7 +26,7 @@ Cortyx leads with retrieval-first proof, then backs it up with latency, token, a
 | Activation latency p95 | **~22ms** | ~200ms | — | — | — |
 | Token savings (first call) | **56.9%** | — | — | — | — |
 | Token savings (capsule+delta repeat) | **98.4%** | — | — | — | — |
-| Binary size | **~7MB** | Python stack | ~12MB (Go) | ~8MB (Rust) | Python stack |
+| Binary size | **~30MB** (v0.4.0: TurboVec SIMD) | Python stack | ~12MB (Go) | ~8MB (Rust) | Python stack |
 | Runtime model on default path | **No** | Yes | No | No | No |
 
 > ¹ 96.8% R@5 is from the regenerated cleaned-oracle eval harness run (484/500 questions).
@@ -165,7 +165,7 @@ cortyx install                     # Auto-configure all detected LLM clients
 
 ## How It Works
 
-Cortyx runs a ≤40ms activation pipeline: hybrid BM25 + dense retrieval (embed and rerank are enabled by default; compile with `--no-default-features` for the 7MB air-gapped binary), synapse graph traversal (up to 3 hops), and a 12-stage query-context pipeline. On each query, 3–5 neurons are selected, ordered by relevance, and injected after the prompt-cache breakpoint — the static prefix stays byte-identical so provider caches always hit, typically saving 56–98% of input tokens on repeat calls. `cortyx_close_task` records which neurons helped, feeding a self-improving ranking loop.
+Cortyx runs a ≤40ms activation pipeline: hybrid BM25 + dense retrieval (embed and rerank are enabled by default; compile with `--no-default-features` for a lighter binary), synapse graph traversal (up to 3 hops), and a 12-stage query-context pipeline. On each query, 3–5 neurons are selected, ordered by relevance, and injected after the prompt-cache breakpoint — the static prefix stays byte-identical so provider caches always hit, typically saving 56–98% of input tokens on repeat calls. `cortyx_close_task` records which neurons helped, feeding a self-improving ranking loop.
 
 Neurons are plain Markdown files in `.cortyx/neurons/` — human-readable, git-tracked, editable.
 

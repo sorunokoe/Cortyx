@@ -69,6 +69,7 @@ impl CortyxServer {
             index,
             session: Arc::new(SessionState::default()),
             feedback: Arc::new(FeedbackBuffer::default()),
+            frozen: false,
             inflight_bytes: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
             fleet_registry: None,
             tool_router: CortyxServer::tool_router(),

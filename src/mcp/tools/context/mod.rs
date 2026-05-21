@@ -48,6 +48,9 @@ fn input_f64_to_f32(value: f64) -> f32 {
 
 impl CortyxServer {
     async fn apply_previous_response_feedback(&self, prev_resp: &str) {
+        if self.frozen {
+            return;
+        }
         let activated = self.feedback.last_activated.lock().await.clone();
         if activated.is_empty() || prev_resp.is_empty() {
             return;
@@ -335,14 +338,16 @@ impl CortyxServer {
         // Also capture any Contradicts pairs for the warning block (S7).
         let contradictions = if !paths.is_empty() {
             let mut idx = self.index.write().await;
-            idx.record_activation(&paths);
-            // B2: Record co-activation of query terms with each activated neuron.
-            // After ≥30 co-activations, terms are promoted to synonym clouds for
-            // query expansion — improving recall for semantically related queries.
-            // Use the effective augmented retrieval task, not only the raw user text.
-            let terms = crate::index::tokenize(&augmented_task);
-            for path in &paths {
-                idx.record_coactivation(path, &terms);
+            if !self.frozen {
+                idx.record_activation(&paths);
+                // B2: Record co-activation of query terms with each activated neuron.
+                // After ≥30 co-activations, terms are promoted to synonym clouds for
+                // query expansion — improving recall for semantically related queries.
+                // Use the effective augmented retrieval task, not only the raw user text.
+                let terms = crate::index::tokenize(&augmented_task);
+                for path in &paths {
+                    idx.record_coactivation(path, &terms);
+                }
             }
             // TRIZ Innovation A + δ-mem forget gate: increment then decay within a single
             // critical section so concurrent readers never see a count that has been

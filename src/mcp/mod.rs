@@ -90,6 +90,7 @@ pub struct CortyxServer {
     index: Arc<RwLock<NeuronIndex>>,
     session: Arc<SessionState>,
     feedback: Arc<FeedbackBuffer>,
+    frozen: bool,
     /// Running sum of bytes currently being processed across all concurrent handlers.
     /// Handlers that build large responses increment this before work and decrement after.
     inflight_bytes: Arc<std::sync::atomic::AtomicUsize>,
@@ -158,12 +159,15 @@ fn decay_jitter_secs(project_root: &Path) -> u64 {
 /// # Errors
 ///
 /// Returns an error if the underlying operation fails.
-pub async fn serve(project: Option<PathBuf>) -> Result<()> {
+pub async fn serve(project: Option<PathBuf>, frozen: bool) -> Result<()> {
     let project_root = match project {
         Some(p) => p.canonicalize().unwrap_or(p),
         None => std::env::current_dir()?,
     };
     tracing::info!("Starting Cortyx MCP server for: {}", project_root.display());
+    if frozen {
+        tracing::info!("serve --frozen: feedback writes disabled");
+    }
 
     let mut idx = NeuronIndex::load_or_create(&project_root)?;
 
@@ -321,6 +325,7 @@ pub async fn serve(project: Option<PathBuf>) -> Result<()> {
         index: Arc::clone(&index),
         session: Arc::clone(&session),
         feedback: Arc::clone(&feedback),
+        frozen,
         inflight_bytes: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
         fleet_registry: fleet_registry.clone(),
         tool_router: CortyxServer::tool_router(),

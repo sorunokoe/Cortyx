@@ -476,8 +476,8 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Serve { project } => {
-            mcp::serve(project).await?;
+        Commands::Serve { project, frozen } => {
+            mcp::serve(project, frozen).await?;
         },
         Commands::Compile { path, incremental } => {
             let root = project_root(path);

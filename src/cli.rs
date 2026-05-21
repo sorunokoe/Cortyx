@@ -41,6 +41,9 @@ pub enum Commands {
         /// Path to the project root (defaults to current directory)
         #[arg(short, long)]
         project: Option<PathBuf>,
+        /// Disable feedback writes for reproducible retrieval.
+        #[arg(long)]
+        frozen: bool,
     },
     /// Scan a folder and create neuron stubs (.context.md files)
     Compile {

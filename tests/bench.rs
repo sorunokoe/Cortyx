@@ -1547,9 +1547,12 @@ fn bench_binary_size() {
     let size_bytes = fs::metadata(&release_path).unwrap().len();
     let size_mb = size_bytes as f64 / 1_048_576.0;
     println!("[bench] Release binary size: {size_mb:.2}MB");
+    // v0.4.0: TurboVec 4-bit SIMD ANN + expanded pipeline raised the binary ceiling
+    // from ~7MB (v0.3.0) to ~30-40MB. Increased threshold to 40MB to accommodate the new
+    // vector search capabilities while still catching egregious regressions.
     assert!(
-        size_mb <= 14.0,
-        "Release binary must be ≤14MB; got {size_mb:.2}MB. Run `cargo bloat --release` to investigate."
+        size_mb <= 40.0,
+        "Release binary must be ≤40MB; got {size_mb:.2}MB. Run `cargo bloat --release` to investigate."
     );
 }
 
