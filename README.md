@@ -38,7 +38,7 @@ Cortyx leads with retrieval-first proof, then backs it up with latency, token, a
 
 ```bash
 # 1. Install (R16 S-X: pre-built binaries — no Rust toolchain required)
-curl -fsSL https://github.com/cortyx-ai/cortyx/releases/latest/download/install.sh | sh
+curl -fsSL https://github.com/sorunokoe/Cortyx/releases/latest/download/install.sh | sh
 # The installer auto-selects the embed-enabled build (fastembed hybrid retrieval).
 # Air-gapped / minimal installs: CORTYX_NO_EMBED=1 curl ... | sh
 

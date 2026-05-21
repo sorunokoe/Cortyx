@@ -8,7 +8,7 @@
 
 set -eu
 
-REPO="cortyx-ai/cortyx"
+REPO="sorunokoe/Cortyx"
 BIN_NAME="cortyx"
 
 # ─── Detect platform ─────────────────────────────────────────────────────────
