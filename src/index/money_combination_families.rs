@@ -115,7 +115,7 @@ fn best_same_session_single_recipient_gift_facts(
             (!facts.is_empty()).then_some((
                 facts
                     .values()
-                    .map(|fact| fact.amount_cents.max(0) as usize)
+                    .map(|fact| usize::try_from(fact.amount_cents.max(0)).unwrap_or(0))
                     .sum::<usize>()
                     * 100
                     + facts.len() * 20

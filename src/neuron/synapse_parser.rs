@@ -47,12 +47,14 @@ pub fn parse_synapses_from_content(content: &str) -> Vec<Synapse> {
         }
         let target = PathBuf::from(path_str);
 
-        let raw_reason = line
-            .find('→')
-            .or_else(|| line.find("->"))
-            .map(|i| line[i + "→".len()..].trim())
-            .unwrap_or("")
-            .to_string();
+        let raw_reason = if let Some(i) = line.find('→') {
+            line[i + '→'.len_utf8()..].trim()
+        } else if let Some(i) = line.find("->") {
+            line[i + 2..].trim()
+        } else {
+            ""
+        }
+        .to_string();
 
         let (edge_type, reason) = extract_edge_type(&raw_reason);
 

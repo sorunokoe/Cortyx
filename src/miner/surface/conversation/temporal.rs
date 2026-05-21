@@ -111,8 +111,8 @@ fn extract_explicit_calendar_date(text: &str) -> Option<String> {
 
 fn shift_iso_date_by_days(timestamp: &str, delta_days: i32) -> Option<String> {
     let (year, month, day) = parse_iso_date_parts(timestamp)?;
-    let absolute_days =
-        days_from_civil(year as i32, month as i32, day as i32).checked_add(delta_days)?;
+    let absolute_days = days_from_civil(year.cast_signed(), month.cast_signed(), day.cast_signed())
+        .checked_add(delta_days)?;
     let (shifted_year, shifted_month, shifted_day) = civil_from_days(absolute_days);
     Some(format!(
         "{shifted_year:04}-{shifted_month:02}-{shifted_day:02}T00:00:00Z"
@@ -188,5 +188,9 @@ fn civil_from_days(days: i32) -> (i32, u32, u32) {
     let mp = (5 * doy + 2) / 153;
     let day = doy - (153 * mp + 2) / 5 + 1;
     let month = mp + if mp < 10 { 3 } else { -9 };
-    (year + i32::from(month <= 2), month as u32, day as u32)
+    (
+        year + i32::from(month <= 2),
+        month.cast_unsigned(),
+        day.cast_unsigned(),
+    )
 }

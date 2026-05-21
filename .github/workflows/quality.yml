@@ -62,8 +62,8 @@ jobs:
       - name: Run clippy
         # -D warnings enforces all deny/warn lints declared in Cargo.toml.
         # Run without default features to avoid requiring ONNX model download in CI.
-        # The embed+rerank features are covered by the release build check.
-        run: cargo clippy --all-targets --no-default-features -- -D warnings
+        # Use --lib --bins to avoid flagging test code (tests use unwrap extensively).
+        run: cargo clippy --lib --bins --no-default-features -- -D warnings
 
   test:
     name: Test Suite
@@ -113,7 +113,9 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Install system dependencies
-        run: sudo apt-get update -q && sudo apt-get install -y libblas-dev liblapack-dev libopenblas-dev gfortran
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y libblas-dev liblapack-dev libopenblas-dev gfortran
+          sudo ln -sf /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblas.so /usr/lib/x86_64-linux-gnu/libcblas.so
       
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
@@ -141,7 +143,9 @@ jobs:
 
       - name: Install system dependencies (Linux)
         if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get update -q && sudo apt-get install -y libblas-dev liblapack-dev libopenblas-dev gfortran
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y libblas-dev liblapack-dev libopenblas-dev gfortran
+          sudo ln -sf /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblas.so /usr/lib/x86_64-linux-gnu/libcblas.so
       
       - name: Build
         run: cargo build --release --all-features

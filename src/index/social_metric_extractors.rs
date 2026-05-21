@@ -295,7 +295,11 @@ fn extract_social_window_days(surface: &str) -> Option<i32> {
     duration_answer_magnitude(&normalize_current_duration_answer(
         &extract_duration_answer_from_line(surface)?,
     ))
-    .map(|days| days.round() as i32)
+    .map(|days| {
+        #[allow(clippy::cast_possible_truncation)]
+        let rounded = days.round() as i32;
+        rounded
+    })
 }
 
 fn parse_social_number(value: &str) -> Option<i32> {

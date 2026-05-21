@@ -72,8 +72,8 @@ impl NeuronIndex {
                 (right_option.clone(), left_match.0 - right_match.0)
             };
 
-            let combined_score =
-                session_rank + left_match.1 + right_match.1 + (gap as usize).min(30);
+            let gap = usize::try_from(gap).unwrap_or(0);
+            let combined_score = session_rank + left_match.1 + right_match.1 + gap.min(30);
             let mut evidence = vec![left_match.2.clone()];
             if !evidence.iter().any(|line| line == &right_match.2) {
                 evidence.push(right_match.2.clone());
@@ -82,11 +82,11 @@ impl NeuronIndex {
                 .as_ref()
                 .map(|(best_score, best_gap, _, _)| {
                     combined_score > *best_score
-                        || (combined_score == *best_score && gap as usize > *best_gap)
+                        || (combined_score == *best_score && gap > *best_gap)
                 })
                 .unwrap_or(true);
             if should_replace {
-                best = Some((combined_score, gap as usize, answer, evidence));
+                best = Some((combined_score, gap, answer, evidence));
             }
         }
 

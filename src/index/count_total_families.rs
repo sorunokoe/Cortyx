@@ -110,7 +110,7 @@ fn best_same_session_metric_facts(
                     facts.values().map(|fact| fact.score).sum::<usize>(),
                 ) + facts
                     .values()
-                    .map(|fact| fact.count.max(0) as usize)
+                    .map(|fact| usize::try_from(fact.count.max(0)).unwrap_or(usize::MAX))
                     .sum::<usize>()
                     * 10,
                 facts,
@@ -162,7 +162,7 @@ fn best_same_session_meal_facts(
                     facts.values().map(|fact| fact.score).sum::<usize>(),
                 ) + facts
                     .values()
-                    .map(|fact| fact.count.max(0) as usize)
+                    .map(|fact| usize::try_from(fact.count.max(0)).unwrap_or(0))
                     .sum::<usize>()
                     * 10,
                 facts,
@@ -207,7 +207,7 @@ fn best_same_session_course_facts(
                 collect_course_facts(idx.session_answer_candidate_lines(session_id, usize::MAX));
             let total = facts
                 .values()
-                .map(|fact| fact.count.max(0) as usize)
+                .map(|fact| usize::try_from(fact.count.max(0)).unwrap_or(0))
                 .sum::<usize>();
             (!facts.is_empty()).then_some((
                 total * 1000
@@ -233,7 +233,9 @@ fn best_global_course_facts(
             upsert_best_fact(
                 &mut best,
                 CountTotalFact {
-                    score: fact.count.max(0) as usize * 100 + fact.score + *session_rank,
+                    score: usize::try_from(fact.count.max(0)).unwrap_or(0) * 100
+                        + fact.score
+                        + *session_rank,
                     ..fact
                 },
             );

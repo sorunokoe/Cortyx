@@ -12,10 +12,10 @@ pub(crate) fn shift_date_by_days(base: (i32, u32, u32), delta_days: i32) -> (i32
 }
 
 pub(crate) fn shift_month(year: i32, month: u32, delta_months: i32) -> (i32, u32) {
-    let base = year * 12 + month as i32 - 1 + delta_months;
+    let base = year * 12 + month.cast_signed() - 1 + delta_months;
     let shifted_year = base.div_euclid(12);
     let shifted_month = base.rem_euclid(12) + 1;
-    (shifted_year, shifted_month as u32)
+    (shifted_year, shifted_month.cast_unsigned())
 }
 
 fn days_to_ymd(mut days: i32) -> (i32, u32, u32) {
@@ -51,7 +51,7 @@ fn days_to_ymd(mut days: i32) -> (i32, u32, u32) {
         days -= month_length;
         month += 1;
     }
-    (year, month, days as u32 + 1)
+    (year, month, days.cast_unsigned() + 1)
 }
 
 fn is_leap_year(year: i32) -> bool {

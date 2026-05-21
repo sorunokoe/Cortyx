@@ -26,7 +26,13 @@ fn sentences(text: &str) -> Vec<&str> {
 // ─── Compiled regex helpers ────────────────────────────────────────────────────
 
 fn re(pattern: &str) -> Regex {
-    Regex::new(pattern).unwrap_or_else(|_| Regex::new(r"$^").unwrap())
+    match Regex::new(pattern) {
+        Ok(regex) => regex,
+        Err(_) => match Regex::new(r"$^") {
+            Ok(regex) => regex,
+            Err(err) => panic!("hardcoded fallback regex failed: {err}"),
+        },
+    }
 }
 
 // ─── TemporalInterval patterns ────────────────────────────────────────────────

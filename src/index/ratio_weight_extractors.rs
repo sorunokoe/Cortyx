@@ -71,7 +71,7 @@ pub(super) fn extract_weight_purchase_fact_from_line(
         value,
         unit: Some(unit),
         score: 18
-            + value.max(0) as usize
+            + usize::try_from(value.max(0)).unwrap_or(0)
             + focus_overlap(lower, &query.focus) * 6
             + usize::from(lower.starts_with("user:")) * 6,
         evidence: line.trim().to_string(),

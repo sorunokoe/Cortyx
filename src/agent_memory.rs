@@ -440,7 +440,7 @@ fn format_history_timestamp_secs(timestamp_secs: i64) -> String {
     if timestamp_secs < 0 {
         return timestamp_secs.to_string();
     }
-    let (y, mo, d, h, mi, s) = crate::neuron::unix_secs_to_datetime(timestamp_secs as u64);
+    let (y, mo, d, h, mi, s) = crate::neuron::unix_secs_to_datetime(timestamp_secs.cast_unsigned());
     format!("{y:04}-{mo:02}-{d:02}T{h:02}:{mi:02}:{s:02}Z")
 }
 

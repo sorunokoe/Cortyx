@@ -157,7 +157,7 @@ impl GraphReasoner {
                 let next_depth = work.depth + 1;
                 let strongest_step = Some(ReasonedStep {
                     from: work.path.clone(),
-                    edge_type: synapse.edge_type.clone(),
+                    edge_type: synapse.edge_type,
                     reason: synapse.reason.clone(),
                 });
 

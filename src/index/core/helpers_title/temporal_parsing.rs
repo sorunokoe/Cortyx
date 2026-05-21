@@ -83,8 +83,11 @@ pub(in crate::index) fn extract_temporal_rank_value(line: &str) -> Option<i32> {
 }
 
 pub(in crate::index) fn extract_current_duration_days(line: &str) -> Option<i32> {
-    duration_answer_magnitude(&extract_duration_answer_from_line(line)?)
-        .map(|days| days.round() as i32)
+    duration_answer_magnitude(&extract_duration_answer_from_line(line)?).map(|days| {
+        #[allow(clippy::cast_possible_truncation)]
+        let rounded = days.round() as i32;
+        rounded
+    })
 }
 
 pub(in crate::index) fn temporal_base_day_at_line(

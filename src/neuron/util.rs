@@ -137,8 +137,15 @@ pub fn unix_secs_to_datetime(secs: u64) -> (u32, u32, u32, u32, u32, u32) {
     let h = (secs / 3600) % 24;
     let mi = (secs / 60) % 60;
     let s = secs % 60;
-    let (y, mo, d) = days_to_ymd((secs / 86400) as i64);
-    (y as u32, mo as u32, d as u32, h as u32, mi as u32, s as u32)
+    let (y, mo, d) = days_to_ymd((secs / 86400).cast_signed());
+    (
+        y.cast_unsigned(),
+        mo.cast_unsigned(),
+        d.cast_unsigned(),
+        h as u32,
+        mi as u32,
+        s as u32,
+    )
 }
 
 /// Convert days since Unix epoch to (year, month, day) using Hinnant's algorithm.
@@ -154,7 +161,11 @@ pub fn days_to_ymd(z: i64) -> (i32, i32, i32) {
     let d = doy - (153 * mp + 2) / 5 + 1;
     let m = if mp < 10 { mp + 3 } else { mp - 9 };
     let y = if m <= 2 { y + 1 } else { y };
-    (y as i32, m as i32, d as i32)
+    (
+        i32::try_from(y).unwrap_or(if y.is_negative() { i32::MIN } else { i32::MAX }),
+        i32::try_from(m).unwrap_or(if m.is_negative() { i32::MIN } else { i32::MAX }),
+        i32::try_from(d).unwrap_or(if d.is_negative() { i32::MIN } else { i32::MAX }),
+    )
 }
 
 #[cfg(test)]

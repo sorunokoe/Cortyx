@@ -190,7 +190,7 @@ impl NeuronMeta {
             source_hash: String::new(),
             sig_hash: None,
             tokens: estimate_context_tokens(text).get(),
-            last_updated: timestamp.clone().unwrap_or_default(),
+            last_updated: timestamp.clone().unwrap_or_else(now_iso8601),
             use_count: 0,
             hit_count: 0,
             synapses: Vec::new(),

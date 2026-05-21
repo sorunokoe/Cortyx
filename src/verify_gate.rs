@@ -108,7 +108,7 @@ mod inner {
 
         let lower = text.to_lowercase();
         let sentences: Vec<&str> = lower
-            .split(|c| matches!(c, '.' | '!' | '?'))
+            .split(['.', '!', '?'])
             .map(str::trim)
             .filter(|s| s.len() > 10)
             .collect();
@@ -147,7 +147,7 @@ mod inner {
 
         let lower = text.to_lowercase();
         let sentences: Vec<&str> = lower
-            .split(|c| matches!(c, '.' | '!' | '?'))
+            .split(['.', '!', '?'])
             .map(str::trim)
             .filter(|s| s.len() > 5)
             .collect();

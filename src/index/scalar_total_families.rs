@@ -103,7 +103,7 @@ fn best_same_session_sibling_facts(
             (!facts.is_empty()).then_some((
                 facts
                     .values()
-                    .map(|fact| fact.value.max(0) as usize)
+                    .map(|fact| usize::try_from(fact.value.max(0)).unwrap_or(0))
                     .sum::<usize>()
                     * 1000
                     + facts.len() * 200
@@ -128,7 +128,9 @@ fn best_global_sibling_facts(
             upsert_best_scalar_fact(
                 &mut best,
                 ScalarTotalFact {
-                    score: fact.value.max(0) as usize * 100 + fact.score + *session_rank,
+                    score: usize::try_from(fact.value.max(0)).unwrap_or(0) * 100
+                        + fact.score
+                        + *session_rank,
                     ..fact
                 },
             );
@@ -155,7 +157,7 @@ fn best_same_session_platform_facts(
                     facts.values().map(|fact| fact.score).sum::<usize>(),
                 ) + facts
                     .values()
-                    .map(|fact| fact.value.max(0) as usize)
+                    .map(|fact| usize::try_from(fact.value.max(0)).unwrap_or(0))
                     .sum::<usize>(),
                 facts,
             ))
@@ -206,7 +208,7 @@ fn best_same_session_duration_facts(
                     facts.values().map(|fact| fact.score).sum::<usize>(),
                 ) + facts
                     .values()
-                    .map(|fact| fact.value.max(0) as usize)
+                    .map(|fact| usize::try_from(fact.value.max(0)).unwrap_or(0))
                     .sum::<usize>(),
                 facts,
             ))

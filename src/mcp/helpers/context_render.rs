@@ -421,10 +421,13 @@ pub fn render_focused_sections(content: &str, task_terms: &[String]) -> Option<S
             let lower_name = name.to_ascii_lowercase();
             let section_terms: std::collections::HashSet<String> =
                 tokenize(body).into_iter().collect();
-            let overlap = section_terms
-                .iter()
-                .filter(|term| focus_terms.contains(*term))
-                .count() as i32;
+            let overlap = i32::try_from(
+                section_terms
+                    .iter()
+                    .filter(|term| focus_terms.contains(*term))
+                    .count(),
+            )
+            .unwrap_or(i32::MAX);
             let mut score = overlap * 10;
             match lower_name.as_str() {
                 "purpose" => score += 15,

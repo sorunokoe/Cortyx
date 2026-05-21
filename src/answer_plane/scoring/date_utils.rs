@@ -6,6 +6,9 @@ pub(crate) enum ExplicitDateMatch {
     Month { year: i32, month: u32 },
 }
 
+type Ymd = (i32, u32, u32);
+type YmdRange = (Ymd, Ymd);
+
 impl ExplicitDateMatch {
     fn start(self) -> (i32, u32, u32) {
         match self {
@@ -51,19 +54,15 @@ pub(crate) fn extract_temporal_rank(line: &str, base_date: Option<(i32, u32, u32
     }
 }
 
-pub(crate) fn extract_explicit_date_range(
-    text: &str,
-    base_date: Option<(i32, u32, u32)>,
-) -> Option<((i32, u32, u32), (i32, u32, u32))> {
+#[must_use]
+pub(crate) fn extract_explicit_date_range(text: &str, base_date: Option<Ymd>) -> Option<YmdRange> {
     let date = extract_explicit_date_match(text, base_date)?;
     Some((date.start(), date.end()))
 }
 
 /// Extract the first explicit date mention in a line of text.
-pub fn extract_explicit_date(
-    text: &str,
-    base_date: Option<(i32, u32, u32)>,
-) -> Option<(i32, u32, u32)> {
+#[must_use]
+pub fn extract_explicit_date(text: &str, base_date: Option<Ymd>) -> Option<Ymd> {
     match extract_explicit_date_match(text, base_date)? {
         ExplicitDateMatch::Day { year, month, day } => Some((year, month, day)),
         ExplicitDateMatch::Month { year, month } => Some((year, month, 15)),
@@ -90,7 +89,7 @@ pub(crate) fn extract_explicit_date_match(
             day: date.2,
         });
     }
-    for (month_idx, month) in [
+    for (month_number, month) in (1_u32..).zip([
         "january",
         "february",
         "march",
@@ -103,10 +102,7 @@ pub(crate) fn extract_explicit_date_match(
         "october",
         "november",
         "december",
-    ]
-    .iter()
-    .enumerate()
-    {
+    ]) {
         if let Some(pos) = lower.find(month) {
             let before = &lower[..pos];
             let after = &lower[pos + month.len()..];
@@ -114,20 +110,20 @@ pub(crate) fn extract_explicit_date_match(
             if let Some(day) = extract_nearest_day(before, after, &lower, pos) {
                 return Some(ExplicitDateMatch::Day {
                     year,
-                    month: (month_idx + 1) as u32,
+                    month: month_number,
                     day,
                 });
             }
             if let Some(day) = extract_month_qualifier_day(before, &lower, pos) {
                 return Some(ExplicitDateMatch::Day {
                     year,
-                    month: (month_idx + 1) as u32,
+                    month: month_number,
                     day,
                 });
             }
             return Some(ExplicitDateMatch::Month {
                 year,
-                month: (month_idx + 1) as u32,
+                month: month_number,
             });
         }
     }
@@ -276,7 +272,7 @@ pub(crate) fn thanksgiving_date(year: i32) -> (i32, u32, u32) {
     let november_first = ymd_to_days(year, 11, 1);
     let november_first_weekday = (4 + november_first).rem_euclid(7);
     let days_until_thursday = (4 - november_first_weekday).rem_euclid(7);
-    let thanksgiving_day = 1 + days_until_thursday as u32 + 21;
+    let thanksgiving_day = 1 + days_until_thursday.cast_unsigned() + 21;
     (year, 11, thanksgiving_day)
 }
 
@@ -299,7 +295,7 @@ pub(crate) fn easter_sunday_date(year: i32) -> (i32, u32, u32) {
     let m = (a + 11 * h + 22 * l) / 451;
     let month = (h + l - 7 * m + 114) / 31;
     let day = ((h + l - 7 * m + 114) % 31) + 1;
-    (year, month as u32, day as u32)
+    (year, month.cast_unsigned(), day.cast_unsigned())
 }
 
 pub(crate) fn extract_nearest_day(
@@ -310,7 +306,7 @@ pub(crate) fn extract_nearest_day(
 ) -> Option<u32> {
     extract_last_number(before)
         .or_else(|| extract_first_number(after))
-        .and_then(|value| (1..=31).contains(&value).then_some(value as u32))
+        .and_then(|value| (1..=31).contains(&value).then_some(value.cast_unsigned()))
 }
 
 pub(crate) fn extract_year_near(after: &str) -> Option<i32> {
@@ -440,22 +436,17 @@ pub(crate) fn extract_relative_days(text: &str) -> Option<i32> {
 }
 
 fn extract_last_weekday(lower: &str) -> Option<i32> {
-    [
-        "sunday",
-        "monday",
-        "tuesday",
-        "wednesday",
-        "thursday",
-        "friday",
-        "saturday",
-    ]
-    .iter()
-    .enumerate()
-    .find_map(|(weekday, name)| {
-        lower
-            .contains(&format!("last {name}"))
-            .then_some(weekday as i32)
-    })
+    (0_i32..)
+        .zip([
+            "sunday",
+            "monday",
+            "tuesday",
+            "wednesday",
+            "thursday",
+            "friday",
+            "saturday",
+        ])
+        .find_map(|(weekday, name)| lower.contains(&format!("last {name}")).then_some(weekday))
 }
 
 fn resolve_last_weekday(base_date: (i32, u32, u32), target_weekday: i32) -> (i32, u32, u32) {
@@ -526,7 +517,9 @@ pub(crate) fn ymd_to_days(year: i32, month: u32, day: u32) -> i32 {
         let y = year - 1;
         y / 4 - y / 100 + y / 400 - (1969 / 4 - 1969 / 100 + 1969 / 400)
     };
-    (year - 1970) * 365 + leap_years + MONTH_START_DAYS[(month - 1) as usize] + day as i32 - 1
+    let month_index = usize::try_from(month.saturating_sub(1)).unwrap_or_default();
+    let day = i32::try_from(day).unwrap_or(i32::MAX);
+    (year - 1970) * 365 + leap_years + MONTH_START_DAYS[month_index] + day - 1
 }
 
 #[cfg(test)]

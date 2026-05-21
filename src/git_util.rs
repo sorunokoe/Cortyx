@@ -16,6 +16,7 @@ static GIT_BINARY: OnceLock<PathBuf> = OnceLock::new();
 /// # Panics
 ///
 /// Does not panic.
+#[must_use]
 pub fn git_binary() -> &'static Path {
     git_binary_from_lock(&GIT_BINARY)
 }

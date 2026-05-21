@@ -96,6 +96,15 @@ struct ChatGptContent {
     parts: Vec<serde_json::Value>,
 }
 
+#[allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss
+)]
+fn saturating_trunc_f64_to_u64(value: f64) -> u64 {
+    value.clamp(0.0, u64::MAX as f64).trunc() as u64
+}
+
 pub(super) fn parse_chatgpt(raw: &str) -> Result<Vec<Turn>> {
     let conversations: Vec<ChatGptExport> = if raw.trim_start().starts_with('[') {
         serde_json::from_str(raw)?
@@ -124,7 +133,8 @@ pub(super) fn parse_chatgpt(raw: &str) -> Result<Vec<Turn>> {
                             .join("\n");
                         if !text.trim().is_empty() {
                             let ts = msg.create_time.map(|t| {
-                                let (y, mo, d, ..) = unix_secs_to_datetime(t as u64);
+                                let (y, mo, d, ..) =
+                                    unix_secs_to_datetime(saturating_trunc_f64_to_u64(t));
                                 format!("{y:04}-{mo:02}-{d:02}T00:00:00Z")
                             });
                             turns.push(Turn {

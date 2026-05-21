@@ -54,7 +54,7 @@ fn collect_neurons(idx: &NeuronIndex, cutoff: Option<i64>) -> Vec<InsightNeuron>
             let (last_updated, last_updated_secs) = read_last_updated(&summary.path);
             let activity_secs =
                 last_updated_secs.or_else(|| metadata.as_ref().and_then(|m| m.timestamp_secs));
-            if cutoff.is_some_and(|cutoff| activity_secs.map_or(true, |secs| secs < cutoff)) {
+            if cutoff.is_some_and(|cutoff| activity_secs.is_none_or(|secs| secs < cutoff)) {
                 return None;
             }
             Some(InsightNeuron {

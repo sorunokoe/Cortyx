@@ -184,7 +184,7 @@ pub(super) fn average_scores(values: &[f32]) -> Option<f32> {
 }
 
 pub(super) fn delta_usize(after: usize, before: usize) -> isize {
-    after as isize - before as isize
+    after.cast_signed() - before.cast_signed()
 }
 
 pub(super) fn delta_score(after: Option<f32>, before: Option<f32>) -> Option<f32> {

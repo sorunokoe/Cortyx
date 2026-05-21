@@ -271,7 +271,9 @@ pub(super) fn extract_percent_basis_points(line: &str) -> Option<i64> {
         .and_then(|captures| captures.get(1))
         .map(|value| value.as_str())?;
     let percent = raw.parse::<f64>().ok()?;
-    Some((percent * 100.0).round() as i64)
+    #[allow(clippy::cast_possible_truncation)]
+    let basis_points = (percent * 100.0).round() as i64;
+    Some(basis_points)
 }
 
 pub(super) fn normalize_quantity_unit(raw: &str) -> String {

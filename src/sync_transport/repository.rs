@@ -711,7 +711,11 @@ fn sync_handoff_score(
         },
         SyncHandoffState::Conflict => score.saturating_sub(35),
     };
-    score.saturating_sub((issue_count as u8).saturating_mul(5))
+    score.saturating_sub(
+        u8::try_from(issue_count)
+            .unwrap_or(u8::MAX)
+            .saturating_mul(5),
+    )
 }
 
 fn build_sync_transport_status(

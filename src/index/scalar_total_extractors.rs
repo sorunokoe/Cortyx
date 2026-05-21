@@ -124,7 +124,9 @@ pub(super) fn extract_sibling_count_facts_from_line(
         facts.push(ScalarTotalFact {
             key: key.to_string(),
             value: count,
-            score: 18 + count.max(0) as usize * 4 + usize::from(lower.contains("family")) * 3,
+            score: 18
+                + usize::try_from(count.max(0)).unwrap_or(0) * 4
+                + usize::from(lower.contains("family")) * 3,
             evidence: line.trim().to_string(),
         });
     }
@@ -154,7 +156,9 @@ pub(super) fn extract_platform_peak_metric_fact_from_line(
     Some(ScalarTotalFact {
         key: focus.key.clone(),
         value,
-        score: 20 + value.max(0) as usize / 100 + usize::from(lower.contains("popular")) * 3,
+        score: 20
+            + usize::try_from(value.max(0)).unwrap_or(0) / 100
+            + usize::from(lower.contains("popular")) * 3,
         evidence: line.trim().to_string(),
     })
 }
@@ -185,7 +189,9 @@ pub(super) fn extract_duration_bundle_fact_from_line(
     Some(ScalarTotalFact {
         key: activity.key().to_string(),
         value: minutes,
-        score: 18 + minutes.max(0) as usize + usize::from(lower.contains("work")) * 2,
+        score: 18
+            + usize::try_from(minutes.max(0)).unwrap_or(0)
+            + usize::from(lower.contains("work")) * 2,
         evidence: line.trim().to_string(),
     })
 }
@@ -238,7 +244,9 @@ fn extract_count_for_relation(line: &str, relation: &str) -> Option<i32> {
 
 fn duration_surface_minutes(surface: &str) -> Option<i32> {
     let days = duration_answer_magnitude(surface)?;
-    Some((days * 24.0 * 60.0).round() as i32)
+    #[allow(clippy::cast_possible_truncation)]
+    let minutes = (days * 24.0 * 60.0).round() as i32;
+    Some(minutes)
 }
 
 impl DurationActivity {

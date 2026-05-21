@@ -730,7 +730,8 @@ pub(crate) fn parse_iso8601_to_secs(ts: Option<&str>) -> Option<i64> {
         let y = year - 1;
         y / 4 - y / 100 + y / 400 - (1969 / 4 - 1969 / 100 + 1969 / 400)
     };
-    let days = (year - 1970) * 365 + leap_years + MONTH_START_DAYS[(month - 1) as usize] + day - 1;
+    let month_index = usize::try_from(month - 1).unwrap_or(0);
+    let days = (year - 1970) * 365 + leap_years + MONTH_START_DAYS[month_index] + day - 1;
     Some(days * 86_400)
 }
 

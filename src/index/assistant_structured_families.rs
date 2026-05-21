@@ -353,11 +353,11 @@ fn described_entity_decision_bonus(
     ) {
         bonus -= 24;
     }
-    bonus += ((order + 1) * 2) as i32;
+    bonus += i32::try_from((order + 1) * 2).unwrap_or(i32::MAX);
     if total_lines > 0 && order + 1 == total_lines {
         bonus += 6;
     }
-    bonus.max(0) as usize
+    usize::try_from(bonus.max(0)).unwrap_or(usize::MAX)
 }
 
 fn trim_decided_entity(value: &str) -> String {

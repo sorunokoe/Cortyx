@@ -186,5 +186,6 @@ pub(in crate::index) fn ymd_to_days(year: i32, month: u32, day: u32) -> i32 {
         let y = year - 1;
         y / 4 - y / 100 + y / 400 - (1969 / 4 - 1969 / 100 + 1969 / 400)
     };
-    (year - 1970) * 365 + leap_years + MONTH_START_DAYS[(month - 1) as usize] + day as i32 - 1
+    let month_index = usize::try_from(month - 1).unwrap_or(0);
+    (year - 1970) * 365 + leap_years + MONTH_START_DAYS[month_index] + day.cast_signed() - 1
 }

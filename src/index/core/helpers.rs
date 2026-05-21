@@ -14,7 +14,7 @@ pub(in crate::index) fn now_unix_days() -> u32 {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs();
-    (secs / 86_400) as u32
+    u32::try_from(secs / 86_400).unwrap_or(u32::MAX)
 }
 
 /// S-I (R16): Extract a Tier-1 summary from neuron markdown content.

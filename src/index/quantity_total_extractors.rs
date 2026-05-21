@@ -183,10 +183,9 @@ pub(super) fn format_distance_total_answer(miles: f32) -> String {
         "miles"
     };
     if (miles - miles.round()).abs() < 0.01 {
-        format!(
-            "{} {suffix}",
-            format_integer_with_commas(miles.round() as i64)
-        )
+        #[allow(clippy::cast_possible_truncation)]
+        let rounded = miles.round() as i64;
+        format!("{} {suffix}", format_integer_with_commas(rounded))
     } else {
         format!("{} {suffix}", format_numeric_answer(miles))
     }

@@ -258,6 +258,7 @@ impl NeuronIndex {
         let terms = tokenize(query.as_str());
         let complexity = self.compute_task_complexity(&terms);
         let history_scale = self.adaptive_budget_scale();
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
         let adjusted_max = ((max_tokens as f32 * complexity * history_scale) as usize)
             .max(512)
             .min(8192.max(max_tokens * 2));

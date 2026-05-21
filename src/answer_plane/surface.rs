@@ -266,10 +266,13 @@ pub(super) fn select_simple_count_span_answer(
                             } else {
                                 0
                             };
-                            let term_overlap = task_terms
-                                .iter()
-                                .filter(|t| lower_line.contains(t.as_str()))
-                                .count() as i32;
+                            let term_overlap = i32::try_from(
+                                task_terms
+                                    .iter()
+                                    .filter(|t| lower_line.contains(t.as_str()))
+                                    .count(),
+                            )
+                            .unwrap_or(i32::MAX);
                             let score = term_overlap * 5 + prefix_bonus;
                             let count_str = original_tokens
                                 .get(i - 1)

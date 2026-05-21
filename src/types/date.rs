@@ -66,7 +66,7 @@ impl IsoDate {
             .unwrap_or_default()
             .as_secs();
         let days = secs / 86400;
-        let (y, mo, d) = civil_from_days(days as i64);
+        let (y, mo, d) = civil_from_days(days.cast_signed());
         Self(format!("{y:04}-{mo:02}-{d:02}"))
     }
 

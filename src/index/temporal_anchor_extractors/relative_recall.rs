@@ -207,7 +207,7 @@ fn relative_recall_answer_kind(body: &str) -> RelativeTemporalRecallAnswerKind {
 fn shift_months(year: i32, month: u32, delta: i32) -> Option<(i32, u32)> {
     let month_index = year
         .checked_mul(12)?
-        .checked_add(month as i32 - 1)?
+        .checked_add(month.cast_signed() - 1)?
         .checked_add(delta)?;
     let target_year = month_index.div_euclid(12);
     let target_month = month_index.rem_euclid(12) as u32 + 1;

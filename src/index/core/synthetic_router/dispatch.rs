@@ -686,7 +686,7 @@ impl NeuronIndex {
                     .flatten()
                 })
             {
-                let word = num_to_word(value as usize);
+                let word = num_to_word(usize::try_from(value).unwrap_or(0));
                 let rendered = if word.is_empty() {
                     value.to_string()
                 } else {

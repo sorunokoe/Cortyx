@@ -190,7 +190,9 @@ pub fn extract_education_duration_years(lower: &str) -> Option<i32> {
         let tail = &lower[idx + marker.len()..];
         let value = parse_leading_duration_value(tail)?;
         if value.unit == "year" {
-            return Some(value.amount.round() as i32);
+            #[allow(clippy::cast_possible_truncation)]
+            let amount = value.amount.round() as i32;
+            return Some(amount);
         }
     }
     None

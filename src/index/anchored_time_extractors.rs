@@ -181,7 +181,9 @@ pub(super) fn add_minutes_to_clock_time(time: &str, minutes: i32) -> Option<Stri
 
 fn duration_to_minutes(surface: &str) -> Option<i32> {
     let days = duration_answer_magnitude(surface)?;
-    Some((days * 24.0 * 60.0).round() as i32)
+    #[allow(clippy::cast_possible_truncation)]
+    let minutes = (days * 24.0 * 60.0).round() as i32;
+    Some(minutes)
 }
 
 fn parse_clock_minutes(surface: &str) -> Option<i32> {

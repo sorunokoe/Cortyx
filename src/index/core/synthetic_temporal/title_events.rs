@@ -65,6 +65,7 @@ impl NeuronIndex {
         }
 
         let answer = if wants_days && parsed.len() == 1 {
+            #[allow(clippy::cast_possible_truncation)]
             let days = parsed[0].days.round() as i32;
             format!("{days} days")
         } else if combined {
@@ -77,6 +78,7 @@ impl NeuronIndex {
                     render_duration_unit(first_unit, total)
                 )
             } else {
+                #[allow(clippy::cast_possible_truncation)]
                 let total_days = parsed.iter().map(|value| value.days).sum::<f32>().round() as i32;
                 render_elapsed_duration_answer(total_days)
             }

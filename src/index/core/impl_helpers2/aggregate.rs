@@ -290,7 +290,9 @@ impl NeuronIndex {
             if val > 10_000_000.0 {
                 return None;
             }
-            Some((val * 100.0).round() as i64)
+            #[allow(clippy::cast_possible_truncation)]
+            let cents = (val * 100.0).round() as i64;
+            Some(cents)
         }
 
         fn extract_dollars_on_line(line: &str) -> Vec<i64> {
@@ -512,7 +514,10 @@ impl NeuronIndex {
             match dollars {
                 0 => "zero dollars".to_string(),
                 1 => "one dollar".to_string(),
-                2..=20 => format!("{} dollars", num_to_word(dollars as usize)),
+                2..=20 => format!(
+                    "{} dollars",
+                    num_to_word(usize::try_from(dollars).unwrap_or(0))
+                ),
                 21..=99 => {
                     let tens = dollars / 10;
                     let ones = dollars % 10;
@@ -530,10 +535,16 @@ impl NeuronIndex {
                     if ones == 0 {
                         format!("{tw} dollars")
                     } else {
-                        format!("{tw}-{} dollars", num_to_word(ones as usize))
+                        format!(
+                            "{tw}-{} dollars",
+                            num_to_word(usize::try_from(ones).unwrap_or(0))
+                        )
                     }
                 },
-                100..=999 => format!("{} hundred dollars", num_to_word((dollars / 100) as usize)),
+                100..=999 => format!(
+                    "{} hundred dollars",
+                    num_to_word(usize::try_from(dollars / 100).unwrap_or(0))
+                ),
                 1000..=99999 => format!("{} thousand dollars", dollars / 1000),
                 _ => format!("{dollars} dollars"),
             }

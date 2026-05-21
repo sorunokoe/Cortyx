@@ -16,7 +16,7 @@ pub(crate) fn parse_requested_sequence_count(task: &str) -> usize {
         .into_iter()
         .filter_map(|token| parse_count_token(&token))
         .find(|value| (2..=8).contains(value))
-        .map(|value| value as usize)
+        .map(|value| usize::try_from(value).unwrap_or(3))
         .unwrap_or(3)
 }
 
@@ -217,6 +217,8 @@ pub(crate) fn temporal_candidate_sequence_rank(
     if file_name.contains("_summary") {
         return None;
     }
+    let item_index = i32::try_from(item_index).unwrap_or(i32::MAX);
+    let local_index = i32::try_from(local_index).unwrap_or(i32::MAX);
     let base = file_name
         .find("_chunk")
         .and_then(|idx| {
@@ -226,8 +228,8 @@ pub(crate) fn temporal_candidate_sequence_rank(
                 .filter(|digits| !digits.is_empty() && digits.chars().all(|c| c.is_ascii_digit()))
                 .and_then(|digits| digits.parse::<i32>().ok())
         })
-        .unwrap_or(item_index as i32);
-    Some(base.saturating_mul(1000) + local_index as i32)
+        .unwrap_or(item_index);
+    Some(base.saturating_mul(1000) + local_index)
 }
 
 pub(crate) fn render_temporal_candidate_answer(

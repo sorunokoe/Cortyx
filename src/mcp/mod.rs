@@ -126,7 +126,11 @@ impl CortyxServer {
     }
 
     pub(in crate::mcp) fn mark_session_activity(&self) {
-        *self.last_activity.lock().unwrap() = Instant::now();
+        let mut last_activity = match self.last_activity.lock() {
+            Ok(last_activity) => last_activity,
+            Err(err) => err.into_inner(),
+        };
+        *last_activity = Instant::now();
         self.session_active.store(true, Ordering::Release);
     }
 
@@ -134,7 +138,11 @@ impl CortyxServer {
         if !self.session_active.load(Ordering::Acquire) {
             return false;
         }
-        if self.last_activity.lock().unwrap().elapsed() <= SESSION_BOUNDARY_TIMEOUT {
+        let last_activity = match self.last_activity.lock() {
+            Ok(last_activity) => last_activity,
+            Err(err) => err.into_inner(),
+        };
+        if last_activity.elapsed() <= SESSION_BOUNDARY_TIMEOUT {
             return false;
         }
         self.session_active

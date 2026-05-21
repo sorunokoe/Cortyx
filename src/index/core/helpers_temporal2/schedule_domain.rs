@@ -512,7 +512,9 @@ pub fn money_total_line_matches_query(task_lower: &str, lower: &str) -> bool {
 
 pub fn format_numeric_answer(value: f32) -> String {
     if (value - value.round()).abs() < 0.01 {
-        return (value.round() as i64).to_string();
+        #[allow(clippy::cast_possible_truncation)]
+        let rounded = value.round() as i64;
+        return rounded.to_string();
     }
 
     let mut rendered = format!("{value:.2}");
@@ -545,7 +547,9 @@ pub fn format_integer_with_commas(value: i64) -> String {
 
 pub fn format_money_answer(value: f32) -> String {
     if (value - value.round()).abs() < 0.01 {
-        return format!("${}", format_integer_with_commas(value.round() as i64));
+        #[allow(clippy::cast_possible_truncation)]
+        let rounded = value.round() as i64;
+        return format!("${}", format_integer_with_commas(rounded));
     }
     format!("${}", format_numeric_answer(value))
 }

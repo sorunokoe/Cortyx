@@ -42,7 +42,7 @@ impl SynapseConfidenceTier {
 /// Each type has an associated relevance multiplier applied during graph
 /// traversal — structural edges (Imports, Implements) carry more weight
 /// than loose semantic associations.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default, JsonSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum SynapseType {
     #[default]
@@ -87,14 +87,21 @@ impl SynapseType {
     }
 
     /// Return the semantic inverse of this edge type for reverse graph construction.
+    ///
+    /// Types with a proper directed inverse (`Implements`/`Calls`) return that inverse.
+    /// Symmetric types (`Contradicts`) return themselves.
+    /// Types without a defined reverse (`Imports`, `Derived`, `TemporalFollows`,
+    /// `ConceptExpands`) fall back to `SemanticRelated` — the weakest symmetric edge.
     #[must_use]
-    pub fn inverse(&self) -> SynapseType {
+    pub fn inverse(self) -> SynapseType {
         match self {
             Self::Implements => Self::ImplementedBy,
             Self::ImplementedBy => Self::Implements,
             Self::Calls => Self::CalledBy,
             Self::CalledBy => Self::Calls,
             Self::Contradicts => Self::Contradicts,
+            // Imports, Derived, TemporalFollows, ConceptExpands have no declared
+            // reverse variant; fall back to the weakest symmetric edge type.
             _ => Self::SemanticRelated,
         }
     }

@@ -26,6 +26,11 @@ struct SnapshotNeuron {
 }
 
 /// Snapshot the current session's activated neurons before compaction.
+///
+/// # Errors
+///
+/// Returns an error if the neuron index cannot be loaded or if writing the
+/// precompact snapshot back into the index fails.
 pub fn snapshot_precompact(idx: &NeuronIndex, project_root: &Path) -> Result<String> {
     let cutoff = crate::commands::timeline::now_unix_secs().saturating_sub(RECENT_WINDOW_SECS);
     let mut neurons: Vec<SnapshotNeuron> = idx

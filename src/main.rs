@@ -451,7 +451,7 @@ fn format_duration(duration: Duration) -> String {
 }
 
 fn duration_ms(duration: Duration) -> u64 {
-    duration.as_millis().min(u64::MAX as u128) as u64
+    u64::try_from(duration.as_millis().min(u128::from(u64::MAX))).unwrap_or(u64::MAX)
 }
 
 fn render_route_ux_proof(
@@ -1088,6 +1088,7 @@ async fn main() -> Result<()> {
         } => {
             let root = project_root(path);
             let idx = index::NeuronIndex::load_or_create(&root)?;
+            #[allow(clippy::cast_possible_truncation)]
             let min_conf = min_confidence.map(|v| v as f32);
             let (included, overflow) = idx.get_contexts_with_scores_and_overflow(
                 &task,
@@ -1099,12 +1100,14 @@ async fn main() -> Result<()> {
                 None,
             );
             if answer_mode {
+                #[allow(clippy::cast_possible_truncation)]
+                let min_answer_confidence = min_answer_confidence.map(|value| value as f32);
                 match answer_plane::render_answer_output_decision(
                     &idx,
                     &task,
                     &included,
                     provenance,
-                    min_answer_confidence.map(|value| value as f32),
+                    min_answer_confidence,
                 ) {
                     Ok(answer) => print!("{answer}"),
                     Err(answer_plane::AnswerAbstentionReason::LowFormConfidence)

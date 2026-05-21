@@ -7,13 +7,6 @@ use std::path::{Path, PathBuf};
 /// absolute path risks false positives (e.g. macOS tempdirs start with `.`).
 #[must_use]
 pub fn should_skip(rel: &Path) -> bool {
-    for component in rel.components() {
-        let s = component.as_os_str().to_string_lossy();
-        if s.starts_with('.') {
-            return true;
-        }
-    }
-
     const SKIP_DIRS: &[&str] = &[
         "target",
         "node_modules",
@@ -29,7 +22,7 @@ pub fn should_skip(rel: &Path) -> bool {
     ];
     for component in rel.components() {
         let s = component.as_os_str().to_string_lossy();
-        if SKIP_DIRS.contains(&s.as_ref()) {
+        if s.starts_with('.') || SKIP_DIRS.contains(&s.as_ref()) {
             return true;
         }
     }
@@ -39,11 +32,19 @@ pub fn should_skip(rel: &Path) -> bool {
         return true;
     }
 
+    // `Path::extension()` returns only the last component ("js" for "bundle.min.js"),
+    // so minified assets need a dedicated filename-level check.
+    if let Some(name) = rel.file_name().map(|n| n.to_string_lossy().to_lowercase()) {
+        if name.ends_with(".min.js") || name.ends_with(".min.css") {
+            return true;
+        }
+    }
+
     const SKIP_EXT: &[&str] = &[
         "png", "jpg", "jpeg", "gif", "svg", "ico", "webp", "woff", "woff2", "ttf", "eot", "mp3",
         "mp4", "wav", "ogg", "zip", "tar", "gz", "bz2", "xz", "7z", "pdf", "doc", "docx", "xls",
         "xlsx", "exe", "dll", "so", "dylib", "a", "o", "class", "pyc", "pyo", "bin", "dat", "db",
-        "sqlite", "sqlite3", "min.js", "min.css", "map",
+        "sqlite", "sqlite3", "map",
     ];
     if let Some(ext) = rel.extension().map(|e| e.to_string_lossy().to_lowercase()) {
         if SKIP_EXT.contains(&ext.as_str()) {

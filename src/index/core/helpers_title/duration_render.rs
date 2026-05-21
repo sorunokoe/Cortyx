@@ -104,9 +104,21 @@ pub(in crate::index) fn render_elapsed_from_now_answer(
 ) -> String {
     let answer = match unit {
         SyntheticElapsedFromNowUnit::Day => render_small_duration(days, "day"),
-        SyntheticElapsedFromNowUnit::Week => (((days as f32) / 7.0).round() as i32).to_string(),
-        SyntheticElapsedFromNowUnit::Month => (((days as f32) / 30.0).round() as i32).to_string(),
-        SyntheticElapsedFromNowUnit::Year => (((days as f32) / 365.0).round() as i32).to_string(),
+        SyntheticElapsedFromNowUnit::Week => {
+            #[allow(clippy::cast_possible_truncation)]
+            let weeks = ((days as f32) / 7.0).round() as i32;
+            weeks.to_string()
+        },
+        SyntheticElapsedFromNowUnit::Month => {
+            #[allow(clippy::cast_possible_truncation)]
+            let months = ((days as f32) / 30.0).round() as i32;
+            months.to_string()
+        },
+        SyntheticElapsedFromNowUnit::Year => {
+            #[allow(clippy::cast_possible_truncation)]
+            let years = ((days as f32) / 365.0).round() as i32;
+            years.to_string()
+        },
     };
     if append_ago {
         format!("{answer} ago")

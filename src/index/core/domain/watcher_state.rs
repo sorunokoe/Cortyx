@@ -32,7 +32,7 @@ impl WatcherState {
         let mut dirty = self
             .dirty_set
             .lock()
-            .expect("watcher dirty_set mutex poisoned");
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         dirty.extend(paths);
     }
 
@@ -40,7 +40,7 @@ impl WatcherState {
         let mut dirty = self
             .dirty_set
             .lock()
-            .expect("watcher dirty_set mutex poisoned");
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let drained: HashSet<PathBuf> = std::mem::take(&mut *dirty);
         drained.into_iter().collect()
     }

@@ -236,7 +236,9 @@ fn extract_duration_minutes_from_line(line: &str) -> Option<i32> {
         "minute" => quantity,
         _ => return None,
     };
-    Some(minutes.round() as i32)
+    #[allow(clippy::cast_possible_truncation)]
+    let rounded = minutes.round() as i32;
+    Some(rounded)
 }
 
 fn parse_small_duration_quantity(raw: &str) -> Option<f32> {

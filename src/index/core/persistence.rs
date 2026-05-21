@@ -250,7 +250,7 @@ fn read_legacy_wal(path: &Path, data: &[u8]) -> Option<(usize, Vec<WalEntry>)> {
         return None;
     }
     let raw: serde_json::Value = serde_json::from_slice(payload).ok()?;
-    let base_count = raw.get("base_count")?.as_u64()? as usize;
+    let base_count = usize::try_from(raw.get("base_count")?.as_u64()?).unwrap_or(usize::MAX);
     let entries: Vec<WalEntry> = serde_json::from_value(raw.get("entries")?.clone()).ok()?;
     Some((base_count, entries))
 }
@@ -545,7 +545,7 @@ impl NeuronIndex {
                         let stored_version = raw
                             .get("version")
                             .and_then(|v| v.as_u64())
-                            .map(|v| v as u32)
+                            .and_then(|v| u32::try_from(v).ok())
                             .unwrap_or(0);
                         activation_generation = raw
                             .get("cache_generation")
@@ -644,8 +644,11 @@ impl NeuronIndex {
                 let delta_path = cortyx_dir.join("index.delta.json");
                 if let Ok(data) = std::fs::read_to_string(&delta_path) {
                     if let Ok(raw) = serde_json::from_str::<serde_json::Value>(&data) {
-                        let base_count =
-                            raw.get("base_count").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
+                        let base_count = raw
+                            .get("base_count")
+                            .and_then(|v| v.as_u64())
+                            .and_then(|value| usize::try_from(value).ok())
+                            .unwrap_or(0);
                         if base_count == idx.retrieval.entries.len() {
                             if let Ok(delta_entries) = serde_json::from_value::<Vec<BM25Entry>>(
                                 raw.get("entries").cloned().unwrap_or_default(),

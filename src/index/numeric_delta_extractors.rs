@@ -170,7 +170,9 @@ pub(super) fn extract_anchored_money_fact_from_line(
 
 pub(super) fn format_numeric_delta(value: f64) -> String {
     if (value - value.round()).abs() < 0.01 {
-        format!("{}", value.round() as i64)
+        #[allow(clippy::cast_possible_truncation)]
+        let rounded = value.round() as i64;
+        format!("{rounded}")
     } else {
         let rendered = format!("{value:.2}");
         rendered

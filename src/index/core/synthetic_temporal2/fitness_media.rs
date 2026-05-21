@@ -796,7 +796,7 @@ impl NeuronIndex {
 
             let total: i32 = platform_counts.values().sum();
             let score = platform_counts.len() * 1000
-                + total.max(0) as usize * 10
+                + usize::try_from(total.max(0)).unwrap_or(0) * 10
                 + session_rank * 10
                 + evidence.len();
             let should_replace = best

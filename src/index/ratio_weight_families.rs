@@ -88,7 +88,8 @@ fn best_same_session_weight_aggregate(
                 query,
             ))?;
             Some((
-                session_score(*session_rank, aggregate.score) + aggregate.total as usize,
+                session_score(*session_rank, aggregate.score)
+                    + usize::try_from(aggregate.total).unwrap_or(0),
                 aggregate,
             ))
         })

@@ -324,9 +324,9 @@ pub(super) fn parse_iso8601_to_secs(value: &str) -> Option<i64> {
         let y = year - 1;
         y / 4 - y / 100 + y / 400 - (1969 / 4 - 1969 / 100 + 1969 / 400)
     };
-    let mut total =
-        ((year - 1970) * 365 + leap_years + MONTH_START_DAYS[(month - 1) as usize] + day - 1)
-            .saturating_mul(86_400);
+    let month_index = usize::try_from(month - 1).unwrap_or(0);
+    let mut total = ((year - 1970) * 365 + leap_years + MONTH_START_DAYS[month_index] + day - 1)
+        .saturating_mul(86_400);
 
     if let Some(time_part) = trimmed.split(['T', ' ']).nth(1) {
         let bytes = time_part.as_bytes();

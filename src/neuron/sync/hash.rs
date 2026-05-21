@@ -112,7 +112,7 @@ impl From<&SyncSynapse> for SyncHashSynapse {
     fn from(synapse: &SyncSynapse) -> Self {
         Self {
             target: path_to_string(&synapse.target),
-            edge_type: synapse.edge_type.clone(),
+            edge_type: synapse.edge_type,
             weight_bits: synapse.weight.to_bits(),
             reason: synapse.reason.clone(),
         }

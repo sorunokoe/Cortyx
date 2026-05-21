@@ -115,7 +115,7 @@ pub(super) fn extract_metric_count_fact_from_line(
         key: metric.key().to_string(),
         count,
         score: 20
-            + count.max(0) as usize * 4
+            + usize::try_from(count.max(0)).unwrap_or(usize::MAX) * 4
             + term_overlap_count(
                 lower,
                 &anchor_terms.iter().map(String::as_str).collect::<Vec<_>>(),
@@ -154,7 +154,7 @@ pub(super) fn extract_meal_count_fact_from_line(
         key: focus.key.clone(),
         count,
         score: 18
-            + count.max(0) as usize * 4
+            + usize::try_from(count.max(0)).unwrap_or(usize::MAX) * 4
             + line_matches_focus_terms(lower, &focus.required_terms) * 6
             + usize::from(lower.contains("lunch")) * 4,
         evidence: line.trim().to_string(),
@@ -219,7 +219,7 @@ pub(super) fn extract_online_course_completion_facts_from_line(
             key: platform_name.to_string(),
             count,
             score: 22
-                + count.max(0) as usize * 3
+                + usize::try_from(count.max(0)).unwrap_or(usize::MAX) * 3
                 + usize::from(lower.contains("completed")) * 8
                 + usize::from(lower.contains("previous")) * 6
                 + usize::from(lower.contains("prior")) * 6,

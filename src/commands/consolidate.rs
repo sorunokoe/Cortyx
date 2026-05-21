@@ -16,6 +16,10 @@ struct ConsolidationCandidate {
     source_hint: String,
 }
 
+/// # Errors
+///
+/// Returns an error if a qualifying diary entry cannot be read or if mining a
+/// promoted consolidation entry fails.
 pub fn consolidate_diary(
     idx: &mut NeuronIndex,
     min_refs: u32,

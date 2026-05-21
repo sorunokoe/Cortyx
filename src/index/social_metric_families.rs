@@ -72,7 +72,7 @@ fn best_grouped_platform_growth(
     grouped_verbatim_candidate_lines(idx)
         .into_values()
         .filter_map(|lines| resolve_platform_growth(lines, query))
-        .max_by_key(|answer| answer.score + answer.delta.max(0) as usize)
+        .max_by_key(|answer| answer.score + usize::try_from(answer.delta.max(0)).unwrap_or(0))
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -161,7 +161,7 @@ fn resolve_platform_growth(
     let winner = best_by_platform
         .values()
         .filter(|candidate| candidate.delta > 0)
-        .max_by_key(|candidate| candidate.score + candidate.delta as usize)?
+        .max_by_key(|candidate| candidate.score + usize::try_from(candidate.delta).unwrap_or(0))?
         .clone();
     let comparison_count = best_by_platform
         .values()

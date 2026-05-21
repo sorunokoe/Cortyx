@@ -261,6 +261,7 @@ impl KgEntity {
 
     // ─── Rendering ───────────────────────────────────────────────────────
 
+    #[must_use]
     pub fn render(&self) -> String {
         let mut out = format!(
             "# KG: {entity}\n\n\
