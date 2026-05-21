@@ -339,6 +339,8 @@ pub enum Commands {
         #[arg(long)]
         project: Option<PathBuf>,
     },
+    /// Print a versioned proof certificate of Cortyx's measured capabilities.
+    ProofCertificate,
     /// Manage the local fleet of registered Cortyx projects.
     ///
     /// Fleet enables cross-project context sharing: when local confidence is low,

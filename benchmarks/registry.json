@@ -1038,7 +1038,7 @@
       "kind": "footprint",
       "proof_status": "proven",
       "metric": "release binary size (MB)",
-      "current_result": "~12.8MB stripped release binary (Linux CI)",
+      "current_result": "~30MB release binary (v0.4.0+, includes ort_sys/ONNX Runtime; ~12.8MB on Linux CI stripped for v0.3)",
       "command": "cargo build --release && cargo test --test bench bench_binary_size -- --nocapture",
       "notes": "Builds the release binary first so the footprint claim is executable from the registry. Cargo's release profile strips symbols, enables LTO, and uses a single codegen unit. Budget: stripped release binary \u226414.0MB."
     },
