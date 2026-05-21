@@ -45,7 +45,7 @@ fn write_registry(dir: &TempDir, hybrid_latency: &str) {
             { "id": "lme-500-official", "current_result": "484/500 = 96.8%" },
             { "id": "activation-latency-p95", "current_result": "~22ms p95" },
             { "id": "scale-2k-activation", "current_result": hybrid_latency },
-            { "id": "token-efficiency-sample", "current_result": "56.9% first-call savings, 98.4% capsule+delta repeat savings" },
+            { "id": "bm25-token-savings-estimate", "current_result": "≥70% savings on 100-file project" },
             { "id": "binary-size-release", "current_result": "~30MB release binary" }
         ]
     });
