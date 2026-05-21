@@ -160,7 +160,9 @@ jobs:
         run: |
           SIZE=$(stat -f%z target/release/cortyx)
           echo "Binary size: $SIZE bytes"
-          if [ $SIZE -gt 26214400 ]; then
-            echo "Binary size exceeds 25MB limit!"
+          # macOS ARM64 with all-features (embed+rerank+ONNX) produces ~30-40MB.
+          # 50MB limit catches egregious regressions without false-positives on macOS.
+          if [ $SIZE -gt 52428800 ]; then
+            echo "Binary size exceeds 50MB limit!"
             exit 1
           fi
