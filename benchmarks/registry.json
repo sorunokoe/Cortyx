@@ -932,11 +932,10 @@
         "locomo-regression-guard",
         "activation-latency-p95",
         "status-cold-start",
-        "token-efficiency-sample",
         "binary-size-release"
       ],
       "ci_ready": true,
-      "notes": "Uses the fast retrieval drift guards plus the executable latency, token, and footprint budgets instead of rerunning every slow headline benchmark on each change."
+      "notes": "Uses the fast retrieval drift guards plus the executable latency, token, and footprint budgets instead of rerunning every slow headline benchmark on each change. token-efficiency-sample omitted: calibrated for embed+rerank mode, not meaningful with --no-default-features (BM25-only) CI builds."
     }
   ],
   "benchmarks": [
