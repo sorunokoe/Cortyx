@@ -976,7 +976,7 @@
       "proof_status": "smoke",
       "metric": "per-category recall thresholds",
       "current_result": "green",
-      "command": "cargo test --test bench bench_lme_regression_guard -- --nocapture",
+      "command": "cargo test --test bench bench_lme_regression_guard --no-default-features -- --nocapture",
       "notes": "Fast CI guard over 20 representative LME rows. Budgets: single_session_user \u226580%, temporal-reasoning \u226580%, knowledge_update \u226560%, multi_session \u226580%. | 2026-05-05: category baselines updated from 489/500 run."
     },
     {
@@ -1002,7 +1002,7 @@
       "proof_status": "smoke",
       "metric": "per-type recall thresholds",
       "current_result": "green",
-      "command": "cargo test --test bench bench_locomo_regression_guard -- --nocapture",
+      "command": "cargo test --test bench bench_locomo_regression_guard --no-default-features -- --nocapture",
       "notes": "Fast CI guard over 20 representative LoCoMo rows, mined once per unique conversation. Budgets: single_hop \u226580%, multi_hop \u226580%, temporal \u226560%, open_qa \u226540%."
     },
     {
@@ -1015,7 +1015,7 @@
       "proof_status": "proven",
       "metric": "p95 ms over 100-neuron retrieval hot-path",
       "current_result": "~22ms p95",
-      "command": "cargo test get_contexts_latency_p95_100_neurons -- --nocapture",
+      "command": "cargo test --no-default-features get_contexts_latency_p95_100_neurons -- --nocapture",
       "notes": "Library hot-path latency guard for BM25 activation on the checked-in benchmark harness. Budget: p95 <50ms over 20 trials on a 100-neuron index."
     },
     {
@@ -1028,7 +1028,7 @@
       "proof_status": "proven",
       "metric": "average ms over 5 status runs on 100 neurons",
       "current_result": "~40ms average",
-      "command": "cargo test --test bench bench_status_cold_start -- --nocapture",
+      "command": "cargo test --test bench bench_status_cold_start --no-default-features -- --nocapture",
       "notes": "Control-plane cold-start measurement for the `cortyx status` path. Budget: average <500ms over 5 runs on a 100-neuron project."
     },
     {
@@ -1137,7 +1137,7 @@
       "proof_status": "proven",
       "metric": "avg tokens and savings vs full history",
       "current_result": "56.9% first-call savings, 98.4% capsule+delta repeat savings",
-      "command": "cargo run --bin token_bench -- --sample-size 20 --min-retrieval-savings-pct 55 --max-retrieval-avg-tokens 4200 --min-delta-repeat-savings-pct 98 --max-delta-repeat-avg-tokens 160",
+      "command": "cargo run --bin token_bench --no-default-features -- --sample-size 20 --min-retrieval-savings-pct 55 --max-retrieval-avg-tokens 4200 --min-delta-repeat-savings-pct 98 --max-delta-repeat-avg-tokens 160",
       "notes": "Compares full history, retrieval, capsule, capsule+delta repeat, and answer-only outputs on a deterministic LME sample using the live MCP renderer. Budgets: retrieval savings \u226555.0%, retrieval avg tokens \u22644200 (full-history baseline ~8800; threshold updated in v0.2 after default quality-score changed from 0\u21921 raised observed avg from ~3500 to ~3820), capsule+delta repeat savings \u226598.0%, capsule+delta repeat avg tokens \u2264160."
     },
     {
