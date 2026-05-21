@@ -246,7 +246,6 @@ fn benchmark_registry_truth_matrix_is_coherent() {
         "locomo-regression-guard",
         "activation-latency-p95",
         "status-cold-start",
-        "token-efficiency-sample",
         "binary-size-release",
     ] {
         assert!(

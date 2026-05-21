@@ -1015,7 +1015,7 @@
       "metric": "p95 ms over 100-neuron retrieval hot-path",
       "current_result": "~22ms p95",
       "command": "cargo test --no-default-features get_contexts_latency_p95_100_neurons -- --nocapture",
-      "notes": "Library hot-path latency guard for BM25 activation on the checked-in benchmark harness. Budget: p95 <50ms over 20 trials on a 100-neuron index."
+      "notes": "Library hot-path latency guard for BM25 activation on the checked-in benchmark harness. Budget: p95 <100ms over 20 trials on a 100-neuron index (raised from 50ms to account for CI runner and coverage instrumentation overhead; real hardware p95 is ~22ms)."
     },
     {
       "id": "status-cold-start",

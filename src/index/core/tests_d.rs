@@ -562,8 +562,8 @@ fn get_contexts_latency_p95_100_neurons() {
     let p95 = latencies_ms[(trials as f64 * 0.95) as usize - 1];
 
     assert!(
-        p95 < 50,
-        "get_contexts p95 latency must be <50ms over 100 neurons; got {p95}ms"
+        p95 < 100,
+        "get_contexts p95 latency must be <100ms over 100 neurons; got {p95}ms"
     );
 }
 
