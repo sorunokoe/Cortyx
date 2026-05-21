@@ -10,7 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **`cortyx proof-certificate [--validate]`** — prints a live, reproducible proof of all benchmark claims sourced from `benchmarks/registry.json`. `--validate` exits 1 if any metric is still at its default (unmeasured) value; CI now runs this gate on every push.
+- **`cortyx_session_timeline` MCP tool + `cortyx timeline` CLI** — chronological session replay combining diary entries, activated neurons, and KG facts. Supports `--since` (e.g. `2h`, `1d`, `3d`, `1w`), `--agent` filter, and `--limit`. No new dependencies (hand-rolled ISO-8601 parser).
+- **`cortyx mine-observation` CLI** — quality-gated capture of a single tool observation via BM25 scoring: score ≥ 8.0 → permanent Verbatim neuron; score 2.0–8.0 → session diary entry; below 2.0 → silent discard. Reads from stdin or `--content`; designed to be called from the PostToolUse hook.
+- **PostToolUse hook** (`cortyx-post-tool-use-hook.sh`) — `cortyx install` now registers a `PostToolUse` Claude Code hook that pipes each tool result through `cortyx mine-observation` automatically.
+- **SessionStart hook** (`cortyx-session-start-hook.sh`) — `cortyx install` registers a `SessionStart` hook that calls `cortyx route --intent wake-up` to prime the context index at session start.
+- **`.cortyxignore` support** — gitignore-style path filter applied during `cortyx compile` (both full and incremental passes). Supports exact paths, directory prefixes, and glob patterns (`**/private.md`, `*.secret`).
+- **`<!-- cortyx:private -->` block stripping** — content wrapped in `<!-- cortyx:private -->` / `<!-- /cortyx:private -->` markers is stripped before BM25 indexing and the miner pipeline. Zero-cost path (`Cow<str>` borrow) when no markers are present. Raw neuron files on disk are not modified.
+
+### Changed
+- `cortyx install` — now writes and registers four Claude Code hooks: `SessionStart`, `Stop`, `PreCompact`, and `PostToolUse` (previously two).
 - **`serve --frozen` mode** — all feedback writes (hit counts, use counts) are gated when frozen; prevents benchmark noise from accumulating during measurement runs.
 - **Session boundary tracking** — a 5-minute inactivity poller fires `on_session_end()`, which drains provisional hits with a floor mark rather than a miss, eliminating phantom negative feedback when a task ends without an explicit `cortyx_close_task`.
 - **`ImplicitFeedbackTier` enum** (`src/mcp/tools/context/mod.rs`) — `Explicit` (≥30 response-term overlap), `SoftOverlap` (≥15 terms), `Miss` (no-op). `Miss` no longer calls `record_hit(false)`, so context that was retrieved but unused no longer accumulates false-negative signal.

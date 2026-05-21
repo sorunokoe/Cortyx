@@ -73,7 +73,7 @@ The universal router picks the best matching flow (usually context retrieval, so
 ```bash
 cortyx install
 ```
-Detects Claude Code, Cursor, Windsurf, Codex, VS Code, and Zed config files automatically and writes the MCP entry + hook scripts into each. Idempotent — safe to run multiple times.
+Detects Claude Code, Cursor, Windsurf, Codex, VS Code, and Zed config files automatically and writes the MCP entry + hook scripts into each. Registers four Claude Code hooks: `SessionStart` (auto-primes context index), `Stop`, `PreCompact`, and `PostToolUse` (quality-gated auto-capture of tool observations). Idempotent — safe to run multiple times.
 
 ### Manual Setup
 ```json
@@ -87,7 +87,7 @@ Detects Claude Code, Cursor, Windsurf, Codex, VS Code, and Zed config files auto
 }
 ```
 
-Restart your LLM client — 25 Cortyx tools will appear automatically.
+Restart your LLM client — all Cortyx tools will appear automatically.
 
 ## MCP Tools
 
@@ -113,6 +113,7 @@ Restart your LLM client — 25 Cortyx tools will appear automatically.
 | `cortyx_rollback_section` | Restore a neuron section from shadow history |
 | `cortyx_diary_write` | Write a structured agent diary entry |
 | `cortyx_diary_read` | Read recent diary entries for an agent |
+| `cortyx_session_timeline` | Chronological timeline of diary entries, activated neurons, and KG facts |
 | `cortyx_agent_status` | Show latest agent-state snapshot |
 | `cortyx_check_consistency` | Scan for contradicting neurons |
 | `cortyx_fleet_query` | Query registered fleet nodes for cross-project context |
@@ -142,6 +143,8 @@ cortyx watch [path]                # Run file-watcher daemon (writes dirty.json)
 cortyx doctor [path]               # Diagnose index health + configuration
 cortyx doctor [path] --json        # Machine-readable JSON (CI integration)
 cortyx mine <file>                 # Mine a conversation export into Verbatim neurons
+cortyx mine-observation            # Mine a single tool observation (reads stdin; used by PostToolUse hook)
+cortyx timeline [--since 2d] [--agent <name>] [--limit N]  # Session timeline: diary + activated neurons + KG facts
 cortyx prune [path]                # Remove unused/outdated neurons
 cortyx get-contexts --task "..."   # Query top neurons via CLI (scripting / CI)
 cortyx get-contexts --task "..." --answer-mode --provenance   # Optional answer/provenance layer
