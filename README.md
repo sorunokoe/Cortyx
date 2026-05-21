@@ -95,11 +95,17 @@ Restart your LLM client — all Cortyx tools will appear automatically.
 |------|-------------|
 | `cortyx` | Universal router — auto-selects best flow (retrieval, answer, wake-up, status) |
 | `cortyx_get_contexts` | Retrieve 3–5 relevant neurons for the current task |
+| `cortyx_get_evidence` | Structured evidence facts extracted from top-k neurons for a task |
 | `cortyx_recall` | Conversation-memory recall, optionally scoped to a person |
 | `cortyx_wake_up` | Prime LLM with project identity + critical facts at session start |
 | `cortyx_list_modules` | List all modules with neuron counts and hit-rates |
 | `cortyx_list_neurons` | List neuron paths + status for a module |
 | `cortyx_peek_neuron` | Preview first N lines of a neuron |
+| `cortyx_read_section` | Read a single named section (e.g. `purpose`, `api`) from a neuron |
+| `cortyx_explore_tree` | Navigate the project's neuron hierarchy like a table of contents |
+| `cortyx_search_literal` | Exact string search across all neuron bodies with surrounding context |
+| `cortyx_search_regex` | Regex search across all neuron bodies with neuron-path results |
+| `cortyx_search_raw` | Search raw source files directly (not neuron bodies) |
 | `cortyx_list_persons` | List all `@person`-scoped memory namespaces |
 | `cortyx_close_task` | Record which neurons helped at task end (zero-friction feedback) |
 | `cortyx_evolve_context` | Rewrite a full neuron with improved reasoning |
@@ -113,12 +119,15 @@ Restart your LLM client — all Cortyx tools will appear automatically.
 | `cortyx_rollback_section` | Restore a neuron section from shadow history |
 | `cortyx_diary_write` | Write a structured agent diary entry |
 | `cortyx_diary_read` | Read recent diary entries for an agent |
+| `cortyx_diary_refine` | Analyse a recent diary entry and populate `refined_plan` with a heuristic decomposition suggestion |
 | `cortyx_diary_consolidate` | Promote frequently-used diary entries to permanent Verbatim neurons |
 | `cortyx_session_timeline` | Chronological timeline of diary entries, activated neurons, and KG facts |
 | `cortyx_agent_status` | Show latest agent-state snapshot |
+| `cortyx_collaboration_status` | Summarize collaboration-kernel state across agents, shared modules, and sync activity |
 | `cortyx_check_consistency` | Scan for contradicting neurons |
 | `cortyx_fleet_query` | Query registered fleet nodes for cross-project context |
 | `cortyx_fleet_status` | List all registered fleet nodes |
+| `cortyx_fleet_register` | Register a local project or git-backed corpus as a fleet node |
 | `cortyx_kg_add` | Add a temporal fact to the knowledge graph |
 | `cortyx_kg_query` | Query active KG facts for an entity |
 | `cortyx_kg_invalidate` | End/supersede an active KG fact |
