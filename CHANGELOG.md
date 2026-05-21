@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [0.5.0] — 2026-05-21
+
 ### Added
 - **`cortyx precompact-snapshot` CLI** — called by the PreCompact hook before Claude Code compacts the context window. Reads recently-activated neurons from the index, picks top 10 by recency/use_count, and writes a structured `@session/precompact` diary entry so no useful context is permanently lost. (TRIZ: R38×W37 → P25 Self-Service)
 - **Mine-time KG auto-extraction** — in the HIGH path of `cortyx mine-observation` (BM25 score ≥ 8.0), ISO-8601 dates are automatically extracted from captured text and written as `mentioned_date` KG facts for the tool entity. Closes the temporal-reasoning-f1 gap without adding query-time overhead. (TRIZ: R28×W25 → P24 Mediator)
@@ -33,13 +37,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **KG temporal BM25 alias injection** — temporal facts stored in the knowledge graph are indexed into BM25 with month-name and ordinal date aliases, enabling KG fact retrieval via natural-language temporal queries.
 - **`EmbeddingLoad::NeedsRebuild` auto-rebuild** — when `EMBED_VERSION` in the stored `.bin` mismatches the compiled constant, a background tokio task automatically rebuilds the embedding store instead of returning an error.
 - **Anchor prefix stripping** — `strip_anchor_prefix()` removes `"As of <DATE>, "` prefixes before all temporal parsers, eliminating false-early anchoring that degraded date extraction accuracy.
+- `benchmarks/registry.json` — added `cold-start-centrality` and `temporal-reasoning-f1` (floor = 0.40) entries; updated `scale-2k-activation` to measured `~80ms p95`; updated `binary-size-release` to `~30MB`.
+- `BENCHMARKS.md` — cold-start centrality section, temporal reasoning floor documentation, TurboVec scale-2K measurement.
 
 ### Fixed
 - **Read-after-write race in KG extraction** (`src/main.rs` — `extract_observation_dates_to_kg`) — the function previously called `entity.save()` then immediately re-read the file from disk via `fs::read_to_string`. A concurrent write to the same KG neuron path in that window could cause the BM25 index to record stale content. Fixed by capturing `entity.render()` in memory before `save()` and using that string directly for indexing. `KgEntity::render()` is now `pub`.
-
-### Changed
-- `benchmarks/registry.json` — added `cold-start-centrality` and `temporal-reasoning-f1` (floor = 0.40) entries; updated `scale-2k-activation` to measured `~80ms p95`; updated `binary-size-release` to `~30MB`.
-- `BENCHMARKS.md` — cold-start centrality section, temporal reasoning floor documentation, TurboVec scale-2K measurement.
 
 ---
 
