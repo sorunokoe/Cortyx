@@ -4,6 +4,7 @@ use super::super::pipeline::{FeedbackSnapshot, FeedbackStateView};
 use super::super::*;
 use super::RetrievalState;
 use std::path::Path;
+use std::sync::atomic::AtomicU64;
 
 /// Owned feedback state for `NeuronIndex`.
 #[derive(Debug, Default)]
@@ -11,6 +12,7 @@ pub(crate) struct FeedbackState {
     pub(in crate::index) coactivation_counts: HashMap<PathBuf, HashMap<String, u32>>,
     pub(in crate::index) co_return_counts: std::sync::Mutex<HashMap<(usize, usize), u32>>,
     pub(in crate::index) session_utilization: Vec<[usize; 2]>,
+    pub(in crate::index) total_activations: AtomicU64,
 }
 
 impl FeedbackState {
@@ -25,6 +27,7 @@ impl FeedbackState {
             coactivation_counts: &self.coactivation_counts,
             co_return_counts: &self.co_return_counts,
             session_utilization: &self.session_utilization,
+            total_activations: &self.total_activations,
         }
     }
 
@@ -228,6 +231,12 @@ mod tests {
         let state = FeedbackState::default();
         assert!(state.coactivation_counts.is_empty());
         assert!(state.session_utilization.is_empty());
+        assert_eq!(
+            state
+                .total_activations
+                .load(std::sync::atomic::Ordering::Relaxed),
+            0
+        );
     }
 
     #[test]

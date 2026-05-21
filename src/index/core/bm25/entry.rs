@@ -89,6 +89,10 @@ pub(crate) struct BM25Entry {
     #[serde(default)]
     pub hit_count: u32,
 
+    /// Compile-time structural prior derived from import/call in-degree.
+    #[serde(default)]
+    pub structural_centrality: f32,
+
     /// Staleness multiplier (1.0 = fresh, 0.5 = stale). Demotes rather than evicts stale neurons
     /// so context is preserved; stale neurons can still activate for niche queries.
     #[serde(default = "default_staleness")]
@@ -184,6 +188,7 @@ impl Clone for BM25Entry {
             confidence_score: self.confidence_score,
             use_count: AtomicU32::new(self.use_count.load(Ordering::Relaxed)),
             hit_count: self.hit_count,
+            structural_centrality: self.structural_centrality,
             staleness_multiplier: self.staleness_multiplier,
             concept_cloud: self.concept_cloud.clone(),
             synonym_cloud: self.synonym_cloud.clone(),
@@ -253,5 +258,16 @@ mod tests {
 
         let round_trip: BM25Entry = serde_json::from_value(json).expect("deserialize BM25Entry");
         assert_eq!(round_trip.use_count.load(Ordering::Relaxed), 7);
+    }
+
+    #[test]
+    fn structural_centrality_defaults_to_zero_when_missing() {
+        let mut json = serde_json::to_value(BM25Entry::default()).expect("serialize BM25Entry");
+        json.as_object_mut()
+            .expect("BM25Entry as object")
+            .remove("structural_centrality");
+
+        let round_trip: BM25Entry = serde_json::from_value(json).expect("deserialize BM25Entry");
+        assert_eq!(round_trip.structural_centrality, 0.0);
     }
 }

@@ -1223,6 +1223,53 @@ fn compile_detects_changed_file() {
 }
 
 #[test]
+fn compile_assigns_structural_centrality_to_import_hubs() {
+    let fixture_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("target")
+        .join(format!(
+            "centrality-fixture-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+    let _ = std::fs::remove_dir_all(&fixture_root);
+    let src = fixture_root.join("src");
+    std::fs::create_dir_all(&src).unwrap();
+    std::fs::write(
+        src.join("lib.rs"),
+        "mod shared; mod alpha; mod beta; pub use shared::helper;",
+    )
+    .unwrap();
+    std::fs::write(src.join("shared.rs"), "pub fn helper() {}").unwrap();
+    std::fs::write(
+        src.join("alpha.rs"),
+        "use crate::shared::helper; pub fn alpha() { helper(); }",
+    )
+    .unwrap();
+    std::fs::write(
+        src.join("beta.rs"),
+        "use crate::shared::helper; pub fn beta() { helper(); }",
+    )
+    .unwrap();
+
+    let mut idx = NeuronIndex::load_or_create(&fixture_root).unwrap();
+    idx.compile().unwrap();
+
+    let shared_neuron = crate::neuron::core_neuron_path(&src.join("shared.rs"), &fixture_root);
+    let shared_entry = idx
+        .entry_by_path(&shared_neuron)
+        .expect("shared neuron indexed");
+    assert!(
+        shared_entry.structural_centrality > 0.0,
+        "expected shared.rs to receive a cold-start centrality prior"
+    );
+
+    let _ = std::fs::remove_dir_all(&fixture_root);
+}
+
+#[test]
 fn index_persists_to_disk_after_compile() {
     let dir = TempDir::new().unwrap();
     std::fs::write(dir.path().join("a.rs"), "fn a() {}").unwrap();

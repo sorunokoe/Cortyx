@@ -195,6 +195,7 @@ impl NeuronIndex {
             confidence_score: meta.confidence_score,
             use_count: std::sync::atomic::AtomicU32::new(meta.use_count),
             hit_count: meta.hit_count,
+            structural_centrality: 0.0,
             staleness_multiplier: 1.0,
             concept_cloud: Vec::new(), // populated by build_concept_clouds() in rebuild_derived
             synonym_cloud: Vec::new(), // populated by record_coactivation() at runtime

@@ -1,8 +1,9 @@
 use super::super::*;
+use crate::index::core::impl_helpers::apply_structural_centrality_prior;
 use crate::types::TermFrequency;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicUsize};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize};
 use std::sync::{Arc, Mutex};
 
 #[cfg(feature = "embed")]
@@ -35,6 +36,7 @@ pub struct FeedbackStateView<'a> {
     pub coactivation_counts: &'a HashMap<PathBuf, HashMap<String, u32>>,
     pub co_return_counts: &'a Mutex<HashMap<(usize, usize), u32>>,
     pub session_utilization: &'a [[usize; 2]],
+    pub total_activations: &'a AtomicU64,
 }
 
 /// Borrowed view over persistence state.
@@ -91,6 +93,7 @@ pub struct QueryContext<'a> {
     pub named_person_move_query: bool,
     pub raw_counting_focus_terms: Vec<String>,
     pub raw_knowledge_focus_terms: Vec<String>,
+    pub total_activations: u64,
     pub idf_n: usize,
     pub avg_doc_len: f32,
     pub avg_verbatim_doc_len: f32,
@@ -176,9 +179,14 @@ impl<'a> QueryContext<'a> {
             (1.0 + hit_rate).min(1.5)
         };
 
-        raw * entry.confidence_score
-            * hit_multiplier
-            * if entry.quality_score < 0.4 { 0.7 } else { 1.0 }
+        apply_structural_centrality_prior(
+            terms,
+            entry,
+            self.total_activations,
+            raw * entry.confidence_score
+                * hit_multiplier
+                * if entry.quality_score < 0.4 { 0.7 } else { 1.0 },
+        )
     }
 
     pub fn score_index_with_terms(&self, terms: &[String], idx: usize) -> f32 {
@@ -278,6 +286,11 @@ impl QueryContextFixture {
             named_person_move_query: false,
             raw_counting_focus_terms: Vec::new(),
             raw_knowledge_focus_terms: Vec::new(),
+            total_activations: self
+                .entries
+                .iter()
+                .map(|entry| entry.use_count.load(std::sync::atomic::Ordering::Relaxed) as u64)
+                .sum(),
             idf_n: self.entries.len().max(1),
             avg_doc_len,
             avg_verbatim_doc_len: avg_doc_len,

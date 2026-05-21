@@ -63,6 +63,12 @@ impl NeuronIndex {
             .unwrap_or(0)
     }
 
+    pub(in crate::index) fn total_activations(&self) -> u64 {
+        self.feedback
+            .total_activations
+            .load(std::sync::atomic::Ordering::Relaxed)
+    }
+
     fn mark_sidecar_dirty(&self, path: &Path) {
         self.persistence.mark_sidecar_dirty(path);
     }
@@ -88,6 +94,9 @@ impl NeuronIndex {
         for path in paths {
             if let Some(&i) = self.retrieval.path_index.get(path) {
                 let uc = self.retrieval.entries[i].increment_use_count();
+                self.feedback
+                    .total_activations
+                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
                 // Bayesian quarantine with adaptive confidence intervals (TRIZ S4 R11).
                 //
@@ -141,6 +150,9 @@ impl NeuronIndex {
             }
             // Always increment use_count on explicit feedback (in case get_contexts missed it)
             let use_count = self.retrieval.entries[i].increment_use_count();
+            self.feedback
+                .total_activations
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
             let hit_rate = self.retrieval.entries[i].hit_count as f32 / use_count.max(1) as f32;
 

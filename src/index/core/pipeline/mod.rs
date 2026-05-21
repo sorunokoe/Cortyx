@@ -324,6 +324,7 @@ impl NeuronIndex {
             named_person_move_query,
             raw_counting_focus_terms,
             raw_knowledge_focus_terms,
+            total_activations: self.total_activations(),
             idf_n: self.retrieval.idf_n,
             avg_doc_len: self.retrieval.avg_doc_len,
             avg_verbatim_doc_len: self.retrieval.avg_verbatim_doc_len,

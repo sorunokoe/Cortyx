@@ -154,6 +154,8 @@ impl NeuronIndex {
             verbatim_total_terms as f32 / verbatim_count as f32
         };
 
+        self.rebuild_structural_centrality();
+        self.resync_total_activations();
         self.build_vocab_bridge();
         self.build_morpheme_map();
         self.build_concept_clouds();
@@ -280,6 +282,9 @@ impl NeuronIndex {
             verbatim_total_terms as f32 / verbatim_count as f32
         };
 
+        self.rebuild_structural_centrality();
+        self.resync_total_activations();
+
         // Bridge/cloud/neighbor builds must see the full corpus.
         self.build_vocab_bridge();
         self.build_morpheme_map();
@@ -294,5 +299,56 @@ impl NeuronIndex {
         self.persistence
             .has_pending_updates
             .store(false, Ordering::Release);
+    }
+
+    pub(in crate::index) fn set_structural_centrality(&mut self, path: &Path, value: f32) {
+        if let Some(entry) = self
+            .retrieval
+            .entries
+            .iter_mut()
+            .find(|entry| entry.neuron_path == path)
+        {
+            entry.structural_centrality = value.clamp(0.0, 1.0);
+        }
+    }
+
+    fn rebuild_structural_centrality(&mut self) {
+        for entry in &mut self.retrieval.entries {
+            entry.structural_centrality = 0.0;
+        }
+
+        let mut in_degree: HashMap<PathBuf, usize> = HashMap::new();
+        for synapses in self.retrieval.adjacency.values() {
+            for synapse in synapses {
+                if matches!(synapse.edge_type, SynapseType::Imports | SynapseType::Calls) {
+                    *in_degree.entry(synapse.target.clone()).or_insert(0) += 1;
+                }
+            }
+        }
+
+        let max_degree = in_degree.values().copied().max().unwrap_or(0);
+        if max_degree == 0 {
+            return;
+        }
+
+        let updates: Vec<(PathBuf, f32)> = in_degree
+            .into_iter()
+            .map(|(path, degree)| (path, degree as f32 / max_degree as f32))
+            .collect();
+        for (path, centrality) in updates {
+            self.set_structural_centrality(&path, centrality);
+        }
+    }
+
+    fn resync_total_activations(&self) {
+        let total = self
+            .retrieval
+            .entries
+            .iter()
+            .map(|entry| entry.use_count.load(std::sync::atomic::Ordering::Relaxed) as u64)
+            .sum();
+        self.feedback
+            .total_activations
+            .store(total, std::sync::atomic::Ordering::Relaxed);
     }
 }

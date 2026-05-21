@@ -1,5 +1,66 @@
 use super::*;
 
+const COLD_START_CENTRALITY_MAX_WEIGHT: f32 = 0.2;
+const COLD_START_CENTRALITY_WARM_ACTIVATIONS: u64 = 200;
+
+pub(in crate::index::core) fn cold_start_centrality_blend(
+    bm25_score: f32,
+    centrality: f32,
+    total_activations: u64,
+) -> f32 {
+    if total_activations >= COLD_START_CENTRALITY_WARM_ACTIVATIONS {
+        return bm25_score;
+    }
+    let weight = COLD_START_CENTRALITY_MAX_WEIGHT
+        * (1.0 - total_activations as f32 / COLD_START_CENTRALITY_WARM_ACTIVATIONS as f32);
+    bm25_score * (1.0 + weight * centrality.max(0.0))
+}
+
+pub(in crate::index::core) fn query_touches_entry_module(
+    terms: &[String],
+    entry: &BM25Entry,
+) -> bool {
+    if terms.is_empty() {
+        return false;
+    }
+
+    let mut module_tokens = HashSet::new();
+    if let Some(module) = entry.module.as_deref() {
+        module_tokens.extend(tokenize(module));
+    }
+    if let Some(stem) = entry.neuron_path.file_stem().and_then(|stem| stem.to_str()) {
+        let cleaned = stem
+            .trim_end_matches(".context")
+            .replace("_rs", " ")
+            .replace("_ts", " ")
+            .replace("_py", " ")
+            .replace("_go", " ");
+        module_tokens.extend(tokenize(&cleaned));
+    }
+
+    !module_tokens.is_empty()
+        && terms.iter().any(|term| {
+            module_tokens.iter().any(|token| {
+                token == term || token.contains(term.as_str()) || term.contains(token.as_str())
+            })
+        })
+}
+
+pub(in crate::index::core) fn apply_structural_centrality_prior(
+    terms: &[String],
+    entry: &BM25Entry,
+    total_activations: u64,
+    bm25_score: f32,
+) -> f32 {
+    if bm25_score <= 0.0
+        || entry.structural_centrality <= 0.0
+        || !query_touches_entry_module(terms, entry)
+    {
+        return bm25_score;
+    }
+    cold_start_centrality_blend(bm25_score, entry.structural_centrality, total_activations)
+}
+
 impl NeuronIndex {
     /// Expand query terms using the vocabulary bridge (S2) and morphemic trie (B1).
     ///
@@ -22,7 +83,12 @@ impl NeuronIndex {
     /// Applies `entry.confidence_score` as a mild prior multiplier:
     /// committed + unmodified = 1.0 (neutral), modified = 0.9, untracked = 0.85.
     pub(in crate::index) fn bm25_score(&self, terms: &[String], entry: &BM25Entry) -> f32 {
-        self.retrieval.bm25_score(terms, entry)
+        apply_structural_centrality_prior(
+            terms,
+            entry,
+            self.total_activations(),
+            self.retrieval.bm25_score(terms, entry),
+        )
     }
 
     /// TF-IDF cosine similarity between query terms and a BM25 entry.
@@ -76,5 +142,43 @@ impl NeuronIndex {
         tokens: &std::collections::HashSet<String>,
     ) -> usize {
         self.retrieval.term_freq_overlap(path, tokens)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{apply_structural_centrality_prior, cold_start_centrality_blend};
+    use crate::index::core::BM25Entry;
+    use std::path::PathBuf;
+
+    #[test]
+    fn cold_start_centrality_blend_decays() {
+        assert!((cold_start_centrality_blend(10.0, 1.0, 0) - 12.0).abs() < 1e-6);
+        assert!((cold_start_centrality_blend(10.0, 1.0, 100) - 11.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn cold_start_centrality_zero_at_warm() {
+        assert!((cold_start_centrality_blend(10.0, 1.0, 200) - 10.0).abs() < 1e-6);
+        assert!((cold_start_centrality_blend(10.0, 1.0, 500) - 10.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn structural_prior_only_boosts_query_touched_modules() {
+        let entry = BM25Entry {
+            neuron_path: PathBuf::from("auth_handler.context.md"),
+            module: Some("auth".into()),
+            structural_centrality: 1.0,
+            ..Default::default()
+        };
+
+        assert!(
+            (apply_structural_centrality_prior(&["auth".into()], &entry, 0, 10.0) - 12.0).abs()
+                < 1e-6
+        );
+        assert!(
+            (apply_structural_centrality_prior(&["render".into()], &entry, 0, 10.0) - 10.0).abs()
+                < 1e-6
+        );
     }
 }
