@@ -7,8 +7,10 @@ use crate::installer::{
 };
 use std::path::Path;
 
-/// Write Claude Code hook scripts for auto-save and hook-side health checks.
+/// Write Claude Code hook scripts for auto-priming, auto-capture, auto-save, and hook-side health checks.
 ///
+/// - `cortyx-session-start-hook.sh`: called on Claude Code SessionStart event → primes wake-up context
+/// - `cortyx-post-tool-use-hook.sh`: called on PostToolUse event → mines high-value tool observations
 /// - `cortyx-close-hook.sh`: called on Claude Code Stop event → validates the index is readable
 /// - `cortyx-precompact-hook.sh`: called on PreCompact event → incremental compile
 ///
@@ -18,13 +20,27 @@ pub(super) fn write_hook_scripts(hooks_dir: &Path, exe: &Path) -> Result<bool> {
 
     let close_hook = hooks_dir.join("cortyx-close-hook.sh");
     let precompact_hook = hooks_dir.join("cortyx-precompact-hook.sh");
-    let scripts_written = !(close_hook.exists() && precompact_hook.exists());
+    let session_start_hook = hooks_dir.join("cortyx-session-start-hook.sh");
+    let post_tool_use_hook = hooks_dir.join("cortyx-post-tool-use-hook.sh");
+    let scripts_written = !(close_hook.exists()
+        && precompact_hook.exists()
+        && session_start_hook.exists()
+        && post_tool_use_hook.exists());
 
     let exe_str = exe.to_string_lossy();
     // Shell-safe single-quote escape: replace ' with '\'' so the path is safe
     // even if it contains double-quotes, spaces, or other special characters.
     let exe_safe = exe_str.replace('\'', "'\\''");
 
+    let session_start_content = format!(
+        "#!/usr/bin/env bash\n\
+         # Cortyx SessionStart hook (R2 auto-priming)\n\
+         # Primes the session with project identity + critical facts via cortyx wake-up.\n\
+         # Written by cortyx install. Do not edit manually.\n\
+         set -euo pipefail\n\
+         PROJECT=\"${{CLAUDE_WORKING_DIR:-$(pwd)}}\"\n\
+         '{exe_safe}' route --intent wake-up --path \"$PROJECT\" 2>/dev/null || true\n"
+    );
     let close_content = format!(
         "#!/usr/bin/env bash\n\
          # Cortyx Stop hook (S3 — NE2)\n\
@@ -43,28 +59,58 @@ pub(super) fn write_hook_scripts(hooks_dir: &Path, exe: &Path) -> Result<bool> {
          PROJECT=\"${{CLAUDE_WORKING_DIR:-$(pwd)}}\"\n\
          '{exe_safe}' compile \"$PROJECT\" --incremental\n"
     );
+    let post_tool_use_content = format!(
+        "#!/usr/bin/env bash\n\
+         # Cortyx PostToolUse hook (R1 auto-capture)\n\
+         # Automatically captures high-value tool observations into the Cortyx index.\n\
+         # Written by cortyx install. Do not edit manually.\n\
+         set -euo pipefail\n\
+         PROJECT=\"${{CLAUDE_WORKING_DIR:-$(pwd)}}\"\n\
+         TOOL_NAME=\"${{TOOL_NAME:-unknown}}\"\n\
+         '{exe_safe}' mine-observation --tool \"$TOOL_NAME\" --project \"$PROJECT\" || true\n"
+    );
 
     if scripts_written {
+        crate::neuron::atomic_write(&session_start_hook, session_start_content.as_bytes())?;
         crate::neuron::atomic_write(&close_hook, close_content.as_bytes())?;
         crate::neuron::atomic_write(&precompact_hook, precompact_content.as_bytes())?;
+        crate::neuron::atomic_write(&post_tool_use_hook, post_tool_use_content.as_bytes())?;
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&session_start_hook, std::fs::Permissions::from_mode(0o755))?;
             std::fs::set_permissions(&close_hook, std::fs::Permissions::from_mode(0o755))?;
             std::fs::set_permissions(&precompact_hook, std::fs::Permissions::from_mode(0o755))?;
+            std::fs::set_permissions(&post_tool_use_hook, std::fs::Permissions::from_mode(0o755))?;
         }
     }
 
-    register_claude_hooks(&close_hook, &precompact_hook)?;
+    register_claude_hooks(
+        &close_hook,
+        &precompact_hook,
+        &session_start_hook,
+        &post_tool_use_hook,
+    )?;
 
     Ok(scripts_written)
 }
 
 /// Register hook scripts in Claude Code settings.json.
-fn register_claude_hooks(close_hook: &Path, precompact_hook: &Path) -> Result<()> {
+fn register_claude_hooks(
+    close_hook: &Path,
+    precompact_hook: &Path,
+    session_start_hook: &Path,
+    post_tool_use_hook: &Path,
+) -> Result<()> {
     let home = dirs_home();
     let settings = home.join(".claude").join("settings.json");
-    register_claude_hooks_in_settings(&settings, close_hook, precompact_hook)
+    register_claude_hooks_in_settings(
+        &settings,
+        close_hook,
+        precompact_hook,
+        session_start_hook,
+        post_tool_use_hook,
+    )
 }
 
 /// Register hook scripts in a specific settings file.
@@ -72,6 +118,8 @@ fn register_claude_hooks_in_settings(
     settings: &Path,
     close_hook: &Path,
     precompact_hook: &Path,
+    session_start_hook: &Path,
+    post_tool_use_hook: &Path,
 ) -> Result<()> {
     let mut json = load_json_object_or_default(settings, "Claude Code settings")?;
     let root = json.as_object_mut().ok_or_else(|| {
@@ -98,6 +146,10 @@ fn register_claude_hooks_in_settings(
 
     let close_cmd = close_hook.to_string_lossy().to_string();
     let precompact_cmd = precompact_hook.to_string_lossy().to_string();
+    let session_start_cmd = session_start_hook.to_string_lossy().to_string();
+    let post_tool_use_cmd = post_tool_use_hook.to_string_lossy().to_string();
+    append_hook_command(hooks, "SessionStart", &session_start_cmd)?;
+    append_hook_command(hooks, "PostToolUse", &post_tool_use_cmd)?;
     append_hook_command(hooks, "Stop", &close_cmd)?;
     append_hook_command(hooks, "PreCompact", &precompact_cmd)?;
 

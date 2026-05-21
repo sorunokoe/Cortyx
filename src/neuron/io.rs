@@ -139,6 +139,32 @@ pub(super) fn atomic_write_tmp_path(path: &Path) -> PathBuf {
     parent.join(format!(".{file_name}.{pid}.{nonce}.tmp"))
 }
 
+/// Strip `<!-- cortyx:private -->` ... `<!-- /cortyx:private -->` blocks from content.
+/// Used at indexing time to prevent sensitive content from entering the BM25 vocabulary.
+#[must_use]
+pub fn strip_private_blocks(content: &str) -> std::borrow::Cow<'_, str> {
+    const OPEN: &str = "<!-- cortyx:private -->";
+    const CLOSE: &str = "<!-- /cortyx:private -->";
+
+    if !content.contains(OPEN) {
+        return std::borrow::Cow::Borrowed(content);
+    }
+
+    let mut result = String::with_capacity(content.len());
+    let mut rest = content;
+    while let Some(start) = rest.find(OPEN) {
+        result.push_str(&rest[..start]);
+        rest = &rest[start + OPEN.len()..];
+        if let Some(end) = rest.find(CLOSE) {
+            rest = &rest[end + CLOSE.len()..];
+        } else {
+            return std::borrow::Cow::Owned(result);
+        }
+    }
+    result.push_str(rest);
+    std::borrow::Cow::Owned(result)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -236,5 +262,17 @@ mod tests {
         assert_ne!(a, b);
         assert_eq!(a.parent(), path.parent());
         assert_eq!(b.parent(), path.parent());
+    }
+
+    #[test]
+    fn strip_private_blocks_removes_marked_sections() {
+        let content = "visible\n<!-- cortyx:private -->\nhidden\n<!-- /cortyx:private -->\nshown";
+        assert_eq!(strip_private_blocks(content), "visible\n\nshown");
+    }
+
+    #[test]
+    fn strip_private_blocks_drops_unclosed_tail() {
+        let content = "visible\n<!-- cortyx:private -->\nhidden forever";
+        assert_eq!(strip_private_blocks(content), "visible\n");
     }
 }

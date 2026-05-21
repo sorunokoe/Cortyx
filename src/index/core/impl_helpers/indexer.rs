@@ -3,9 +3,9 @@ use super::*;
 impl NeuronIndex {
     /// Add or replace a single entry in `self.retrieval.entries` (does NOT rebuild derived).
     pub fn index_neuron(&mut self, neuron_path: &Path, content: &str, meta: &NeuronMeta) {
-        let index_content = content;
+        let index_content = crate::neuron::strip_private_blocks(content);
 
-        let terms = tokenize(index_content);
+        let terms = tokenize(&index_content);
         let mut tf: HashMap<String, TermFrequency> = HashMap::new();
         for t in &terms {
             *tf.entry(t.clone()).or_insert(TermFrequency::ZERO) += 1.0;
@@ -19,7 +19,7 @@ impl NeuronIndex {
         // (original content) and question vocabulary (these sections).
         {
             use crate::neuron::parse_sections;
-            let sections = parse_sections(index_content);
+            let sections = parse_sections(&index_content);
             for section_name in ["paraphrases", "query_surface", "fact_aliases"] {
                 if let Some(section_content) = sections.get(section_name) {
                     for t in tokenize(section_content) {
@@ -176,8 +176,8 @@ impl NeuronIndex {
         // S-I (R16): Extract Tier-1 summary from neuron content.
         // Takes: first non-empty line of `## purpose` section + first line of `## pitfalls`.
         // Stored in memory only (not persisted); rebuilt from neuron file at each index_neuron call.
-        let summary = extract_neuron_summary(content);
-        let has_move_residence_evidence = content_has_move_residence_evidence(content);
+        let summary = extract_neuron_summary(&index_content);
+        let has_move_residence_evidence = content_has_move_residence_evidence(&index_content);
 
         let entry = BM25Entry {
             neuron_path: neuron_path.to_path_buf(),

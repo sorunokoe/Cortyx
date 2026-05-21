@@ -17,7 +17,7 @@ pub mod util;
 pub use filter::{should_skip, validate_relative_path, validate_synapse_path};
 pub use io::{
     atomic_write, atomic_write_json, core_neuron_path, meta_path, neuron_dir, sidecar_path,
-    sub_neuron_path,
+    strip_private_blocks, sub_neuron_path,
 };
 pub use kind::{NeuronKind, NeuronStatus};
 pub use meta::{latest_shadow, pop_shadow, push_shadow, NeuronMeta, DEFAULT_CONFIDENCE};

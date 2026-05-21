@@ -1,5 +1,6 @@
 use super::super::*;
 use crate::agent_memory::{refine_entry, render_structured_diary_entry_from_entry};
+use crate::commands::timeline;
 use rmcp::{handler::server::wrapper::Parameters, tool, tool_router};
 
 #[tool_router(router = memory_tool_router, vis = "pub(super)")]
@@ -466,6 +467,24 @@ impl CortyxServer {
             }
         }
         out
+    }
+
+    /// Return a recent multi-signal session timeline.
+    #[tool(
+        name = "cortyx_session_timeline",
+        description = "Return a chronological timeline of recent session activity: diary entries, recently activated neurons, and KG facts. Use since=\"1d\" for last day, \"1w\" for last week."
+    )]
+    pub(in crate::mcp) async fn session_timeline(
+        &self,
+        Parameters(input): Parameters<SessionTimelineInput>,
+    ) -> String {
+        let idx = self.index.read().await;
+        timeline::render_session_timeline(
+            &idx,
+            timeline::parse_duration_secs(input.since.as_deref().unwrap_or("1d")),
+            input.agent.as_deref(),
+            input.limit.unwrap_or(20),
+        )
     }
 
     /// Analyse a diary entry and populate refined_plan with a structured blocker decomposition.

@@ -2,7 +2,7 @@
 //!
 //! Detects config files for Claude Code, Cursor, Windsurf, Codex, VS Code, and Zed.
 //! Writes the `cortyx serve` MCP entry to each found config and optionally
-//! writes Claude Code hook scripts for auto-save (S3).
+//! writes Claude Code hook scripts for auto-priming, auto-capture, and auto-save (S3).
 //!
 //! Design (TRIZ P10 + P25 + P6):
 //! - P10: Preliminary action — all registration happens at install time.
@@ -117,7 +117,7 @@ pub fn run_install(global: bool) -> Result<String> {
         let hooks_dir = claude_dir.join("hooks");
         match write_hook_scripts(&hooks_dir, &exe) {
             Ok(true) => {
-                hook_created_count = 2; // close + precompact
+                hook_created_count = 4; // session-start + close + precompact + post-tool-use
             },
             Ok(false) => {
                 // Scripts already exist

@@ -98,6 +98,21 @@ pub enum Commands {
         #[arg(long)]
         module: Option<String>,
     },
+    /// Evaluate and route a single tool observation to Verbatim, diary, or discard.
+    MineObservation {
+        /// Tool name (e.g. "Edit", "Bash", "Write")
+        #[arg(long)]
+        tool: String,
+        /// Raw content/output to evaluate (read from stdin if not provided)
+        #[arg(long)]
+        content: Option<String>,
+        /// Optional session identifier for grouping diary entries
+        #[arg(long)]
+        session: Option<String>,
+        /// Project root (defaults to current directory)
+        #[arg(long = "project")]
+        path: Option<PathBuf>,
+    },
     /// Write an agent diary entry as a Verbatim neuron under `@agent/{agent}`.
     DiaryWrite {
         /// Agent identifier used for the diary namespace.
@@ -144,6 +159,20 @@ pub enum Commands {
         /// Number of recent entries to show.
         #[arg(long, default_value_t = 10)]
         last_n: usize,
+        /// Project root (defaults to current directory)
+        path: Option<PathBuf>,
+    },
+    /// Show a chronological timeline of recent session activity.
+    Timeline {
+        /// Look-back duration: "2h", "1d", "3d", "1w" (default: "1d")
+        #[arg(long, default_value = "1d")]
+        since: String,
+        /// Optional agent name filter
+        #[arg(long)]
+        agent: Option<String>,
+        /// Max items to show (default: 20)
+        #[arg(long, default_value = "20")]
+        limit: usize,
         /// Project root (defaults to current directory)
         path: Option<PathBuf>,
     },
@@ -318,7 +347,8 @@ pub enum Commands {
     ///
     /// Detects Claude Code, Cursor, Windsurf, Codex, VS Code, and Zed configs
     /// in standard paths. Writes `cortyx serve` MCP entry to each, adds Claude
-    /// Code hook scripts for auto-save (Stop + PreCompact events), and prints
+    /// Code hook scripts for auto-priming, auto-capture, and auto-save
+    /// (SessionStart + PostToolUse + Stop + PreCompact events), and prints
     /// both terminal and in-tool quickstart guidance. `--global` scaffolds the
     /// standard config files even when they do not exist yet. The summary ends
     /// with a stable `ux-proof` JSON line for onboarding benchmarks. Idempotent
@@ -557,6 +587,27 @@ mod tests {
             Commands::DiaryWrite { agent, content, .. } => {
                 assert_eq!(agent, "reviewer");
                 assert!(content.contains("status: blocked"));
+            },
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn mine_observation_command_parses_project_flag() {
+        let cli = Cli::try_parse_from([
+            "cortyx",
+            "mine-observation",
+            "--tool",
+            "Edit",
+            "--project",
+            "/repo",
+        ])
+        .expect("mine-observation command should parse");
+
+        match cli.command {
+            Commands::MineObservation { tool, path, .. } => {
+                assert_eq!(tool, "Edit");
+                assert_eq!(path, Some(PathBuf::from("/repo")));
             },
             _ => panic!("unexpected command"),
         }

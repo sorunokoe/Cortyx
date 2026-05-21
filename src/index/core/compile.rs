@@ -53,6 +53,11 @@ impl NeuronIndex {
             .filter(|e| e.file_type().is_file())
             .map(|e| e.path().to_path_buf())
             .collect();
+        let ignore_patterns = load_cortyxignore(&root);
+        let files: Vec<PathBuf> = files
+            .into_iter()
+            .filter(|f| !is_cortyxignored(f, &root, &ignore_patterns))
+            .collect();
 
         // Phase 2: hash-check + AST + stub/meta writes (parallel, I/O-bound).
         // process_source_file returns Vec<CompiledFile>: [Core] + any UseCase sub-neurons (S3).
@@ -112,6 +117,11 @@ impl NeuronIndex {
 
         let root = self.persistence.project_root.clone();
         let git_confidence = build_git_confidence_map(&root);
+        let ignore_patterns = load_cortyxignore(&root);
+        let dirty_paths: Vec<PathBuf> = dirty_paths
+            .into_iter()
+            .filter(|path| !is_cortyxignored(path, &root, &ignore_patterns))
+            .collect();
         let compiled: Vec<CompiledFile> = dirty_paths
             .par_iter()
             .flat_map(|abs| process_source_file(abs, &root, &git_confidence))
@@ -165,5 +175,74 @@ impl NeuronIndex {
     ) -> Result<()> {
         self.stage(neuron_path, content, meta);
         self.commit()
+    }
+}
+
+fn load_cortyxignore(root: &Path) -> Vec<String> {
+    let path = root.join(".cortyxignore");
+    match std::fs::read_to_string(&path) {
+        Ok(contents) => contents
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty() && !line.starts_with('#'))
+            .map(String::from)
+            .collect(),
+        Err(_) => Vec::new(),
+    }
+}
+
+fn is_cortyxignored(file: &Path, root: &Path, patterns: &[String]) -> bool {
+    let rel = match file.strip_prefix(root) {
+        Ok(rel) => rel,
+        Err(_) => return false,
+    };
+    let rel_str = rel.to_string_lossy();
+
+    for pattern in patterns {
+        if rel_str == pattern.as_str() {
+            return true;
+        }
+        if pattern.ends_with('/') && rel_str.starts_with(pattern.as_str()) {
+            return true;
+        }
+        if let Some(suffix) = pattern.strip_prefix("**/") {
+            if rel_str.ends_with(suffix) || rel_str.contains(&format!("/{suffix}")) {
+                return true;
+            }
+        }
+        if let Some(ext) = pattern.strip_prefix("*.") {
+            if file.extension().and_then(|e| e.to_str()) == Some(ext) {
+                return true;
+            }
+        }
+    }
+
+    false
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cortyxignore_matches_directory_prefixes() {
+        let root = Path::new("/project");
+        let file = root.join("secrets/token.txt");
+        assert!(is_cortyxignored(&file, root, &["secrets/".to_string()]));
+    }
+
+    #[test]
+    fn cortyxignore_matches_glob_suffix_and_extension() {
+        let root = Path::new("/project");
+        assert!(is_cortyxignored(
+            &root.join("docs/private.md"),
+            root,
+            &["**/private.md".to_string()]
+        ));
+        assert!(is_cortyxignored(
+            &root.join("notes/credentials.secret"),
+            root,
+            &["*.secret".to_string()]
+        ));
     }
 }

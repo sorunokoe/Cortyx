@@ -316,6 +316,16 @@ pub struct DiaryReadInput {
 }
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
+pub struct SessionTimelineInput {
+    /// Duration to look back: "2h", "1d", "3d", "1w" (default: "1d")
+    pub since: Option<String>,
+    /// Optional agent name filter (e.g. "reviewer") — if omitted, includes all agents.
+    pub agent: Option<String>,
+    /// Maximum number of items to return (default: 20)
+    pub limit: Option<usize>,
+}
+
+#[derive(Debug, Deserialize, Serialize, JsonSchema)]
 pub struct DiaryRefineInput {
     /// Agent identifier matching the one used with diary_write.
     pub agent: String,

@@ -136,6 +136,7 @@ pub fn mine_file(
 ) -> Result<usize> {
     let raw = std::fs::read_to_string(path)
         .map_err(|e| crate::cortyx_err!("Cannot read {}: {e}", path.display()))?;
+    let raw = crate::neuron::strip_private_blocks(&raw);
     let turns = detect_and_parse(&raw)
         .map_err(|e| crate::cortyx_err!("Failed to parse {}: {e}", path.display()))?;
     writer::write_verbatim_neurons(&turns, path, project_root, idx, module)
@@ -153,6 +154,7 @@ fn mine_file_staged(
 ) -> Result<(usize, Vec<PathBuf>, Vec<Turn>)> {
     let raw = std::fs::read_to_string(path)
         .map_err(|e| crate::cortyx_err!("Cannot read {}: {e}", path.display()))?;
+    let raw = crate::neuron::strip_private_blocks(&raw);
     let turns = detect_and_parse(&raw)
         .map_err(|e| crate::cortyx_err!("Failed to parse {}: {e}", path.display()))?;
     let (count, paths) =
@@ -174,6 +176,7 @@ pub fn mine_text(
     speaker: Option<&str>,
     timestamp: Option<&str>,
 ) -> Result<usize> {
+    let content = crate::neuron::strip_private_blocks(content);
     let turns = if speaker.is_some() || timestamp.is_some() {
         vec![Turn {
             speaker: speaker.map(|s| s.to_string()),
@@ -181,7 +184,7 @@ pub fn mine_text(
             timestamp: timestamp.map(|s| s.to_string()),
         }]
     } else {
-        detect_and_parse(content).unwrap_or_else(|_| {
+        detect_and_parse(&content).unwrap_or_else(|_| {
             vec![Turn {
                 speaker: None,
                 text: content.to_string(),

@@ -9,7 +9,7 @@ use cortyx::{
 };
 use regex::Regex;
 use serde_json::{json, Value};
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 use tracing_subscriber::{fmt, EnvFilter};
@@ -752,6 +752,81 @@ async fn main() -> Result<()> {
             let count = miner::mine_path(&path, &root, &mut idx, module.as_deref())?;
             println!("✓ Mined {count} Verbatim neurons from {}", path.display());
         },
+        Commands::MineObservation {
+            tool,
+            content,
+            session,
+            path,
+        } => {
+            let mut raw = match content {
+                Some(content) => content,
+                None => {
+                    let mut buf = String::new();
+                    std::io::stdin().read_to_string(&mut buf)?;
+                    buf
+                },
+            };
+            if raw.trim().is_empty() {
+                return Ok(());
+            }
+            let skip_tools = ["Read", "Glob", "LS", "ListDirectory", "Bash"];
+            if skip_tools
+                .iter()
+                .any(|name| tool.eq_ignore_ascii_case(name))
+                && raw.len() < 200
+            {
+                return Ok(());
+            }
+            let root = project_root(path);
+            let mut idx = index::NeuronIndex::load_or_create(&root)?;
+            let query = raw
+                .split_whitespace()
+                .take(50)
+                .collect::<Vec<_>>()
+                .join(" ");
+            let score = if query.is_empty() {
+                0.0
+            } else {
+                idx.peek_max_bm25_score(&query)
+            };
+
+            const HIGH_THRESHOLD: f32 = 8.0;
+            const LOW_THRESHOLD: f32 = 2.0;
+
+            if score >= HIGH_THRESHOLD {
+                let module = session.as_deref().map(|value| format!("@session/{value}"));
+                let timestamp = neuron::now_iso8601();
+                let label = format!("tool:{}", tool.to_ascii_lowercase());
+                let count = miner::mine_text(
+                    &raw,
+                    &label,
+                    &root,
+                    &mut idx,
+                    module.as_deref(),
+                    None,
+                    Some(timestamp.as_str()),
+                )?;
+                if count > 0 {
+                    println!("cortyx: captured → Verbatim neuron (score={score:.1})");
+                }
+            } else if score >= LOW_THRESHOLD {
+                let agent = session.as_deref().unwrap_or("session");
+                let timestamp = neuron::now_iso8601();
+                raw.truncate(1000);
+                let body = format!("tool: {tool}\n\n{raw}");
+                let module = format!("@agent/{agent}");
+                miner::mine_text(
+                    &body,
+                    "diary",
+                    &root,
+                    &mut idx,
+                    Some(module.as_str()),
+                    None,
+                    Some(timestamp.as_str()),
+                )?;
+                println!("cortyx: staged → diary entry for '{agent}' (score={score:.1})");
+            }
+        },
         Commands::DiaryWrite {
             agent,
             content,
@@ -875,6 +950,22 @@ async fn main() -> Result<()> {
                 }
                 print!("{out}");
             }
+        },
+        Commands::Timeline {
+            since,
+            agent,
+            limit,
+            path,
+        } => {
+            let root = project_root(path);
+            let idx = index::NeuronIndex::load_or_create(&root)?;
+            let output = commands::timeline::render_session_timeline(
+                &idx,
+                commands::timeline::parse_duration_secs(&since),
+                agent.as_deref(),
+                limit,
+            );
+            println!("{output}");
         },
         Commands::Watch { path } => {
             let root = project_root(path);
