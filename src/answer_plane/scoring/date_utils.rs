@@ -59,7 +59,8 @@ pub(crate) fn extract_explicit_date_range(
     Some((date.start(), date.end()))
 }
 
-pub(crate) fn extract_explicit_date(
+/// Extract the first explicit date mention in a line of text.
+pub fn extract_explicit_date(
     text: &str,
     base_date: Option<(i32, u32, u32)>,
 ) -> Option<(i32, u32, u32)> {

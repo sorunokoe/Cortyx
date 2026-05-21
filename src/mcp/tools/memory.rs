@@ -1,6 +1,6 @@
 use super::super::*;
 use crate::agent_memory::{refine_entry, render_structured_diary_entry_from_entry};
-use crate::commands::timeline;
+use crate::commands::{consolidate, timeline};
 use rmcp::{handler::server::wrapper::Parameters, tool, tool_router};
 
 #[tool_router(router = memory_tool_router, vis = "pub(super)")]
@@ -467,6 +467,45 @@ impl CortyxServer {
             }
         }
         out
+    }
+
+    /// Promote frequently-referenced diary entries to permanent Verbatim neurons.
+    #[tool(
+        name = "cortyx_diary_consolidate",
+        description = "Promote diary entries with use_count >= min_refs from @agent/* or @session/* into consolidated Verbatim neurons. Inputs: min_refs? (default 3), dry_run? (default false), project? (optional project root override). Returns a summary string."
+    )]
+    pub(in crate::mcp) async fn diary_consolidate(
+        &self,
+        Parameters(input): Parameters<DiaryConsolidateInput>,
+    ) -> String {
+        let min_refs = input.min_refs.unwrap_or(3);
+        let dry_run = input.dry_run.unwrap_or(false);
+        let root = input
+            .project
+            .as_deref()
+            .map(str::trim)
+            .filter(|project| !project.is_empty())
+            .map(PathBuf::from)
+            .unwrap_or_else(|| self.project_root.clone());
+        let root = root.canonicalize().unwrap_or(root);
+
+        if root == self.project_root {
+            let mut idx = self.index.write().await;
+            match consolidate::consolidate_diary(&mut idx, min_refs, dry_run, &root) {
+                Ok(summary) => summary,
+                Err(err) => format!("ERROR: {err}"),
+            }
+        } else {
+            match NeuronIndex::load_or_create(&root) {
+                Ok(mut idx) => {
+                    match consolidate::consolidate_diary(&mut idx, min_refs, dry_run, &root) {
+                        Ok(summary) => summary,
+                        Err(err) => format!("ERROR: {err}"),
+                    }
+                },
+                Err(err) => format!("ERROR: {err}"),
+            }
+        }
     }
 
     /// Return a recent multi-signal session timeline.

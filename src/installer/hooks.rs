@@ -57,7 +57,8 @@ pub(super) fn write_hook_scripts(hooks_dir: &Path, exe: &Path) -> Result<bool> {
          # Written by cortyx install. Do not edit manually.\n\
          set -euo pipefail\n\
          PROJECT=\"${{CLAUDE_WORKING_DIR:-$(pwd)}}\"\n\
-         '{exe_safe}' compile \"$PROJECT\" --incremental\n"
+         '{exe_safe}' compile \"$PROJECT\" --incremental\n\
+         '{exe_safe}' precompact-snapshot --project \"$PROJECT\" 2>/dev/null || true\n"
     );
     let post_tool_use_content = format!(
         "#!/usr/bin/env bash\n\

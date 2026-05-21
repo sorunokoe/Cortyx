@@ -4,7 +4,7 @@ use anyhow::Result;
 use clap::Parser;
 use cortyx::cli::{Cli, Commands, RouteIntent};
 use cortyx::{
-    agent_memory, answer_plane, commands, export, global_index, index, installer, mcp, miner,
+    agent_memory, answer_plane, commands, export, global_index, index, installer, kg, mcp, miner,
     neuron, watcher,
 };
 use regex::Regex;
@@ -314,6 +314,41 @@ fn recent_agent_diary_paths(index: &index::NeuronIndex, agent: &str, limit: usiz
         .take(limit)
         .map(|(_, path)| path)
         .collect()
+}
+
+fn extract_observation_dates_to_kg(
+    root: &Path,
+    idx: &mut index::NeuronIndex,
+    tool: &str,
+    raw: &str,
+) -> Result<()> {
+    let mut mentioned_dates: Vec<String> = raw
+        .lines()
+        .filter_map(|line| answer_plane::extract_explicit_date(line, None))
+        .map(|(year, month, day)| format!("{year:04}-{month:02}-{day:02}"))
+        .collect();
+    if mentioned_dates.is_empty() {
+        return Ok(());
+    }
+    mentioned_dates.sort();
+    mentioned_dates.dedup();
+
+    let entity_name = format!("tool:{tool}");
+    let path = kg::kg_neuron_path(root, &entity_name);
+    let mut entity = kg::KgEntity::load(&path)?;
+    let valid_from = neuron::now_iso8601();
+    for date in &mentioned_dates {
+        entity.add_fact("mentioned_date", date, Some(valid_from.as_str()));
+    }
+    entity.save()?;
+
+    let content = std::fs::read_to_string(&path)?;
+    let mut meta = neuron::NeuronMeta::new_stub(&path, neuron::NeuronKind::Concept);
+    meta.module = Some("@kg".to_string());
+    meta.tokens = neuron::estimate_context_tokens(&content).get();
+    idx.index_neuron(&path, &content, &meta);
+    idx.save()?;
+    Ok(())
 }
 
 fn git_repo_root_and_relative_path(path: &Path) -> Result<(PathBuf, PathBuf)> {
@@ -807,6 +842,7 @@ async fn main() -> Result<()> {
                     Some(timestamp.as_str()),
                 )?;
                 if count > 0 {
+                    let _ = extract_observation_dates_to_kg(&root, &mut idx, &tool, &raw);
                     println!("cortyx: captured → Verbatim neuron (score={score:.1})");
                 }
             } else if score >= LOW_THRESHOLD {
@@ -965,6 +1001,37 @@ async fn main() -> Result<()> {
                 agent.as_deref(),
                 limit,
             );
+            println!("{output}");
+        },
+        Commands::Precompact { project } => {
+            let root = project_root(project);
+            let idx = index::NeuronIndex::load_or_create(&root)?;
+            let summary = commands::precompact::snapshot_precompact(&idx, &root)?;
+            println!("{summary}");
+        },
+        Commands::Insights {
+            since,
+            top,
+            project,
+        } => {
+            let root = project_root(project);
+            let idx = index::NeuronIndex::load_or_create(&root)?;
+            let since_secs = since
+                .as_deref()
+                .map(commands::timeline::parse_duration_secs)
+                .unwrap_or(0);
+            let report = commands::insights::render_insights(&idx, since_secs, top);
+            println!("{report}");
+        },
+        Commands::Consolidate {
+            min_refs,
+            dry_run,
+            project,
+        } => {
+            let root = project_root(project);
+            let mut idx = index::NeuronIndex::load_or_create(&root)?;
+            let output =
+                commands::consolidate::consolidate_diary(&mut idx, min_refs, dry_run, &root)?;
             println!("{output}");
         },
         Commands::Watch { path } => {

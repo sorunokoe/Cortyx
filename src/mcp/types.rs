@@ -316,6 +316,16 @@ pub struct DiaryReadInput {
 }
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
+pub struct DiaryConsolidateInput {
+    /// Minimum use_count required for promotion (default: 3).
+    pub min_refs: Option<u32>,
+    /// When true, preview eligible entries without writing promoted neurons.
+    pub dry_run: Option<bool>,
+    /// Optional project root override. Defaults to the MCP server's project root.
+    pub project: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize, JsonSchema)]
 pub struct SessionTimelineInput {
     /// Duration to look back: "2h", "1d", "3d", "1w" (default: "1d")
     pub since: Option<String>,

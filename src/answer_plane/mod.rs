@@ -51,6 +51,7 @@ use self::dialogue::*;
 pub use self::dialogue::{mine_dialogue_answer_surface_span, mine_dialogue_question_pattern};
 
 mod scoring;
+pub use self::scoring::date_utils::extract_explicit_date;
 pub(crate) use self::scoring::*;
 
 pub fn render_answer_output(

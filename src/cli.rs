@@ -176,6 +176,38 @@ pub enum Commands {
         /// Project root (defaults to current directory)
         path: Option<PathBuf>,
     },
+    /// Snapshot activated session context before Claude Code compacts the conversation.
+    /// Called automatically by the PreCompact hook installed by `cortyx install`.
+    #[command(name = "precompact-snapshot")]
+    Precompact {
+        /// Path to the project root (defaults to current directory)
+        #[arg(long, short = 'p')]
+        project: Option<PathBuf>,
+    },
+    /// Show neuron health report: top activated, stalest, and module stats.
+    Insights {
+        /// Only include neurons active within this window (e.g. "2d", "1w", "1h")
+        #[arg(long)]
+        since: Option<String>,
+        /// Number of entries per section (default: 10)
+        #[arg(long, default_value = "10")]
+        top: usize,
+        /// Path to the project root
+        #[arg(long, short = 'p')]
+        project: Option<PathBuf>,
+    },
+    /// Promote frequently-referenced diary entries to permanent Verbatim neurons.
+    Consolidate {
+        /// Minimum reference count required for promotion (default: 3)
+        #[arg(long, default_value = "3")]
+        min_refs: u32,
+        /// Preview what would be promoted without writing
+        #[arg(long)]
+        dry_run: bool,
+        /// Path to the project root
+        #[arg(long, short = 'p')]
+        project: Option<PathBuf>,
+    },
     /// Keep the local index fresh as files change.
     ///
     /// Auto-bootstraps a missing index on first run, then keeps dirty-file hot
@@ -593,6 +625,34 @@ mod tests {
     }
 
     #[test]
+    fn insights_command_parses_since_top_and_project_flags() {
+        let cli = Cli::try_parse_from([
+            "cortyx",
+            "insights",
+            "--since",
+            "2d",
+            "--top",
+            "7",
+            "--project",
+            "/repo",
+        ])
+        .expect("insights command should parse");
+
+        match cli.command {
+            Commands::Insights {
+                since,
+                top,
+                project,
+            } => {
+                assert_eq!(since.as_deref(), Some("2d"));
+                assert_eq!(top, 7);
+                assert_eq!(project, Some(PathBuf::from("/repo")));
+            },
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
     fn mine_observation_command_parses_project_flag() {
         let cli = Cli::try_parse_from([
             "cortyx",
@@ -608,6 +668,46 @@ mod tests {
             Commands::MineObservation { tool, path, .. } => {
                 assert_eq!(tool, "Edit");
                 assert_eq!(path, Some(PathBuf::from("/repo")));
+            },
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn precompact_snapshot_command_parses_project_flag() {
+        let cli = Cli::try_parse_from(["cortyx", "precompact-snapshot", "--project", "/repo"])
+            .expect("precompact-snapshot command should parse");
+
+        match cli.command {
+            Commands::Precompact { project } => {
+                assert_eq!(project, Some(PathBuf::from("/repo")));
+            },
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn consolidate_command_parses_project_flag() {
+        let cli = Cli::try_parse_from([
+            "cortyx",
+            "consolidate",
+            "--min-refs",
+            "5",
+            "--dry-run",
+            "--project",
+            "/repo",
+        ])
+        .expect("consolidate command should parse");
+
+        match cli.command {
+            Commands::Consolidate {
+                min_refs,
+                dry_run,
+                project,
+            } => {
+                assert_eq!(min_refs, 5);
+                assert!(dry_run);
+                assert_eq!(project, Some(PathBuf::from("/repo")));
             },
             _ => panic!("unexpected command"),
         }

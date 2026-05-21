@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`cortyx precompact-snapshot` CLI** — called by the PreCompact hook before Claude Code compacts the context window. Reads recently-activated neurons from the index, picks top 10 by recency/use_count, and writes a structured `@session/precompact` diary entry so no useful context is permanently lost. (TRIZ: R38×W37 → P25 Self-Service)
+- **Mine-time KG auto-extraction** — in the HIGH path of `cortyx mine-observation` (BM25 score ≥ 8.0), ISO-8601 dates are automatically extracted from captured text and written as `mentioned_date` KG facts for the tool entity. Closes the temporal-reasoning-f1 gap without adding query-time overhead. (TRIZ: R28×W25 → P24 Mediator)
+- **`cortyx consolidate [--min-refs N] [--dry-run]`** — scans diary entries with `use_count ≥ N` (default 3) and promotes them to permanent Verbatim neurons indexed in BM25. Closes the self-improvement loop. `--dry-run` previews without writing. (TRIZ: R38×W13 → P18 Periodic Action, P1 Segmentation)
+- **`cortyx_diary_consolidate` MCP tool** — exposes diary consolidation to LLM agents; accepts `min_refs`, `dry_run`, and `project` parameters.
+- **`cortyx insights [--since <duration>] [--top N]`** — neuron health dashboard: (1) top N most activated neurons by use_count, (2) stalest N neurons by staleness_multiplier, (3) per-module health table with avg hit rate and stale ratio, (4) index summary by NeuronKind. Pure query over existing index fields, no new dependencies.
 - **`cortyx_session_timeline` MCP tool + `cortyx timeline` CLI** — chronological session replay combining diary entries, activated neurons, and KG facts. Supports `--since` (e.g. `2h`, `1d`, `3d`, `1w`), `--agent` filter, and `--limit`. No new dependencies (hand-rolled ISO-8601 parser).
 - **`cortyx mine-observation` CLI** — quality-gated capture of a single tool observation via BM25 scoring: score ≥ 8.0 → permanent Verbatim neuron; score 2.0–8.0 → session diary entry; below 2.0 → silent discard. Reads from stdin or `--content`; designed to be called from the PostToolUse hook.
 - **PostToolUse hook** (`cortyx-post-tool-use-hook.sh`) — `cortyx install` now registers a `PostToolUse` Claude Code hook that pipes each tool result through `cortyx mine-observation` automatically.

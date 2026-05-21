@@ -165,6 +165,7 @@ impl ServerHandler for CortyxServer {
                 or cortyx_record_hit(path, was_cited) for fine control. \
                 Use cortyx_diary_write(agent, ..., title?, status?, goal?, next_step?, blocker?, \
                 outcome?, entities?, depends_on?) to persist agent state, \
+                cortyx_diary_consolidate(min_refs?, dry_run?) to promote proven diary entries, \
                 cortyx_agent_status(agent) or cortyx_wake_up(person?, agent?) for handoff/priming, \
                 cortyx_evolve_section to improve one section, cortyx_extract_from_raw to save a \
                 proven pattern, and cortyx_create_synapse to link related neurons.",

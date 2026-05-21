@@ -113,6 +113,7 @@ Restart your LLM client — all Cortyx tools will appear automatically.
 | `cortyx_rollback_section` | Restore a neuron section from shadow history |
 | `cortyx_diary_write` | Write a structured agent diary entry |
 | `cortyx_diary_read` | Read recent diary entries for an agent |
+| `cortyx_diary_consolidate` | Promote frequently-used diary entries to permanent Verbatim neurons |
 | `cortyx_session_timeline` | Chronological timeline of diary entries, activated neurons, and KG facts |
 | `cortyx_agent_status` | Show latest agent-state snapshot |
 | `cortyx_check_consistency` | Scan for contradicting neurons |
@@ -144,7 +145,10 @@ cortyx doctor [path]               # Diagnose index health + configuration
 cortyx doctor [path] --json        # Machine-readable JSON (CI integration)
 cortyx mine <file>                 # Mine a conversation export into Verbatim neurons
 cortyx mine-observation            # Mine a single tool observation (reads stdin; used by PostToolUse hook)
+cortyx precompact-snapshot         # Snapshot activated session context before compaction (used by PreCompact hook)
 cortyx timeline [--since 2d] [--agent <name>] [--limit N]  # Session timeline: diary + activated neurons + KG facts
+cortyx consolidate [--min-refs N] [--dry-run]  # Promote diary entries used >= N times to permanent neurons
+cortyx insights [--since 2w] [--top N]         # Neuron health: top activated, stalest, per-module stats
 cortyx prune [path]                # Remove unused/outdated neurons
 cortyx get-contexts --task "..."   # Query top neurons via CLI (scripting / CI)
 cortyx get-contexts --task "..." --answer-mode --provenance   # Optional answer/provenance layer

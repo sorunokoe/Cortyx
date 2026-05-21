@@ -300,7 +300,7 @@ fn format_timestamp_secs(timestamp_secs: i64) -> String {
     format!("{year:04}-{month:02}-{day:02} {hour:02}:{minute:02}:{second:02} UTC")
 }
 
-fn parse_iso8601_to_secs(value: &str) -> Option<i64> {
+pub(super) fn parse_iso8601_to_secs(value: &str) -> Option<i64> {
     let trimmed = value.trim();
     if trimmed.is_empty() {
         return None;
