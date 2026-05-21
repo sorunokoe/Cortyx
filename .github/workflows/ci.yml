@@ -32,6 +32,9 @@ jobs:
           cp -r stubs/pure-reason-core ../../AI/PureReason/crates/
           cp -r stubs/pure-reason-verifier ../../AI/PureReason/crates/
 
+      - name: Install system dependencies
+        run: sudo apt-get update -q && sudo apt-get install -y libopenblas-dev
+
       - name: Install cargo-nextest
         run: cargo install cargo-nextest --locked
 
@@ -63,6 +66,9 @@ jobs:
           mkdir -p ../../AI/PureReason/crates
           cp -r stubs/pure-reason-core ../../AI/PureReason/crates/
           cp -r stubs/pure-reason-verifier ../../AI/PureReason/crates/
+
+      - name: Install system dependencies
+        run: sudo apt-get update -q && sudo apt-get install -y libopenblas-dev
 
       - name: Set up Python
         uses: actions/setup-python@v5
