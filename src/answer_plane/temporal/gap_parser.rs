@@ -2,7 +2,20 @@
 
 use super::*;
 
+/// Strip leading anchor prefixes injected by answer-mode evaluation.
+/// "As of DATE, QUESTION" and "On DATE, QUESTION" patterns strip to QUESTION.
+fn strip_anchor_prefix(task: &str) -> &str {
+    let lower = task.to_ascii_lowercase();
+    if lower.starts_with("as of ") || lower.starts_with("on ") {
+        if let Some(pos) = task.find(", ") {
+            return task[pos + 2..].trim_start();
+        }
+    }
+    task
+}
+
 pub(crate) fn parse_temporal_gap_query(task: &str) -> Option<TemporalGapQuery> {
+    let task = strip_anchor_prefix(task);
     if task.to_ascii_lowercase().starts_with("how many days") {
         if let Some((start, end)) = parse_temporal_duration_events(task) {
             return Some(TemporalGapQuery {
@@ -244,6 +257,7 @@ fn parse_temporal_how_long_gap_query(task: &str) -> Option<TemporalGapQuery> {
 }
 
 pub(crate) fn parse_temporal_duration_events(task: &str) -> Option<(ChoiceOption, ChoiceOption)> {
+    let task = strip_anchor_prefix(task);
     let trimmed = task.trim().trim_end_matches('?');
     let lower = trimmed.to_ascii_lowercase();
     if !lower.contains("how many days") {
@@ -384,6 +398,7 @@ fn strip_prefix_case_insensitive<'a>(text: &'a str, prefix: &str) -> Option<&'a 
 }
 
 pub(crate) fn parse_temporal_elapsed_query(task: &str) -> Option<(String, ChoiceOption)> {
+    let task = strip_anchor_prefix(task);
     let trimmed = task.trim().trim_end_matches('?');
     if !trimmed.to_ascii_lowercase().starts_with("how many ") {
         return None;
@@ -415,5 +430,31 @@ pub(crate) fn parse_temporal_order_direction(task: &str) -> Option<TemporalDirec
         Some(TemporalDirection::Later)
     } else {
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_anchor_prefix_stripped_for_gap_query() {
+        let q = "As of 19 January 2023, how many days ago did Alice start the project?";
+        let stripped = strip_anchor_prefix(q);
+        assert!(stripped.to_ascii_lowercase().starts_with("how many days"));
+    }
+
+    #[test]
+    fn test_anchor_prefix_no_mutation_when_no_prefix() {
+        let q = "how many days ago did I go to Paris?";
+        assert_eq!(strip_anchor_prefix(q), q);
+    }
+
+    #[test]
+    fn test_parse_temporal_elapsed_query_with_anchor_prefix() {
+        let q = "As of 19 January 2023, how many days ago did Alice start the project?";
+        let (unit, option) = parse_temporal_elapsed_query(q).expect("expected elapsed query");
+        assert_eq!(unit, "day");
+        assert_eq!(option.display, "Alice start the project");
     }
 }

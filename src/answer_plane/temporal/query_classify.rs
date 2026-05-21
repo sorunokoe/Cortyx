@@ -193,6 +193,9 @@ pub(crate) fn temporal_sequence_focus_terms(task: &str) -> Vec<String> {
 
 pub(crate) fn is_temporal_reasoning_query(task: &str) -> bool {
     let lower = task.to_ascii_lowercase();
+    if lower.starts_with("as of ") {
+        return true;
+    }
     let how_many_temporal = lower.starts_with("how many ")
         && (lower.contains(" day")
             || lower.contains(" week")
@@ -217,4 +220,19 @@ pub(crate) fn is_temporal_reasoning_query(task: &str) -> bool {
         || lower.contains(" before ")
         || lower.contains(" after ")
         || lower.contains("order of")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_temporal_reasoning_query_with_as_of_prefix() {
+        assert!(is_temporal_reasoning_query(
+            "As of January 2023, how many days ago did Alice start the project?",
+        ));
+        assert!(is_temporal_reasoning_query(
+            "As of 2022-03-15, when did she leave?",
+        ));
+    }
 }
