@@ -117,7 +117,7 @@ fn load_proof_certificate() -> ProofCertificate {
 
     let token_savings = registry
         .as_ref()
-        .and_then(|registry| registry_current_result(registry, "token-efficiency-sample"))
+        .and_then(|registry| registry_current_result(registry, "bm25-token-savings-estimate"))
         .and_then(|value| extract_last(r"~?\d+(?:\.\d+)?%", value));
     let token_savings_defaulted = token_savings.is_none();
     let token_savings = token_savings.unwrap_or_else(|| DEFAULT_PROOF_TOKEN_SAVINGS.to_string());
@@ -151,7 +151,7 @@ fn load_proof_certificate() -> ProofCertificate {
         token_savings: ProofMetric {
             label: "Token savings",
             value: token_savings,
-            source: "capsule+delta, deterministic harness".to_string(),
+            source: "BM25-only estimation, 100-file project".to_string(),
             defaulted: token_savings_defaulted,
         },
         binary_size: ProofMetric {
