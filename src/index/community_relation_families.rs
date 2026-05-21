@@ -101,7 +101,7 @@ fn best_online_community_hobbies(idx: &NeuronIndex, max_items: usize) -> Vec<Hob
             .then(left.hobby.cmp(&right.hobby))
     });
     best.truncate(max_items);
-    best.sort_by(|left, right| left.first_index.cmp(&right.first_index));
+    best.sort_by_key(|left| left.first_index);
     best
 }
 

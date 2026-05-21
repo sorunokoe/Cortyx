@@ -78,26 +78,10 @@ pub(crate) fn temporal_specificity_score(
 pub(crate) fn extract_relative_unit_amount(text: &str, unit: &str) -> Option<i32> {
     let lower = text.to_ascii_lowercase();
     match unit {
-        "day" => {
-            if lower.contains("yesterday") {
-                return Some(1);
-            }
-        },
-        "week" => {
-            if lower.contains("last week") {
-                return Some(1);
-            }
-        },
-        "month" => {
-            if lower.contains("last month") {
-                return Some(1);
-            }
-        },
-        "year" => {
-            if lower.contains("last year") {
-                return Some(1);
-            }
-        },
+        "day" if lower.contains("yesterday") => return Some(1),
+        "week" if lower.contains("last week") => return Some(1),
+        "month" if lower.contains("last month") => return Some(1),
+        "year" if lower.contains("last year") => return Some(1),
         _ => {},
     }
 

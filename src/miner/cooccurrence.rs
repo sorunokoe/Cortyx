@@ -86,7 +86,7 @@ pub(super) fn build_and_save_cooccurrence(turns: &[Turn], project_root: &Path) {
     let mut clusters: std::collections::HashMap<String, Vec<String>> =
         std::collections::HashMap::new();
     for (term, mut weighted_neighbors) in weighted_clusters {
-        weighted_neighbors.sort_unstable_by(|a, b| b.0.cmp(&a.0));
+        weighted_neighbors.sort_unstable_by_key(|b| std::cmp::Reverse(b.0));
         weighted_neighbors.dedup_by(|a, b| a.1 == b.1);
         let neighbors: Vec<String> = weighted_neighbors
             .into_iter()
