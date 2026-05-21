@@ -93,6 +93,12 @@ impl NeuronIndex {
             }
         }
 
+        if looks_like_kg_neuron_path(neuron_path) {
+            for t in temporal_kg_query_terms(neuron_path) {
+                *tf.entry(t).or_insert(TermFrequency::ZERO) += 0.75;
+            }
+        }
+
         let task_pattern_terms = meta
             .task_pattern
             .as_deref()
@@ -243,4 +249,66 @@ impl NeuronIndex {
             self.persistence.pending_append_count += 1;
         }
     }
+}
+
+fn temporal_kg_query_terms(neuron_path: &Path) -> Vec<String> {
+    let Ok(entity) = crate::kg::KgEntity::load(neuron_path) else {
+        return Vec::new();
+    };
+
+    let mut terms = Vec::new();
+    for fact in &entity.facts {
+        for timestamp in [&fact.valid_from, &fact.ended] {
+            let Some((year, month, day)) = parse_temporal_kg_date(timestamp) else {
+                continue;
+            };
+            let month_name = temporal_kg_month_name(month).to_string();
+            let ordinal = temporal_kg_ordinal_day(day);
+            terms.push(month_name.clone());
+            terms.push(format!("{month_name}_{year}"));
+            terms.push(ordinal.clone());
+            terms.push(format!("{ordinal}_{month_name}"));
+        }
+    }
+    terms
+}
+
+fn parse_temporal_kg_date(timestamp: &str) -> Option<(i32, u32, u32)> {
+    let prefix = timestamp.trim().get(..10)?;
+    let mut parts = prefix.split('-');
+    let year = parts.next()?.parse::<i32>().ok()?;
+    let month = parts.next()?.parse::<u32>().ok()?;
+    let day = parts.next()?.parse::<u32>().ok()?;
+    ((1..=12).contains(&month) && (1..=31).contains(&day)).then_some((year, month, day))
+}
+
+fn temporal_kg_month_name(month: u32) -> &'static str {
+    match month {
+        1 => "january",
+        2 => "february",
+        3 => "march",
+        4 => "april",
+        5 => "may",
+        6 => "june",
+        7 => "july",
+        8 => "august",
+        9 => "september",
+        10 => "october",
+        11 => "november",
+        12 => "december",
+        _ => "unknown",
+    }
+}
+
+fn temporal_kg_ordinal_day(day: u32) -> String {
+    let suffix = match day % 100 {
+        11..=13 => "th",
+        _ => match day % 10 {
+            1 => "st",
+            2 => "nd",
+            3 => "rd",
+            _ => "th",
+        },
+    };
+    format!("{day}{suffix}")
 }

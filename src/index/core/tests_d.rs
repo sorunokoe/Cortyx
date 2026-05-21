@@ -104,6 +104,38 @@ fn get_contexts_module_filter() {
 }
 
 #[test]
+fn kg_temporal_month_aliases_help_bm25_retrieval() {
+    let dir = TempDir::new().unwrap();
+    let ndir = dir.path().join(".cortyx").join("neurons");
+    std::fs::create_dir_all(&ndir).unwrap();
+    let mut idx = make_index(&dir);
+
+    let decoy = ndir.join("alice_notes.context.md");
+    std::fs::write(&decoy, "alice launch project 2024 retrospective notes").unwrap();
+    let decoy_meta = NeuronMeta::new_stub(dir.path(), NeuronKind::Core);
+    idx.index_neuron(
+        &decoy,
+        "alice launch project 2024 retrospective notes",
+        &decoy_meta,
+    );
+
+    let kg_path = crate::kg::kg_neuron_path(dir.path(), "alice");
+    let kg_content = "# KG: alice\n\n## purpose\nTemporal knowledge graph entity for `alice`.\n\n## facts\n| predicate | value | valid_from | ended |\n|---|---|---|---|\n| project_status | launch | 2024-01-19 | 2024-02-10 |\n| project_status | migration | 2024-02-11 | |\n";
+    std::fs::write(&kg_path, kg_content).unwrap();
+    let kg_meta = NeuronMeta::new_stub(dir.path(), NeuronKind::Concept);
+    idx.index_neuron(&kg_path, kg_content, &kg_meta);
+    idx.rebuild_derived();
+
+    let query_terms = tokenize("alice launch january 2024");
+    let kg_score = idx.bm25_score(&query_terms, idx.entry_by_path(&kg_path).unwrap());
+    let decoy_score = idx.bm25_score(&query_terms, idx.entry_by_path(&decoy).unwrap());
+    assert!(
+        kg_score > decoy_score,
+        "kg_score={kg_score}, decoy_score={decoy_score}"
+    );
+}
+
+#[test]
 fn save_writes_module_capsule_for_named_module() {
     let dir = TempDir::new().unwrap();
     let ndir = dir.path().join(".cortyx").join("neurons");

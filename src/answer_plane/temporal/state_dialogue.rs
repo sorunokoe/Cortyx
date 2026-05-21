@@ -128,44 +128,20 @@ pub(crate) fn select_dialogue_temporal_answer(
 }
 
 fn extract_turn_temporal_answer(turn: &DialogueTurn) -> Option<TemporalAnswerPoint> {
-    if let Some((year, month, day)) = extract_explicit_date(&turn.text, turn.session_date) {
-        return Some(TemporalAnswerPoint::Day { year, month, day });
+    if let Some(date) = extract_explicit_date_match(&turn.text, turn.session_date) {
+        return Some(match date {
+            ExplicitDateMatch::Day { year, month, day } => {
+                TemporalAnswerPoint::Day { year, month, day }
+            },
+            ExplicitDateMatch::Month { year, month } => TemporalAnswerPoint::Month { year, month },
+        });
     }
 
     let base_date = turn.session_date?;
     let lower = turn.text.to_ascii_lowercase();
 
-    if lower.contains("yesterday") {
-        let (year, month, day) = shift_date_by_days(base_date, -1);
+    if let Some((year, month, day)) = extract_relative_date(&turn.text, base_date) {
         return Some(TemporalAnswerPoint::Day { year, month, day });
-    }
-    if lower.contains("today") {
-        return Some(TemporalAnswerPoint::Day {
-            year: base_date.0,
-            month: base_date.1,
-            day: base_date.2,
-        });
-    }
-    if lower.contains("tomorrow") {
-        let (year, month, day) = shift_date_by_days(base_date, 1);
-        return Some(TemporalAnswerPoint::Day { year, month, day });
-    }
-    if lower.contains("a couple of days ago") {
-        let (year, month, day) = shift_date_by_days(base_date, -2);
-        return Some(TemporalAnswerPoint::Day { year, month, day });
-    }
-    if lower.contains("a few days ago") {
-        let (year, month, day) = shift_date_by_days(base_date, -3);
-        return Some(TemporalAnswerPoint::Day { year, month, day });
-    }
-    if (lower.contains(" day ago") || lower.contains(" days ago"))
-        && !lower.contains("week")
-        && !lower.contains("month")
-    {
-        if let Some(days) = extract_relative_days(&turn.text) {
-            let (year, month, day) = shift_date_by_days(base_date, -days);
-            return Some(TemporalAnswerPoint::Day { year, month, day });
-        }
     }
     if lower.contains("next month") {
         let (year, month) = shift_month(base_date.0, base_date.1, 1);
@@ -212,5 +188,50 @@ fn temporal_point_specificity_bonus(point: TemporalAnswerPoint) -> f32 {
         TemporalAnswerPoint::Day { .. } => 12.0,
         TemporalAnswerPoint::Month { .. } => 8.0,
         TemporalAnswerPoint::Year { .. } => 6.0,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn extracts_month_year_turn_as_month_answer() {
+        let turn = DialogueTurn {
+            speaker: Some("User".to_string()),
+            text: "The migration was scheduled for January 2023.".to_string(),
+            session_date: None,
+        };
+        assert_eq!(
+            extract_turn_temporal_answer(&turn),
+            Some(TemporalAnswerPoint::Month {
+                year: 2023,
+                month: 1,
+            })
+        );
+    }
+
+    #[test]
+    fn resolves_relative_turn_dates_only_with_anchor() {
+        let anchored = DialogueTurn {
+            speaker: Some("User".to_string()),
+            text: "We met last Tuesday.".to_string(),
+            session_date: Some((2024, 3, 15)),
+        };
+        assert_eq!(
+            extract_turn_temporal_answer(&anchored),
+            Some(TemporalAnswerPoint::Day {
+                year: 2024,
+                month: 3,
+                day: 12,
+            })
+        );
+
+        let unanchored = DialogueTurn {
+            speaker: Some("User".to_string()),
+            text: "We met last Tuesday.".to_string(),
+            session_date: None,
+        };
+        assert_eq!(extract_turn_temporal_answer(&unanchored), None);
     }
 }

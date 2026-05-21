@@ -294,7 +294,10 @@ fn select_temporal_window_answer(task: &str, evidence: &[EvidenceItem]) -> Optio
         return None;
     }
 
-    let query_rank = extract_temporal_rank(task, None)?;
+    let ((start_year, start_month, start_day), (end_year, end_month, end_day)) =
+        extract_explicit_date_range(task, None)?;
+    let query_start_rank = ymd_to_days(start_year, start_month, start_day);
+    let query_end_rank = ymd_to_days(end_year, end_month, end_day);
     let target_terms = temporal_focus_terms(task);
     if target_terms.is_empty() {
         return None;
@@ -311,8 +314,25 @@ fn select_temporal_window_answer(task: &str, evidence: &[EvidenceItem]) -> Optio
             continue;
         }
 
-        let distance_penalty = (rank - query_rank).abs() as f32 / 7.0;
-        let score = target_score * 2.0 - distance_penalty;
+        let uses_range = query_start_rank != query_end_rank;
+        let distance_penalty = if rank < query_start_rank {
+            (query_start_rank - rank) as f32 / 7.0
+        } else if rank > query_end_rank {
+            (rank - query_end_rank) as f32 / 7.0
+        } else {
+            0.0
+        };
+        let score = if uses_range {
+            target_score * 2.0
+                + if (query_start_rank..=query_end_rank).contains(&rank) {
+                    10.0
+                } else {
+                    0.0
+                }
+                - distance_penalty
+        } else {
+            target_score * 2.0 - distance_penalty
+        };
         if best
             .as_ref()
             .map(|(best_score, _)| score > *best_score)

@@ -158,7 +158,8 @@ fn select_temporal_event_count_answer(task: &str, evidence: &[EvidenceItem]) -> 
         if summary.is_empty() {
             continue;
         }
-        if !seen.insert(normalized_answer_key(&summary)) {
+        let normalized = normalized_answer_key(&summary);
+        if !seen.insert(normalized) {
             continue;
         }
         count += 1;

@@ -31,13 +31,14 @@ pub(crate) use self::state_dialogue::*;
 pub(super) use super::{
     answer_candidate_lines, answer_items_overlap, candidate_weight, collapse_inline_whitespace,
     compact_answer, contains_standalone_token, dialogue_focus_terms, dialogue_match_score,
-    extract_explicit_date, extract_relative_days, extract_session_base_date, extract_subject_hints,
-    extract_temporal_rank, extract_trailing_count, normalized_answer_key, parse_binary_choice,
-    parse_count_token, parse_dialogue_turns, read_context_text, salient_query_terms,
-    sanitize_answer_text, sanitize_inline, speaker_match_bonus, split_candidate_fragments,
+    extract_explicit_date, extract_explicit_date_match, extract_explicit_date_range,
+    extract_relative_date, extract_session_base_date, extract_subject_hints, extract_temporal_rank,
+    extract_trailing_count, normalized_answer_key, parse_binary_choice, parse_count_token,
+    parse_dialogue_turns, read_context_text, salient_query_terms, sanitize_answer_text,
+    sanitize_inline, speaker_match_bonus, split_candidate_fragments,
     strip_temporal_discourse_prefix, summarize_turn_text, task_overlap_count,
     term_list_overlap_count, trim_answer_tail, turn_matches_subject, update_best_answer,
-    ymd_to_days, DialogueTurn, GENERIC_ANCHOR_TERMS, QUESTION_STOPWORDS,
+    ymd_to_days, DialogueTurn, ExplicitDateMatch, GENERIC_ANCHOR_TERMS, QUESTION_STOPWORDS,
 };
 // Types are pub(crate) in types.rs so they can be re-exported at pub(crate) level.
 pub(crate) use super::types::{
