@@ -320,11 +320,7 @@ fn print_guardrail_status(args: &Args, results: &BenchResults) -> Result<()> {
 }
 
 fn average(total: usize, count: usize) -> usize {
-    if count == 0 {
-        0
-    } else {
-        total / count
-    }
+    total.checked_div(count).unwrap_or(0)
 }
 
 fn savings_pct(mode_total: usize, full_total: usize) -> f64 {
