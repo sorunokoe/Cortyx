@@ -14,10 +14,42 @@ use cortyx::{index::NeuronIndex, miner};
 mod common;
 use common::run;
 
+const TEMPORAL_F1_FLOOR: f64 = 0.40;
+
 fn lme500_fixture_path() -> std::path::PathBuf {
     std::env::var_os("CORTYX_LME_FIXTURE")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|| std::path::PathBuf::from("tests/fixtures/longmemeval_500.json"))
+}
+
+#[test]
+fn temporal_reasoning_floor_is_documented() {
+    let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let registry_path = root.join("benchmarks").join("registry.json");
+    let registry_bytes = fs::read(&registry_path).expect("benchmarks/registry.json missing");
+    let registry: serde_json::Value =
+        serde_json::from_slice(&registry_bytes).expect("registry.json must parse");
+    let benchmarks = registry["benchmarks"]
+        .as_array()
+        .expect("benchmarks must be an array");
+    let temporal_gate = benchmarks
+        .iter()
+        .find(|entry| entry["id"].as_str() == Some("temporal-reasoning-f1"))
+        .expect("temporal-reasoning-f1 benchmark entry should exist");
+
+    assert_eq!(temporal_gate["proof_status"].as_str(), Some("pending"));
+    assert_eq!(temporal_gate["status"].as_str(), Some("pending-full-eval"));
+    assert_eq!(temporal_gate["floor"].as_f64(), Some(TEMPORAL_F1_FLOOR));
+
+    let benchmarks_md =
+        fs::read_to_string(root.join("BENCHMARKS.md")).expect("BENCHMARKS.md missing");
+    assert!(
+        benchmarks_md.contains("temporal-reasoning-f1") && benchmarks_md.contains("F1 >= 0.40"),
+        "BENCHMARKS.md should document the temporal reasoning floor"
+    );
+
+    // TODO: Replace this metadata gate with a real frozen-fixture temporal F1 run once
+    // scripts/eval_lme.py exposes a CI-friendly path for temporal-only scoring.
 }
 
 fn rendered_contains_keyword(rendered: &str, keyword: &str) -> bool {

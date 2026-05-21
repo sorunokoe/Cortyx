@@ -40,6 +40,7 @@ struct ProofMetric {
     label: &'static str,
     value: String,
     source: String,
+    defaulted: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -92,57 +93,72 @@ fn extract_last(pattern: &str, text: &str) -> Option<String> {
 
 fn load_proof_certificate() -> ProofCertificate {
     let registry = load_benchmark_registry();
+
     let retrieval = registry
         .as_ref()
         .and_then(|registry| registry_current_result(registry, "lme-500-official"))
-        .and_then(|value| extract_last(r"~?\d+(?:\.\d+)?%", value))
-        .unwrap_or_else(|| DEFAULT_PROOF_RETRIEVAL.to_string());
+        .and_then(|value| extract_last(r"~?\d+(?:\.\d+)?%", value));
+    let retrieval_defaulted = retrieval.is_none();
+    let retrieval = retrieval.unwrap_or_else(|| DEFAULT_PROOF_RETRIEVAL.to_string());
+
     let latency = registry
         .as_ref()
         .and_then(|registry| registry_current_result(registry, "activation-latency-p95"))
-        .and_then(|value| extract_first(r"~?\d+(?:\.\d+)?ms", value))
-        .unwrap_or_else(|| DEFAULT_PROOF_LATENCY.to_string());
+        .and_then(|value| extract_first(r"~?\d+(?:\.\d+)?ms", value));
+    let latency_defaulted = latency.is_none();
+    let latency = latency.unwrap_or_else(|| DEFAULT_PROOF_LATENCY.to_string());
+
     let hybrid_latency = registry
         .as_ref()
         .and_then(|registry| registry_current_result(registry, "scale-2k-activation"))
-        .and_then(|value| extract_first(r"~?\d+(?:\.\d+)?ms", value))
-        .unwrap_or_else(|| DEFAULT_PROOF_HYBRID_LATENCY.to_string());
+        .and_then(|value| extract_first(r"~?\d+(?:\.\d+)?ms", value));
+    let hybrid_latency_defaulted = hybrid_latency.is_none();
+    let hybrid_latency = hybrid_latency.unwrap_or_else(|| DEFAULT_PROOF_HYBRID_LATENCY.to_string());
+
     let token_savings = registry
         .as_ref()
         .and_then(|registry| registry_current_result(registry, "token-efficiency-sample"))
-        .and_then(|value| extract_last(r"~?\d+(?:\.\d+)?%", value))
-        .unwrap_or_else(|| DEFAULT_PROOF_TOKEN_SAVINGS.to_string());
+        .and_then(|value| extract_last(r"~?\d+(?:\.\d+)?%", value));
+    let token_savings_defaulted = token_savings.is_none();
+    let token_savings = token_savings.unwrap_or_else(|| DEFAULT_PROOF_TOKEN_SAVINGS.to_string());
+
     let binary_size = registry
         .as_ref()
         .and_then(|registry| registry_current_result(registry, "binary-size-release"))
-        .and_then(|value| extract_first(r"~?\d+(?:\.\d+)?MB", value))
-        .unwrap_or_else(|| DEFAULT_PROOF_BINARY_SIZE.to_string());
+        .and_then(|value| extract_first(r"~?\d+(?:\.\d+)?MB", value));
+    let binary_size_defaulted = binary_size.is_none();
+    let binary_size = binary_size.unwrap_or_else(|| DEFAULT_PROOF_BINARY_SIZE.to_string());
 
     ProofCertificate {
         retrieval: ProofMetric {
             label: "Retrieval (R@5)",
             value: retrieval,
             source: "LME-500, cleaned oracle".to_string(),
+            defaulted: retrieval_defaulted,
         },
         latency: ProofMetric {
             label: "Latency (p95)",
             value: latency,
             source: "BM25-only, release build, local".to_string(),
+            defaulted: latency_defaulted,
         },
         hybrid_latency: ProofMetric {
             label: "Hybrid latency",
             value: hybrid_latency,
             source: "BM25+ANN, 2003 neurons".to_string(),
+            defaulted: hybrid_latency_defaulted,
         },
         token_savings: ProofMetric {
             label: "Token savings",
             value: token_savings,
             source: "capsule+delta, deterministic harness".to_string(),
+            defaulted: token_savings_defaulted,
         },
         binary_size: ProofMetric {
             label: "Binary size",
             value: binary_size,
             source: format!("release, default features, v{}", env!("CARGO_PKG_VERSION")),
+            defaulted: binary_size_defaulted,
         },
     }
 }
@@ -169,8 +185,37 @@ fn render_proof_certificate(certificate: &ProofCertificate) -> String {
     )
 }
 
-fn print_proof_certificate() {
-    print!("{}", render_proof_certificate(&load_proof_certificate()));
+fn proof_certificate_validation_warnings(certificate: &ProofCertificate) -> Vec<String> {
+    let mut warnings = Vec::new();
+    for (metric, fallback) in [
+        (&certificate.retrieval, DEFAULT_PROOF_RETRIEVAL),
+        (&certificate.latency, DEFAULT_PROOF_LATENCY),
+        (&certificate.hybrid_latency, DEFAULT_PROOF_HYBRID_LATENCY),
+        (&certificate.token_savings, DEFAULT_PROOF_TOKEN_SAVINGS),
+        (&certificate.binary_size, DEFAULT_PROOF_BINARY_SIZE),
+    ] {
+        if metric.defaulted {
+            warnings.push(format!(
+                "warning: {} is still using fallback {}; update benchmarks/registry.json with a measured value before this proof gate can pass.",
+                metric.label, fallback
+            ));
+        }
+    }
+    warnings
+}
+
+fn print_proof_certificate(validate: bool) {
+    let certificate = load_proof_certificate();
+    print!("{}", render_proof_certificate(&certificate));
+    if validate {
+        let warnings = proof_certificate_validation_warnings(&certificate);
+        if !warnings.is_empty() {
+            for warning in warnings {
+                eprintln!("{warning}");
+            }
+            std::process::exit(1);
+        }
+    }
 }
 
 #[derive(Default)]
@@ -1094,8 +1139,8 @@ async fn main() -> Result<()> {
                 .map(|_| ())
                 .map_err(|e| anyhow::anyhow!("hook-check: could not load index: {e}"))?;
         },
-        Commands::ProofCertificate => {
-            print_proof_certificate();
+        Commands::ProofCertificate { validate } => {
+            print_proof_certificate(validate);
         },
         Commands::Fleet(sub) => {
             commands::fleet::run(sub)?;
