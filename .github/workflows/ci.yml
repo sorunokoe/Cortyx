@@ -33,7 +33,7 @@ jobs:
           cp -r stubs/pure-reason-verifier ../../AI/PureReason/crates/
 
       - name: Install system dependencies
-        run: sudo apt-get update -q && sudo apt-get install -y libopenblas-dev
+        run: sudo apt-get update -q && sudo apt-get install -y libcblas-dev libopenblas-dev gfortran
 
       - name: Install cargo-nextest
         run: cargo install cargo-nextest --locked
@@ -42,7 +42,10 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Run fast/default test suite
-        run: cargo nextest run
+        # --no-default-features skips embed/rerank which require downloaded model files
+        # and build BLAS from source. Core BM25, neurons, KG, diary, and MCP logic
+        # are all fully exercised without these features.
+        run: cargo nextest run --no-default-features
 
   full-proof:
     name: Full proof and local-core guardrails
@@ -68,7 +71,7 @@ jobs:
           cp -r stubs/pure-reason-verifier ../../AI/PureReason/crates/
 
       - name: Install system dependencies
-        run: sudo apt-get update -q && sudo apt-get install -y libopenblas-dev
+        run: sudo apt-get update -q && sudo apt-get install -y libcblas-dev libopenblas-dev gfortran
 
       - name: Set up Python
         uses: actions/setup-python@v5
