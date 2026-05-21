@@ -1615,6 +1615,129 @@ mod feedback_tests {
         )
     }
 
+    fn static_context_prefix(output: &str) -> &str {
+        output
+            .split_once("\n\n")
+            .map_or(output, |(prefix, _)| prefix)
+    }
+
+    fn build_single_neuron_fixture() -> (TempDir, CortyxServer, PathBuf) {
+        let dir = TempDir::new().expect("create temp dir");
+        let mut idx = NeuronIndex::load_or_create(dir.path()).expect("load temp index");
+        let neuron_dir = dir.path().join(".cortyx").join("neurons");
+        std::fs::create_dir_all(&neuron_dir).expect("create neuron dir");
+
+        let target = neuron_dir.join("focus.context.md");
+        let content = "# Focus\n\n## purpose\nStable auth context for deterministic retrieval.\n";
+        std::fs::write(&target, content).expect("write target neuron");
+
+        let meta = NeuronMeta::new_stub(dir.path(), NeuronKind::Core);
+        idx.index_neuron(&target, content, &meta);
+        idx.rebuild_derived_pub();
+
+        let project_root = dir.path().to_path_buf();
+        (dir, CortyxServer::for_benchmark(project_root, idx), target)
+    }
+
+    #[tokio::test]
+    async fn cache_determinism_static_prefix_stable_across_feedback() {
+        let (_dir, server, target) = build_single_neuron_fixture();
+
+        let first = server
+            .benchmark_get_contexts(GetContextsInput {
+                task: "stable auth".to_string(),
+                max_tokens: Some(4096),
+                module: None,
+                person: None,
+                kind: None,
+                min_confidence: None,
+                multi_hop: None,
+                previous_response: Some("Use focus for the final answer.".to_string()),
+                open_files: None,
+                error_context: None,
+                delta_mode: None,
+                context_handle: None,
+                capsule_mode: None,
+                answer_mode: None,
+                min_answer_confidence: None,
+                provenance_mode: None,
+                depth: None,
+                temporal_bias: None,
+            })
+            .await;
+        let second = server
+            .benchmark_get_contexts(GetContextsInput {
+                task: "stable auth".to_string(),
+                max_tokens: Some(4096),
+                module: None,
+                person: None,
+                kind: None,
+                min_confidence: None,
+                multi_hop: None,
+                previous_response: Some("Use focus for the final answer.".to_string()),
+                open_files: None,
+                error_context: None,
+                delta_mode: None,
+                context_handle: None,
+                capsule_mode: None,
+                answer_mode: None,
+                min_answer_confidence: None,
+                provenance_mode: None,
+                depth: None,
+                temporal_bias: None,
+            })
+            .await;
+
+        let target_name = target
+            .file_name()
+            .and_then(|name| name.to_str())
+            .expect("single-neuron fixture has filename");
+        assert!(first.contains(target_name));
+        assert!(second.contains(target_name));
+        assert_eq!(
+            static_context_prefix(&first),
+            static_context_prefix(&second)
+        );
+    }
+
+    #[tokio::test]
+    async fn frozen_get_contexts_skips_feedback_writes() {
+        let (_dir, mut server, target) = build_single_neuron_fixture();
+        server.frozen = true;
+
+        let output = server
+            .benchmark_get_contexts(GetContextsInput {
+                task: "stable auth".to_string(),
+                max_tokens: Some(4096),
+                module: None,
+                person: None,
+                kind: None,
+                min_confidence: None,
+                multi_hop: None,
+                previous_response: Some("Use focus for the final answer.".to_string()),
+                open_files: None,
+                error_context: None,
+                delta_mode: None,
+                context_handle: None,
+                capsule_mode: None,
+                answer_mode: None,
+                min_answer_confidence: None,
+                provenance_mode: None,
+                depth: None,
+                temporal_bias: None,
+            })
+            .await;
+
+        let metadata = metadata_for(&server, &target).await;
+        let target_name = target
+            .file_name()
+            .and_then(|name| name.to_str())
+            .expect("single-neuron fixture has filename");
+        assert!(output.contains(target_name));
+        assert_eq!(metadata.use_count, 0);
+        assert_eq!(metadata.hit_count, 0);
+    }
+
     #[tokio::test]
     async fn previous_response_feedback_explicit_citation_increments_hit_count() {
         let fixture = build_feedback_fixture();

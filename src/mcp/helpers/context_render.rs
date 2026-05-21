@@ -634,6 +634,10 @@ pub fn render_overflow_item(path: &Path, headline: &str) -> RenderedContextItem 
     }
 }
 
+fn capsule_hash_sidecar_path(path: &Path) -> PathBuf {
+    PathBuf::from(format!("{}.hash", path.to_string_lossy()))
+}
+
 pub fn render_module_capsule(project_root: &Path, module: &str) -> Option<RenderedContextItem> {
     let path = module_capsule_path(project_root, module);
     let content = match std::fs::read_to_string(&path) {
@@ -661,10 +665,33 @@ pub fn render_module_capsule(project_root: &Path, module: &str) -> Option<Render
             });
         },
     };
+    let stale_comment = match std::fs::read_to_string(capsule_hash_sidecar_path(&path)) {
+        Ok(expected_hash) => {
+            let actual_hash = blake3::hash(content.as_bytes()).to_hex().to_string();
+            if expected_hash.trim() != actual_hash {
+                tracing::warn!(
+                    "Module capsule {} changed without recompile; rerun cortyx compile",
+                    path.display()
+                );
+                "<!-- CAPSULE STALE: rerun cortyx compile to refresh -->\n"
+            } else {
+                ""
+            }
+        },
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => "",
+        Err(err) => {
+            tracing::warn!(
+                "Failed to read module capsule hash sidecar {}: {}",
+                capsule_hash_sidecar_path(&path).display(),
+                err
+            );
+            ""
+        },
+    };
     let rendered = format!(
-        "<!-- === MODULE CAPSULE: {} === -->\n{}\n\n",
+        "<!-- === MODULE CAPSULE: {} === -->\n{}{content}\n\n",
         sanitize_comment(module),
-        content
+        stale_comment,
     );
     Some(RenderedContextItem {
         path,

@@ -47,6 +47,10 @@ fn index_checksum_path(cortyx_dir: &Path) -> PathBuf {
     cortyx_dir.join("index.checksum")
 }
 
+fn capsule_hash_sidecar_path(path: &Path) -> PathBuf {
+    PathBuf::from(format!("{}.hash", path.to_string_lossy()))
+}
+
 fn read_le_u32(bytes: &[u8]) -> Option<u32> {
     if bytes.len() != 4 {
         return None;
@@ -871,6 +875,16 @@ impl NeuronIndex {
             if let Err(e) = atomic_write(&capsule_path, content.as_bytes()) {
                 tracing::warn!("Failed to write module capsule for '{module}': {e}");
             } else {
+                let hash_path = capsule_hash_sidecar_path(&capsule_path);
+                let hash = blake3::hash(content.as_bytes()).to_hex().to_string();
+                if let Err(e) = atomic_write(&hash_path, hash.as_bytes()) {
+                    tracing::warn!(
+                        "Failed to write module capsule hash for '{}' at {}: {}",
+                        module,
+                        hash_path.display(),
+                        e
+                    );
+                }
                 live_capsules.insert(safe_name);
             }
         }
@@ -893,6 +907,15 @@ impl NeuronIndex {
                         "Failed to remove stale module capsule {}: {e}",
                         path.display()
                     );
+                }
+                let hash_path = capsule_hash_sidecar_path(&path);
+                if let Err(e) = std::fs::remove_file(&hash_path) {
+                    if e.kind() != std::io::ErrorKind::NotFound {
+                        tracing::warn!(
+                            "Failed to remove stale module capsule hash {}: {e}",
+                            hash_path.display()
+                        );
+                    }
                 }
             }
         }

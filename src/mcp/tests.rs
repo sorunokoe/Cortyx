@@ -344,12 +344,32 @@ fn render_context_item_prefers_key_markdown_sections_in_focused_mode() {
 
 #[test]
 fn render_module_capsule_reports_read_error() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().expect("create temp dir");
     let capsule_path = module_capsule_path(dir.path(), "auth");
-    fs::create_dir_all(&capsule_path).unwrap();
+    fs::create_dir_all(&capsule_path).expect("create blocking capsule path");
 
-    let rendered = render_module_capsule(dir.path(), "auth").unwrap();
+    let rendered = render_module_capsule(dir.path(), "auth").expect("render read error capsule");
     assert!(rendered.rendered.contains("read error"));
+}
+
+#[test]
+fn render_module_capsule_marks_stale_sidecar() {
+    let dir = tempfile::tempdir().expect("create temp dir");
+    let capsule_path = module_capsule_path(dir.path(), "auth");
+    let capsule_dir = capsule_path.parent().expect("capsule path has parent");
+    fs::create_dir_all(capsule_dir).expect("create capsule directory");
+    fs::write(&capsule_path, "# Auth\n\nFresh capsule body\n").expect("write capsule body");
+    fs::write(
+        format!("{}.hash", capsule_path.to_string_lossy()),
+        "deadbeef",
+    )
+    .expect("write stale capsule hash");
+
+    let rendered = render_module_capsule(dir.path(), "auth").expect("render stale capsule");
+    assert!(rendered
+        .rendered
+        .contains("<!-- CAPSULE STALE: rerun cortyx compile to refresh -->"));
+    assert!(rendered.rendered.contains("Fresh capsule body"));
 }
 
 #[test]

@@ -144,9 +144,12 @@ fn save_writes_module_capsule_for_named_module() {
     idx.index_neuron(&guard_p, guard_content, &guard_meta);
     idx.index_neuron(&db_p, db_content, &db_meta);
     idx.rebuild_derived();
-    idx.save().unwrap();
+    idx.save().expect("persist module capsules");
 
-    let capsule = std::fs::read_to_string(module_capsule_path(dir.path(), "auth")).unwrap();
+    let capsule_path = module_capsule_path(dir.path(), "auth");
+    let capsule = std::fs::read_to_string(&capsule_path).expect("read module capsule");
+    let capsule_hash = std::fs::read_to_string(format!("{}.hash", capsule_path.to_string_lossy()))
+        .expect("read module capsule hash");
     assert!(capsule.contains("# Module capsule: auth"));
     assert!(capsule.contains("## module purpose"));
     assert!(capsule.contains("Handles login and session validation."));
@@ -154,6 +157,10 @@ fn save_writes_module_capsule_for_named_module() {
     assert!(capsule.contains("## critical pitfalls"));
     assert!(capsule.contains("## dominant dependencies"));
     assert!(capsule.contains("`db` (1 cross-module edges)"));
+    assert_eq!(
+        capsule_hash.trim(),
+        blake3::hash(capsule.as_bytes()).to_hex().to_string()
+    );
 }
 
 // ── Typed synapse traversal ───────────────────────────────────────────────
