@@ -408,6 +408,11 @@ resolution applied.
 
 **How:** The static prefix (schema + instructions) is always byte-identical → Anthropic/OpenAI cache it. Dynamic neurons (3–5 per task, ~800–2 000 tokens) are injected *after* the `cache_control` breakpoint. Cache key = static prefix only. On iterative same-session work, `delta_mode=true` + `context_handle` lets Cortyx resend only added/changed dynamic chunks instead of the full prior set, and `capsule_mode=true` can collapse repeated same-module background into a stable cached capsule plus a tiny task delta.
 
+### Context Zones
+
+- **Stable zone:** compiled capsule content (`## project`, `## module/{name}`, proven `## use-case/{name}`) rendered first; it changes only when `cortyx compile` regenerates capsule files.
+- **Dynamic zone:** query-time context emitted after the stable zone by the 13-stage Hebbian pipeline; it contains task-specific neurons, overflow summaries, and delta-only updates when `delta_mode=true`.
+
 ## Neuron Types
 
 | Kind | File pattern | Purpose |

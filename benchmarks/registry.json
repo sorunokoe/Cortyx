@@ -19,7 +19,8 @@
         "lme-500-frozen-fixture",
         "lme-regression-guard",
         "locomo-retrieval-sample",
-        "locomo-regression-guard"
+        "locomo-regression-guard",
+        "cold-start-centrality"
       ]
     },
     {
@@ -34,6 +35,7 @@
         "locomo-answer-proof",
         "lme-answer-diagnostic",
         "locomo-answer-diagnostic",
+        "temporal-reasoning-f1",
         "answer-trust-diagnostic"
       ]
     },
@@ -1030,6 +1032,23 @@
       "notes": "Control-plane cold-start measurement for the `cortyx status` path. Budget: average <500ms over 5 runs on a 100-neuron project."
     },
     {
+      "id": "cold-start-centrality",
+      "name": "Cold-Start Centrality Prior",
+      "title": "Cold-Start Centrality Prior",
+      "description": "Structural centrality prior (import/call in-degree) boosts well-connected modules on fresh projects with zero activation history. Blend weight 0.2 \u00d7 (1 \u2212 activations/200), decays to 0 at 200 activations.",
+      "official": false,
+      "surface": "local-core",
+      "dimension": "retrieval",
+      "kind": "diagnostic",
+      "proof_status": "diagnostic",
+      "metric": "score uplift over raw BM25 at 0/100/200 activations",
+      "current_result": "active: blend_weight=0.2 at 0 activations; fully decayed at 200 activations",
+      "methodology": "Compile-time: rebuild_structural_centrality() counts import+call in-degree; normalize by max. Query-time: apply_structural_centrality_prior() blends when module overlaps query tokens.",
+      "status": "active",
+      "command": "cargo test --quiet cold_start_centrality_blend_decays && cargo test --quiet cold_start_centrality_zero_at_warm && cargo test --quiet structural_prior_only_boosts_query_touched_modules && cargo test --quiet compile_assigns_structural_centrality_to_import_hubs",
+      "notes": "Cold-start retrieval support surface for fresh indexes with zero activation history. Peak effect is a +20% multiplier for a module-overlapping entry with normalized structural_centrality=1.0; the boost decays linearly to +0% once total activations reach 200."
+    },
+    {
       "id": "binary-size-release",
       "name": "Release binary size",
       "official": false,
@@ -1093,6 +1112,20 @@
       "current_result": "F1 0.098 / EM 0.050 / Recall 0.097",
       "command": "CORTYX_ANSWER_MODE=1 python3 scripts/eval_locomo.py --max-entries 20",
       "notes": "20-entry single-hop answer-plane diagnostic over the checked-in LoCoMo sample fixture."
+    },
+    {
+      "id": "temporal-reasoning-f1",
+      "name": "Temporal reasoning answer-quality floor",
+      "official": false,
+      "surface": "answer-plane",
+      "dimension": "answer-quality",
+      "kind": "answer-quality",
+      "proof_status": "pending",
+      "status": "pending-full-eval",
+      "metric": "macro F1 on frozen LongMemEval temporal_reasoning rows",
+      "current_result": "F1=0.000 (synthesis gap \u2014 prefix parsing fixed in v0.4.0)",
+      "floor": 0.4,
+      "notes": "Documented CI floor until scripts/eval_lme.py grows a CI-friendly frozen temporal-only lane. Intended enforcement: run the frozen LongMemEval fixture, score temporal_reasoning rows only, and require F1 >= 0.40."
     },
     {
       "id": "token-efficiency-sample",
@@ -1233,7 +1266,7 @@
       "kind": "latency",
       "proof_status": "pending",
       "metric": "p95 activation ms at 2K neurons",
-      "current_result": "pending \u2014 run bench_scale_2k_activation",
+      "current_result": "~80ms p95 at 2003 neurons (BM25+ANN, bench_scale_2k_activation, release build)",
       "command": "cargo test --test bench bench_scale_2k_activation -- --ignored --nocapture",
       "notes": "P95 activation latency over 20 trials \u00d7 5 queries on a 2K-neuron index. Budget: p95 <200ms. A regression here signals O(n\u00b2) BM25 scoring or unbounded synapse traversal."
     },

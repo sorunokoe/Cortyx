@@ -32,6 +32,7 @@ Cortyx leads with retrieval-first proof, then backs it up with latency, token, a
 > ¹ 96.8% R@5 is from the regenerated cleaned-oracle eval harness run (484/500 questions).
 > The full 500-question benchmark runs via manual `workflow_dispatch`; the fast CI regression
 > guard runs 20 questions per category. See [BENCHMARKS.md](BENCHMARKS.md) for full methodology.
+> **Verify claims:** Run `cortyx proof-certificate` for a live reproducible summary; claims are sourced from `benchmarks/registry.json`.
 
 ## Quick Start
 

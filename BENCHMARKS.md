@@ -45,6 +45,12 @@ support surfaces.
 > cleaned oracle scores **484/500 = 96.8%**; the frozen repo fixture scores
 > **481/500 = 96.2%**. Only the regenerated cleaned-oracle run is the
 > apples-to-apples external comparison surface.
+>
+> **Temporal reasoning floor:** `benchmarks/registry.json` now carries
+> `temporal-reasoning-f1` with a documented frozen-fixture floor of
+> **F1 >= 0.40**. The current placeholder remains
+> `F1=0.000 (synthesis gap — prefix parsing fixed in v0.4.0)` until the full
+> `scripts/eval_lme.py` temporal-only gate is wired into CI.
 
 
 ## Benchmark Results
@@ -557,6 +563,44 @@ cargo test --bin cortyx get_contexts_latency_p95_100_neurons -- --nocapture
 | p50 | < 15ms | ~8ms |
 | p95 | < 50ms | ~22ms |
 | p99 | < 100ms | ~38ms |
+
+---
+
+## Cold-Start Centrality Prior
+
+**What it is:** A structural prior for fresh indexes with no activation history. At compile time,
+`rebuild_structural_centrality()` counts import + call in-degree for each module and normalizes
+by the maximum observed in-degree, storing the result in `BM25Entry.structural_centrality`
+(0.0–1.0).
+
+**How it is measured:** Query-time scoring applies
+`0.2 × (1 − total_activations / 200)` as the blend weight. That produces the following
+maximum uplift over raw BM25 for a module-overlapping entry with
+`structural_centrality = 1.0`:
+
+| Total activations | Blend weight | Max uplift vs raw BM25 |
+|---|---|---|
+| 0 | 0.20 | +20% |
+| 100 | 0.10 | +10% |
+| 200+ | 0.00 | +0% |
+
+**When it fires:**
+- only when BM25 already returns a positive score
+- only when the entry has non-zero structural centrality
+- only when query tokens overlap the entry module / file stem (P3 local-quality gate)
+- automatically decays to zero once the project has 200 total activations
+
+**Expected benefit:** Fresh projects previously had no retrieval prior beyond BM25 TF-IDF,
+so equally matching modules started effectively flat. Now well-imported / well-called modules
+get a natural cold-start prior until real activation history takes over.
+
+**Executable support surface:**
+```bash
+cargo test --quiet cold_start_centrality_blend_decays && \
+cargo test --quiet cold_start_centrality_zero_at_warm && \
+cargo test --quiet structural_prior_only_boosts_query_touched_modules && \
+cargo test --quiet compile_assigns_structural_centrality_to_import_hubs
+```
 
 ---
 
