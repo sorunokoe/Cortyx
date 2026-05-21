@@ -340,9 +340,8 @@ fn extract_observation_dates_to_kg(
     for date in &mentioned_dates {
         entity.add_fact("mentioned_date", date, Some(valid_from.as_str()));
     }
+    let content = entity.render();
     entity.save()?;
-
-    let content = std::fs::read_to_string(&path)?;
     let mut meta = neuron::NeuronMeta::new_stub(&path, neuron::NeuronKind::Concept);
     meta.module = Some("@kg".to_string());
     meta.tokens = neuron::estimate_context_tokens(&content).get();

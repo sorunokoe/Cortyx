@@ -261,7 +261,7 @@ impl KgEntity {
 
     // ─── Rendering ───────────────────────────────────────────────────────
 
-    fn render(&self) -> String {
+    pub fn render(&self) -> String {
         let mut out = format!(
             "# KG: {entity}\n\n\
              <!-- AUTO-GENERATED KG NEURON — edit facts table or run cortyx_kg_add -->\n\n\
