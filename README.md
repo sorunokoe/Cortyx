@@ -19,24 +19,24 @@
 
 Cortyx leads with retrieval-first proof, then backs it up with latency, token, and footprint measurements on the shipped path.
 
-| Metric | Cortyx | mem0 v3 ‡ (56k★) | Zep/Graphiti ‡ (~25k★) | MemPalace |
-|--------|--------|-------------------|------------------------|-----------|
-| LME-500 score | **96.8% R@5** ¹ | 94.4–94.8% acc. ‡ | no absolute score ‡ | 96.6% R@5 |
-| LoCoMo score | **92.0% recall** | 91.6–92.5% acc. ‡ | no absolute score ‡ | — |
-| Activation latency p95 | **~22ms (retrieval-only) †** | p50 ~0.9–1.1s (full pipeline+LLM) † | "<200ms" unverified | ~200ms |
-| Token savings (first call) | **56.9%** ² | >90% vs full-context ³ | ~90% vs full-context ³ | — |
-| Runtime model required | **No** | Yes (GPT-4o-mini) | Yes (LLM for graph) | No |
-| Local / offline | **Yes** | No | No | No |
+| Metric | Cortyx | mem0 v3 ‡ (56k★) | MemPalace |
+|--------|--------|-------------------|-----------|
+| LME-500 score | **96.8% R@5** ¹ | 94.4–94.8% acc. ‡ | 96.6% R@5 |
+| LoCoMo score | **92.0% recall** | 91.6–92.5% acc. ‡ | — |
+| Activation latency p95 | **~22ms (retrieval-only) †** | p50 ~0.9–1.1s (full pipeline+LLM) † | ~200ms |
+| Token savings (first call) | **56.9%** ² | >90% vs full-context ³ | — |
+| Runtime model required | **No** | Yes (GPT-4o-mini) | No |
+| Local / offline | **Yes** | No | No |
 
-> **† Latency caveat:** Cortyx's `22ms` is retrieval-only — no LLM call. mem0's `~1s` and Zep's
-> `<200ms` include LLM inference or graph construction. These measure different pipeline stages.
+> **† Latency caveat:** Cortyx's `22ms` is retrieval-only — no LLM call. mem0's `~1s`
+> includes LLM inference. These measure different pipeline stages.
 >
-> **‡ Metric caveat:** Cortyx reports **R@5 retrieval recall**. mem0 and Zep report **LLM-as-judge
+> **‡ Metric caveat:** Cortyx reports **R@5 retrieval recall**. mem0 reports **LLM-as-judge
 > answer accuracy** (end-to-end). Different metrics on the same benchmarks — see
 > [BENCHMARKS.md — Competitive Comparison](BENCHMARKS.md#competitive-comparison) for full details.
 >
-> ³ mem0 and Zep's token savings are relative to full-context injection, not a measured retrieval
-> savings figure. Their pipelines still call an LLM for every memory operation.
+> ³ mem0's token savings are relative to full-context injection; their pipeline still calls
+> an LLM for every memory operation.
 
 > ¹ 96.8% R@5 is from the regenerated cleaned-oracle eval harness run (484/500 questions).
 > The full 500-question benchmark runs via manual `workflow_dispatch`; the fast CI regression
