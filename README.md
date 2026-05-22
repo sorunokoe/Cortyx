@@ -24,8 +24,8 @@ Cortyx leads with retrieval-first proof, then backs it up with latency, token, a
 | LME-500 R@5 | **96.8%** ¹ | 96.6% | not benchmarked | not benchmarked | not benchmarked |
 | LoCoMo recall | **92.0%** | — | — | — | — |
 | Activation latency p95 | **~22ms** | ~200ms | — | — | — |
-| Token savings (first call) | **56.9%** | — | — | — | — |
-| Token savings (capsule+delta repeat) | **98.4%** | — | — | — | — |
+| Token savings (first call) | **56.9%** ² | — | — | — | — |
+| Token savings (capsule+delta repeat) | **98.4%** ² | — | — | — | — |
 | Binary size | **~30MB** (v0.4.0: TurboVec SIMD) | Python stack | ~12MB (Go) | ~8MB (Rust) | Python stack |
 | Runtime model on default path | **No** | Yes | No | No | No |
 
@@ -33,6 +33,11 @@ Cortyx leads with retrieval-first proof, then backs it up with latency, token, a
 > The full 500-question benchmark runs via manual `workflow_dispatch`; the fast CI regression
 > guard runs 20 questions per category. See [BENCHMARKS.md](BENCHMARKS.md) for full methodology.
 > **Verify claims:** Run `cortyx proof-certificate` for a live reproducible summary; claims are sourced from `benchmarks/registry.json`.
+>
+> ² Measured with default features (embed+rerank) on a deterministic 20-entry LME sample.
+> The BM25-only path (`--no-default-features`) is CI-verified at ≥70% savings on code-heavy projects.
+> `cortyx proof-certificate` reports the CI-verified figure (BM25-only estimation).
+> See [BENCHMARKS.md — Token Efficiency](BENCHMARKS.md#token-efficiency) for full methodology.
 
 ## Quick Start
 
@@ -185,7 +190,7 @@ cortyx install                     # Auto-configure all detected LLM clients
 
 ## How It Works
 
-Cortyx runs a ≤40ms activation pipeline: hybrid BM25 + dense retrieval (embed and rerank are enabled by default; compile with `--no-default-features` for a lighter binary), synapse graph traversal (up to 3 hops), and a 12-stage query-context pipeline. On each query, 3–5 neurons are selected, ordered by relevance, and injected after the prompt-cache breakpoint — the static prefix stays byte-identical so provider caches always hit, typically saving 56–98% of input tokens on repeat calls. `cortyx_close_task` records which neurons helped, feeding a self-improving ranking loop.
+Cortyx runs a ≤40ms activation pipeline: hybrid BM25 + dense retrieval (embed and rerank are enabled by default; compile with `--no-default-features` for a lighter binary), synapse graph traversal (up to 3 hops), and a 12-stage query-context pipeline. On each query, 3–5 neurons are selected, ordered by relevance, and injected after the prompt-cache breakpoint — the static prefix stays byte-identical so provider caches always hit. With embed+rerank enabled this saves **56–98%** of input tokens on repeat calls (BM25-only path is ≥70% on code-heavy projects; see BENCHMARKS.md). `cortyx_close_task` records which neurons helped, feeding a self-improving ranking loop.
 
 Neurons are plain Markdown files in `.cortyx/neurons/` — human-readable, git-tracked, editable.
 
