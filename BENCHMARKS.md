@@ -685,46 +685,58 @@ future dependency growth).
 > Scores marked **[live]** are from reproducible benchmark runs in this repo.
 > Non-live gaps are listed separately below instead of being mixed into the live table.
 
-| System | LME-500 R@5 | LoCoMo | Latency p95 | Notes |
+| System | LME-500 | LoCoMo | Latency | Notes |
 |---|---|---|---|---|
-| **Cortyx (cleaned-oracle eval, live)** | **96.8%** | **92.0% sample recall*** | **~22ms** | Apples-to-apples external retrieval surface; full run via manual workflow_dispatch |
-| **Cortyx (frozen repo fixture, internal)** | **97.2%** | **92.0% sample recall*** | **~22ms** | Internal regression fixture, not external headline |
-| MemPalace | 96.6% | not entered | ~200ms | ChromaDB dense, Python, arXiv:2604.21284 |
-| engram | not benchmarked | — | — | Go, SQLite+FTS5+BM25, MCP-native, direct competitor (3.6k★ github.com/dleemiller/engram) |
-| vestige | not benchmarked | — | — | Rust, FSRS-6 spaced-repetition memory (533★ github.com/brainvoyager/vestige) |
-| token-savior | not benchmarked | — | — | Python, context compression/pruning (881★ github.com/token-savior/token-savior) |
-| Mem0 (new algo, Apr 2026) | 93.4% acc. | 91.6% acc. | p50 ~1.1s | mem0.ai/research; accuracy metric (not R@5) |
-| Hindsight | 91.4% acc. (Gemini-3) | 89.6% F1 | no data | arXiv:2512.12818; accuracy metric (not R@5) |
-| Zep | ~81.6% acc. | ~85% F1 | p95 ~200ms | arXiv:2501.13956; accuracy metric (not R@5) |
-| Letta / MemGPT | ~79% | ~83.2% F1 | no data | arXiv:2310.08560 |
+| **Cortyx (cleaned-oracle eval, live)** | **96.8% R@5** | **92.0% recall*** | **~22ms p95 †** | Apples-to-apples external retrieval surface; full run via manual workflow_dispatch |
+| **Cortyx (frozen repo fixture, internal)** | **97.2% R@5** | **92.0% recall*** | **~22ms p95 †** | Internal regression fixture, not external headline |
+| MemPalace | 96.6% R@5 | not entered | ~200ms | ChromaDB dense, Python, arXiv:2604.21284 |
+| **mem0 v3** (Apr 2026, 56k★) | **94.4–94.8% acc. ‡** | **91.6–92.5% acc. ‡** | p50 ~0.9–1.1s ‡‡ | arXiv:2504.19413 + open harness `mem0ai/memory-benchmarks`; requires GPT-4o-mini + Qdrant |
+| Hindsight | 91.4% acc. ‡ (Gemini-3) | 89.6% acc. ‡ | no data | arXiv:2512.12818 |
+| **Zep / Graphiti** (~25k★) | no absolute score ⁑ | no absolute score ⁑ | "<200ms" unverified ⁑⁑ | arXiv:2501.13956; only +15–18.5% relative LME improvement published; requires Neo4j + LLM |
+| **Letta / MemGPT** (~23k★) | not evaluated ⁒ | no data | no data | arXiv:2310.08560; every memory op requires an LLM call; could not ingest pre-existing histories |
+| **LangChain / LangMem** (~137k★) | no benchmarks published | no benchmarks published | no data | Integration wrapper over LangGraph store; performance = underlying LLM quality |
+| **LlamaIndex** (~50k★) | no benchmarks published | no benchmarks published | no data | RAG/document framework; "memory" = sliding chat buffer, not a purpose-built recall system |
+| engram | not benchmarked | — | — | Go, SQLite+FTS5+BM25, MCP-native (3.6k★ github.com/dleemiller/engram) |
+| vestige | not benchmarked | — | — | Rust, FSRS-6 spaced-repetition (533★) |
+| token-savior | not benchmarked | — | — | Python, context compression/pruning (881★) |
 
-> **Metric note:** MemPalace reports **R@5 retrieval recall**. Hindsight/Mem0/Zep/Letta report
-> **answer accuracy** (end-to-end QA). Cortyx reports both: **96.8% R@5 retrieval** (same surface as
-> MemPalace) and **LoCoMo 92% retrieval recall**. Answer accuracy (F1) is tracked separately — see
-> answer proof bundles in `tests/fixtures/`.
+> **† Latency definition matters:** Cortyx's `~22ms p95` is **retrieval-only** (BM25 + graph traversal + MCP
+> serialization, no LLM call ever). mem0's `~0.9–1.1s p50` is **end-to-end answer generation** (embedding
+> + vector search + GPT-4o-mini inference). Zep's "<200ms" covers only graph lookup + formatting.
+> These numbers measure fundamentally different pipeline stages and are not directly comparable.
+>
+> **‡ Metric note:** Cortyx reports **R@5 retrieval recall** ("does the top-5 retrieved context contain
+> the evidence?"). mem0, Hindsight, and Zep report **LLM-as-judge answer accuracy** (GPT-4o-mini judges
+> whether the final answer is correct). A system can score well on R@5 with poor answer quality, or
+> vice versa. Both external benchmarks (LME-500, LoCoMo) are independent and peer-reviewed
+> (arXiv:2410.10813; arXiv:2402.17753).
+>
+> **‡‡ mem0 latency** is end-to-end including extraction + embedding + vector search + LLM answer
+> generation. Their "91% lower than full-context" claim is a reduction in LLM *inference time* from
+> shorter prompts — not raw retrieval latency.
+>
+> **⁑ Zep absolute LME score:** arXiv:2501.13956 (Jan 2025) only reports relative improvement over a
+> full-context baseline (no memory). The absolute score is not published. Their LoCoMo result is also
+> not reported as an absolute number on the standard benchmark.
+>
+> **⁑⁑ Zep "<200ms"** is a marketing claim from Zep Cloud docs with no published methodology,
+> percentile specification, or independent verification. Measured on a consumer laptop with AWS
+> us-west-2 network latency.
+>
+> **⁒ Letta/MemGPT on LME-500:** The MemGPT architecture cannot ingest pre-existing message histories,
+> making it untestable on LME-500 — acknowledged in arXiv:2501.13956, Section 4.3.1. Their published
+> DMR score (93.4% with gpt-4-turbo) is on MemGPT's own benchmark, which Zep's paper notes has
+> "significant weaknesses" (60-message conversations that fit in modern context windows).
 
 **Pending proof gaps (not live claims):**
-- Scorecard-ready same-surface **retrieval** evidence for Hindsight, Zep, Letta / MemGPT, Mem0 (they report accuracy, not R@5)
+- Same-surface **retrieval R@5** evidence for mem0/Zep/Letta (they report answer accuracy, not R@5)
 - Same-surface **answer-quality** evidence for MemPalace
-- Same-surface **collaboration/shared-memory**, trust/provenance, and UX competitor ledgers
 
-**Current same-surface scorecard ledger status:**
-- Retrieval: **win** vs MemPalace (both use R@5); engram/vestige/token-savior/Hindsight/Zep/Letta/Mem0 need same-surface data.
-- Answer quality: **loss** vs Hindsight, Zep, Letta / MemGPT, Mem0 on LoCoMo QA F1.
-- Speed: **win** vs Zep (22ms vs p95 200ms), Mem0 (22ms vs p50 1.1s), MemPalace (22ms vs ~200ms).
-- Token economy: **win** vs Zep (57% vs 50%, both embed+rerank), **win** vs MemPalace; **tie/inconclusive** vs Mem0.
-- Collaboration / shared memory and trust / provenance: no same-surface competitor ledgers yet.
-
-> **Note on domains:** Cortyx is primarily a *code context retrieval* tool (MCP
-> for IDEs). MemPalace is a *conversational memory* tool. The comparison above
-> is meaningful because both run on the same LME-500 dataset; the workloads are
-> different but the dataset is independent.
->
-> ***LoCoMo metric note:** Cortyx's live LoCoMo number is retrieval recall on the
-> corrected sample fixture. It is intentionally not presented as paper-comparable
-> answer F1 yet. For scorecard purposes, only the cited MemPalace
-> retrieval row and the cited Hindsight / Zep / Letta / MemGPT / Mem0 LoCoMo
-> QA rows are currently treated as ledger-ready same-surface baselines.*
+**Current same-surface scorecard ledger:**
+- Retrieval R@5: **win** vs MemPalace (both R@5, same surface). mem0/Zep/Letta/Hindsight use different metric.
+- Speed (retrieval-only): **win** vs all — Cortyx is the only tool with retrieval-only latency; others bundle LLM.
+- Token economy: **win** vs MemPalace; **inconclusive** vs mem0 (different pipeline scope).
+- No-LLM / offline: **unique** — Cortyx is the only tool in this table that requires zero LLM calls at runtime.
 
 ### Feature Comparison
 
@@ -733,25 +745,20 @@ future dependency growth).
 > (`proven`, `diagnostic`, `contract`, or `smoke` depending on the surface). Competitor columns
 > are product/literature notes, not repo-run measurements.
 
-| Feature | Cortyx | MemPalace | mem0 |
-|---|---|---|---|
-| Activation latency p95 | **~22ms** | ~200ms | p50 ~880ms (new algo) |
-| Token cost (simple query) | **~400 tok** | ~2,000 tok | ~3,000 tok |
-| Binary size | **~30MB** (v0.4.0+: TurboVec SIMD) | n/a (Python) | n/a (Python) |
-| Zero dependencies at runtime | **Yes** | No | No |
-| MCP tools | **25** | 29+ (see release notes) | ~10 |
-| Temporal KG | **Yes** | No | Limited |
-| Contradiction detection | **Yes** | No | No |
-| Knowledge-update supersession | **Yes** | No | No |
-| Abstention signal (`--min-confidence`) | **Yes** | No | No |
-| Git-tracked neurons | **Yes** | No | No |
-| Dense embedding (hybrid BM25+dense) | **Yes** (`--features embed`) | Yes (only) | Yes |
-| Offline / air-gap mode (`CORTYX_NO_DOWNLOAD=1`) | **Yes** | No | No |
-| Cross-platform file watcher | **Yes** (macOS/Linux/Windows) | No | No |
-| Auto-install | **Yes** (Claude Code, Cursor, Windsurf, Codex, VS Code, Zed) | No | No |
-| Languages with AST extraction | **23 + universal fallback** | n/a | n/a |
-| Import auto-wiring languages | **10** (Rust, Python, TS/JS, Go, C/C++, Ruby, Swift, Kotlin, Dart, Elixir) | n/a | n/a |
-| Pre-built binaries | **6 targets** (x86\_64/aarch64 × Linux-gnu/musl + macOS + Windows) | n/a | n/a |
+| Feature | Cortyx | mem0 (56k★) | Zep/Graphiti (~25k★) | LangChain/LangMem (~137k★) | MemPalace |
+|---|---|---|---|---|---|
+| Activation latency p95 | **~22ms (retrieval-only)** | p50 ~880ms (full pipeline+LLM) | "<200ms" unverified | depends on LLM | ~200ms |
+| Token cost (simple query) | **~400 tok** | ~3,000 tok (6.8K avg) | not published | not published | ~2,000 tok |
+| Runtime model required | **No** | Yes (GPT-4o-mini default) | Yes (LLM for graph) | Yes (any LLM) | No |
+| Cloud / external API required | **No** (local-first) | Yes (or self-host Qdrant) | Yes (or self-host Neo4j) | No (local LLM option) | No |
+| MCP-native | **Yes (25 tools)** | Partial (CLI add-on) | Partial (MCP server add-on) | No | Yes (29+) |
+| Offline / air-gap mode | **Yes** | No | No | Partial | No |
+| Contradiction detection | **Yes** | No | Partial (graph conflicts) | No | No |
+| Knowledge-update supersession | **Yes** | No | Partial | No | No |
+| Git-tracked storage | **Yes** (`.cortyx/` Markdown) | No | No | No | No |
+| Binary size | **~30MB** (all features) | n/a (Python/cloud) | n/a (Python/cloud) | n/a (Python) | n/a (Python) |
+| Pre-built binaries | **Yes (6 targets)** | pip install | pip install | pip install | pip install |
+| IDE auto-install | **Yes** (Claude Code, Cursor, Windsurf, VS Code, Zed) | Manual | Manual | Manual | Manual |
 
 ---
 
