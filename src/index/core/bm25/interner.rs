@@ -20,8 +20,9 @@ impl TermInterner {
             return id;
         }
 
-        let id = u32::try_from(self.id_to_term.len())
-            .expect("TermInterner exceeded u32::MAX terms — index is too large");
+        let id = u32::try_from(self.id_to_term.len()).unwrap_or_else(|_| {
+            panic!("TermInterner exceeded u32::MAX terms — index is too large")
+        });
         let owned = term.to_owned();
         self.id_to_term.push(owned.clone());
         self.term_to_id.insert(owned, id);
