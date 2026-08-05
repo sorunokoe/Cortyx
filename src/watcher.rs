@@ -68,22 +68,24 @@ pub fn start_watcher(
                 batch.append(&mut *ov);
             }
 
-            // Collect events for up to DEBOUNCE_MS or until channel closes.
-            match tokio::time::timeout(debounce, rx.recv()).await {
-                Ok(Some(path)) => {
-                    batch.push(path);
-                    // Drain any immediately available events into the same batch.
-                    while let Ok(p) = rx.try_recv() {
-                        batch.push(p);
-                    }
-                },
-                Ok(None) => break, // channel closed
-                Err(_timeout) => {
-                    // Debounce window expired — flush batch if non-empty.
-                    if batch.is_empty() {
-                        continue;
-                    }
-                },
+            // If batch is empty (no overflow), wait indefinitely for the first event.
+            // This avoids spinning every DEBOUNCE_MS when idle — zero CPU when no
+            // files change.
+            if batch.is_empty() {
+                match rx.recv().await {
+                    Some(path) => batch.push(path),
+                    None => break, // channel closed
+                }
+            }
+
+            // Debounce: collect additional events arriving within the window.
+            let mut channel_closed = false;
+            loop {
+                match tokio::time::timeout(debounce, rx.recv()).await {
+                    Ok(Some(path)) => batch.push(path),
+                    Ok(None) => { channel_closed = true; break; }
+                    Err(_timeout) => break, // debounce window expired
+                }
             }
 
             if batch.is_empty() {
@@ -136,6 +138,10 @@ pub fn start_watcher(
                     Ok(_) => {},
                     Err(e) => tracing::warn!("Hot-patch compile_dirty failed: {e}"),
                 }
+            }
+
+            if channel_closed {
+                break;
             }
         }
     });
