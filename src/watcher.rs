@@ -79,10 +79,11 @@ pub fn start_watcher(
             }
 
             // Debounce: collect additional events arriving within the window.
+            let mut channel_closed = false;
             loop {
                 match tokio::time::timeout(debounce, rx.recv()).await {
                     Ok(Some(path)) => batch.push(path),
-                    Ok(None) => break, // channel closed
+                    Ok(None) => { channel_closed = true; break; }
                     Err(_timeout) => break, // debounce window expired
                 }
             }
@@ -137,6 +138,10 @@ pub fn start_watcher(
                     Ok(_) => {},
                     Err(e) => tracing::warn!("Hot-patch compile_dirty failed: {e}"),
                 }
+            }
+
+            if channel_closed {
+                break;
             }
         }
     });
